@@ -1,0 +1,9 @@
+# 编译产物与安装包输出 (不入库, 保持仓库轻量)
+*.o
+*.obj
+*.exe
+l
+dist/
+esp32/build/
+esp32/sdkconfig
+esp32/sdkconfig.old

@@ -1,0 +1,4 @@
+max: 20 min: 10
+nested: 2 3
+short_circuit: ok
+positive negative zero

@@ -1,0 +1,11 @@
+[100, 2, 3, 4] 4 4
+4 [100, 2, 3]
+L 0.1 me 2026 nil
+{name: "L", ver: 0.1, author: "me", year: 2026}
+["name", "ver", "author", "year"] 4
+2 1
+{list: [1, [2, 3]], m: {a: 99}}
+int string bool nil array map function function
+3.5! 43 nil 6
+b
+true false

@@ -1,0 +1,31 @@
+len(值)
+    字符串的字节数 / 数组元素个数 / map 键个数
+print(值, ...)
+    以空格分隔打印所有参数,并换行
+没有关于 "nope" 的帮助。输入 help() 查看全部主题。
+用户函数 sq(n)
+这是一个 int 类型的值: 5
+数学(math)
+  abs(x)                         绝对值
+  floor(x)                       向下取整
+  ceil(x)                        向上取整
+  round(x)                       四舍五入到整数
+  sqrt(x)                        平方根,x 不能为负
+  pow(x, y)                      x 的 y 次方
+  min(x, ...) / min(数组)        最小值
+  max(x, ...) / max(数组)        最大值
+  random()                       返回 [0, 1) 的随机小数
+  randint(下界, 上界)            返回闭区间内的随机整数
+  random_seed(整数)              设置随机数种子,使结果可重复
+日期时间(time)
+  time()                         当前时间戳(秒)
+  date([时间戳])                 返回 "YYYY-MM-DD",缺省为今天
+  datetime([时间戳])             返回 "YYYY-MM-DD HH:MM:SS",缺省为现在
+  format_time(时间戳, 格式)      按 strftime 格式化,如 "%Y/%m/%d %H:%M"
+  localtime([时间戳])            拆成 map:year month day hour minute second weekday yearday
+  make_time(年, 月, 日, [时, 分, 秒]) 构造时间戳,日期不存在返回 nil
+  parse_time(字符串)             解析 "YYYY-MM-DD[ HH:MM:SS]",失败返回 nil
+  sleep(秒)                      暂停指定的秒数(可以是小数)
+time()
+    当前时间戳(秒)
+function function

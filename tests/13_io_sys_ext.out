@@ -1,0 +1,17 @@
+mkdir: true
+isdir: true false
+join: tmp_io_dir/a.txt
+size: 5 nil
+copy: true
+rename: true
+list: ["a.txt", "c.txt"]
+list missing: nil
+basename: z.tar.gz
+dirname: x/y .
+ext: .gz []
+rmdir: true true
+args: 1
+script: 13_io_sys_ext.l
+pid: true
+setenv: true abc
+chdir: true true

@@ -1,0 +1,4 @@
+doubled: [2, 4, 6, 8, 10]
+evens: [2, 4]
+sum: 15 sum_init: 115 product: 120
+pipeline: 165

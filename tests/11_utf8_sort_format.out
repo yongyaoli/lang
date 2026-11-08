@@ -1,0 +1,9 @@
+byte len: 23 char len: 11
+usubstr 0..2: 你好
+usubstr 3..2: 世界
+usubstr -5: Hello
+uat chars: 你 好 o nil
+学生 张三 年龄 18 成绩 99.5
+转义测试: {} 与普通文本 OK
+desc nums: [9, 8, 5, 2, 1]
+sorted users: ["Alice", "Bob", "Charlie"]

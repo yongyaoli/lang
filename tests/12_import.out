@@ -1,0 +1,6 @@
+author: L 语言作者
+helpers add: 30
+helpers mul: 42
+alias add: 300
+same module: true
+extra prop: 999

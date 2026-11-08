@@ -1,0 +1,107 @@
+/* L 语言硬件抽象层 (HAL): 统一隔离 ESP-IDF 硬件驱动与 PC 宿主模拟实现 */
+#ifndef L_HAL_H
+#define L_HAL_H
+
+#include <stddef.h>
+#include <stdint.h>
+#include "l_config.h"
+
+/* ================= 1. 引脚工作模式枚举 ================= */
+typedef enum {
+    L_PIN_DISABLED    = 0,
+    L_PIN_OUT         = 1,
+    L_PIN_IN          = 2,
+    L_PIN_IN_PULLUP   = 3,
+    L_PIN_IN_PULLDOWN = 4,
+    L_PIN_OPEN_DRAIN  = 5,
+    L_PIN_PWM         = 6,
+    L_PIN_ADC         = 7
+} LPinMode;
+
+#define L_MAX_GPIO_PIN 48
+
+/* ================= 2. 裸 Flash 脚本分区 16 字节头部 ================= */
+typedef struct {
+    uint32_t magic;    /* L_SCRIPT_MAGIC_SRC ("LSCR") 或 L_SCRIPT_MAGIC_BC ("LBC1") */
+    uint32_t length;   /* 脚本有效字节长度 (不含结尾 '\0') */
+    uint32_t crc32;    /* 内容区的 IEEE 802.3 CRC32 校验值 */
+    uint32_t flags;    /* 预留标志位 (bit0: 上电自启动) */
+} LScriptHeader;
+
+/* Flash 脚本读取状态码 */
+typedef enum {
+    L_FLASH_OK        = 0,  /* 校验通过, 脚本有效 */
+    L_FLASH_EMPTY     = 1,  /* 分区未烧录脚本 (魔数不匹配或全 0xFF) */
+    L_FLASH_ERR_CRC   = -1, /* CRC32 校验失败 (数据损坏) */
+    L_FLASH_ERR_PART  = -2, /* 未找到 l_script 分区或长度越界 */
+    L_FLASH_ERR_IO    = -3  /* 擦写/映射底层硬件错误 */
+} LFlashStatus;
+
+/* ================= 3. 系统、时钟与芯片信息 HAL ================= */
+int64_t     l_hal_ticks_ms(void);
+int64_t     l_hal_ticks_us(void);
+void        l_hal_delay_ms(uint32_t ms);
+int32_t     l_hal_free_heap(size_t vm_allocated_bytes, int sram_kb);
+const char *l_hal_idf_version(void);
+void        l_hal_get_mac(uint8_t mac[6], int chip_id);
+int         l_hal_get_cpu_mhz(void);
+void        l_hal_set_cpu_mhz(int mhz);
+
+/* ================= 4. GPIO HAL ================= */
+void        l_hal_gpio_set_mode(int pin, LPinMode mode);
+LPinMode    l_hal_gpio_get_mode(int pin);
+void        l_hal_gpio_write(int pin, int level);
+int         l_hal_gpio_read(int pin);
+const char *l_hal_gpio_mode_name(LPinMode mode);
+
+/* ================= 5. PWM (LEDC) HAL ================= */
+void        l_hal_pwm_init(int pin, int freq_hz, int duty_10bit);
+void        l_hal_pwm_set_freq(int pin, int freq_hz);
+void        l_hal_pwm_set_duty(int pin, int duty_10bit);
+void        l_hal_pwm_stop(int pin);
+
+/* ================= 6. ADC HAL ================= */
+void        l_hal_adc_init(int pin, int full_scale_mv);
+int         l_hal_adc_read_raw(int pin);
+void        l_hal_adc_write_sim(int pin, int raw);
+
+/* ================= 7. I2C 总线 HAL ================= */
+void        l_hal_i2c_init(int bus, int sda, int scl, int freq_hz);
+int         l_hal_i2c_scan(int bus, uint8_t *out_addrs, int max_addrs);
+int         l_hal_i2c_write(int bus, uint8_t addr, const uint8_t *data, size_t len);
+int         l_hal_i2c_read(int bus, uint8_t addr, uint8_t *data, size_t len);
+int         l_hal_i2c_write_reg(int bus, uint8_t addr, uint8_t reg, const uint8_t *data, size_t len);
+int         l_hal_i2c_read_reg(int bus, uint8_t addr, uint8_t reg, uint8_t *data, size_t len);
+int         l_hal_i2c_sim_device(int bus, uint8_t addr, const uint8_t *init_regs, size_t init_len);
+
+/* ================= 8. SPI 总线 HAL ================= */
+void        l_hal_spi_init(int bus, int sck, int mosi, int miso, int freq_hz);
+int         l_hal_spi_transfer(int bus, const uint8_t *tx, uint8_t *rx, size_t len);
+
+/* ================= 9. UART 串口 HAL ================= */
+void        l_hal_uart_init(int port, int baud, int tx, int rx);
+int         l_hal_uart_write(int port, const uint8_t *data, size_t len);
+size_t      l_hal_uart_any(int port);
+size_t      l_hal_uart_read(int port, uint8_t *buf, size_t max_len);
+void        l_hal_uart_sim_input(int port, const uint8_t *data, size_t len);
+
+/* ================= 10. 裸 Flash 脚本分区 (l_script) HAL ================= */
+uint32_t     l_hal_crc32(const void *data, size_t len);
+LFlashStatus l_hal_flash_info(LScriptHeader *out_hdr, size_t *out_part_size);
+LFlashStatus l_hal_flash_write_script(const char *src, size_t len, uint32_t flags);
+const char  *l_hal_flash_read_script(size_t *out_len, LFlashStatus *out_status);
+LFlashStatus l_hal_flash_erase_script(void);
+
+/* ================= 11. PC 宿主串口扫描、一键烧录与远程终端 HAL ================= */
+/* 扫描本机可用串口名(如 "COM3"), 写入 names[][16], 返回找到的串口数量 */
+int l_hal_serial_list_ports(char names[][16], int max_ports);
+
+/* 通过串口(或 "sim" 本地模拟)向 ESP32 的 l_script 裸分区上传脚本并校验 CRC32:
+ * 成功返回 0, 失败返回负数并将原因写入 err_buf */
+int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
+                        char *err_buf, size_t err_cap);
+
+/* 进入 ESP32 串口交互终端 (按 Ctrl+] 或输入 .exit 退出), 成功返回 0, 失败返回负数 */
+int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_cap);
+
+#endif /* L_HAL_H */

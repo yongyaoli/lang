@@ -1,0 +1,6 @@
+# L 语言 ESP32 固件分区表 (含 64KB 无文件系统裸脚本分区 l_script)
+# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,     0x9000,  0x6000,
+phy_init, data, phy,     0xf000,  0x1000,
+factory,  app,  factory, 0x10000, 1M,
+l_script, data, 0x99,    ,        64K,

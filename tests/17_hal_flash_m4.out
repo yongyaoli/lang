@@ -1,0 +1,33 @@
+=== 1. HAL 与编译裁剪配置查询 (ESP32.config) ===
+platform: host-sim partition: l_script flash_size: 65536
+modules hw: true string: true math: true
+=== 2. IEEE 802.3 CRC32 校验测试 ===
+CRC32('123456789'): 0xCBF43926 bytes match: true
+=== 3. 无文件系统裸 Flash 分区 (l_script) 擦写/校验/零拷贝执行 ===
+Initial flash status: empty valid: false read: nil
+Written bytes: 201 status: ok valid: true
+Header CRC32 matches: true
+Flash script running! LED value = 1 duty(50%) = 511
+flash_exec return value: 1023
+Caught flash script error at <flash:l_script> line: 3 col: 11 msg: 除数不能为 0
+Flash error source: let c = a / b;
+After erase status: empty
+=== 4. REPL 内置 upload('sim', ...) 与 help('esp32') 测试 ===
+[upload:sim] 已向裸分区 l_script 烧录 53 字节, CRC32=0x28472B72 (校验通过)
+Uploaded via upload(sim)!
+upload('sim') result: 42 GPIO2 level: 0
+upload(串口, 脚本文件或代码, [波特率=115200])
+    通过串口(或 "sim")将脚本烧录到 ESP32 的 l_script 分区
+ESP32 固件与串口烧录指南
+  1. 扫描串口:
+     REPL 内输入: ports()               命令行: l -p
+  2. 烧录 .l 脚本到 ESP32 (写入 l_script 裸分区, 自动校验 CRC32 并运行):
+     REPL 内输入: upload("COM3", "main.l")
+     离线模拟测试: upload("sim", "main.l")
+     命令行直接烧: l -u COM3 main.l
+  3. 连接 ESP32 串口交互终端 (远程 REPL):
+     REPL 内输入: connect("COM3")       命令行: l -s COM3
+     (在远程终端中按 Ctrl+] 或输入 .exit 回车即可返回本机)
+  4. 芯片与外设控制:
+     ESP32.info()  ESP32.pin_info(2)  ESP32.pinout()  help(ESP32)
+     pin(2).on()   PWM(2, 5000, 512)  ADC(34)  I2C()  SPI()  UART()

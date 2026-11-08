@@ -1,0 +1,29 @@
+=== 1. ESP32 基础功能类 (版本识别与引脚信息) ===
+chip: ESP32 arch: Xtensa LX6 cores: 2 idf: ESP-IDF v5.3-sim
+version: ESP-IDF v5.3-sim
+mac: 24:6F:28:E5:32:00 freq: 240 MHz
+GPIO2: GPIO2 in: true out: true adc: ADC2 strapping: true note: 板载 LED 常用 / 启动 Strapping 引脚
+GPIO6: GPIO6 flash: true usable: false note: 内部 SPI Flash 占用(禁止用作 GPIO)
+GPIO34: GPIO34 in: true out: false note: 仅输入引脚(无内部上下拉, 不可输出/PWM)
+Caught Flash pin error: Pin 引脚 GPIO 6 在 ESP32 上被内部 Flash 占用, 禁止操作
+Caught Input-only pin error: Pin 引脚 GPIO 34 在 ESP32 上是仅输入引脚(GPIO 34..39), 不支持输出或内部上下拉
+Switched to: ESP32-C3 arch: RISC-V cores: 1 gpio_count: 22
+C3 GPIO12 flash: true usable: false note: 内部 SPI Flash 占用(禁止用作 GPIO)
+ESP32 usable pins: 28 flash pins: [6, 7, 8, 9, 10, 11] input_only: [34, 35, 36, 37, 38, 39]
+=== 2. const 常量声明与保护 ===
+LED_PIN: 2 I2C_ADDR: 60
+Caught const reassign: 不能修改常量 'LED_PIN' at line 52
+=== 3. bytes 定长字节缓冲 ===
+b1 len: 4 hex: 12 AA AA 34
+b1 u16_be(0): true u16_le(2): true
+b1 hex: CA:FE:34:12
+b2 str: Hello slice(1,4): ell
+b3 array: [69, 83, 80, 51, 50]
+=== 4. 外设类: PWM / ADC / I2C / SPI / UART ===
+PWM freq: 5000 duty: 512
+PWM new duty: 256
+ADC raw: 2048 mV: 1650
+I2C scan: [60]
+I2C read_reg hex: AE D5
+SPI transfer rx hex: 9F 40 16
+UART any: 2 read: OK

@@ -1,0 +1,45 @@
+name: Build ESP32 Firmware (Cloud Zero-Install)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-esp32-firmware:
+    name: Build Firmware (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.3
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ esp32, esp32c3, esp32s3 ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build ESP-IDF firmware and merge into single .bin (offset 0x0)
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          cd esp32
+          idf.py set-target ${{ matrix.target }}
+          idf.py build
+          cd build
+          esptool.py --chip ${{ matrix.target }} merge_bin \
+            -o l-${{ matrix.target }}-merged.bin \
+            --flash_mode dio \
+            --flash_size 4MB \
+            @flash_args
+          ls -lh l-${{ matrix.target }}-merged.bin
+
+      - name: Upload merged .bin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: l-firmware-${{ matrix.target }}
+          path: esp32/build/l-${{ matrix.target }}-merged.bin
+          retention-days: 90

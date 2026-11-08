@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>L 语言 ESP32 网页免安装工具箱 (底包刷机指引 + 网页串口烧录 .l 脚本)</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --green: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.6;
+  }
+  .container { max-width: 960px; margin: 0 auto; }
+  h1 { margin-top: 0; font-size: 22px; color: var(--accent); }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px; margin-bottom: 18px;
+  }
+  h2 { margin: 0 0 10px 0; font-size: 16px; color: #e2e8f0; }
+  p, li { font-size: 14px; color: var(--muted); margin: 6px 0; }
+  code {
+    background: #0b1120; color: #7dd3fc; padding: 2px 6px;
+    border-radius: 4px; font-family: Consolas, monospace;
+  }
+  .btn {
+    display: inline-block; background: var(--accent); color: #0f172a;
+    font-weight: 600; border: none; border-radius: 6px;
+    padding: 8px 16px; cursor: pointer; font-size: 14px;
+    text-decoration: none; margin-right: 8px;
+  }
+  .btn.green { background: var(--green); color: #052e16; }
+  .btn.secondary { background: #334155; color: #f8fafc; }
+  textarea {
+    width: 100%; height: 150px; background: #0b1120; color: #e2e8f0;
+    border: 1px solid var(--border); border-radius: 6px; padding: 10px;
+    font-family: Consolas, monospace; font-size: 13px; margin: 10px 0;
+  }
+  #term {
+    width: 100%; height: 220px; background: #020617; color: #86efac;
+    border: 1px solid var(--border); border-radius: 6px; padding: 10px;
+    font-family: Consolas, monospace; font-size: 13px; overflow-y: auto;
+    white-space: pre-wrap;
+  }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  input[type="text"] {
+    flex: 1; background: #0b1120; color: #f8fafc; border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; font-family: Consolas, monospace;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>L 语言 ESP32 免安装工具箱 (Chrome / Edge 浏览器直接使用)</h1>
+
+  <div class="card">
+    <h2>第一步：首次刷入 L 语言 ESP32 底包固件 (.bin) —— 本机零安装</h2>
+    <ol>
+      <li>将代码推送到 GitHub 后，打开仓库的 <b>Actions → Build ESP32 Firmware</b>，下载云端自动编译好的单文件固件（如 <code>l-esp32-merged.bin</code>、<code>l-esp32c3-merged.bin</code> 或 <code>l-esp32s3-merged.bin</code>）。</li>
+      <li>使用 Chrome 或 Edge 浏览器打开乐鑫官方网页刷机工具，连接开发板串口，将燒录地址设为 <code>0x0</code>，选择刚才下载的 <code>.bin</code> 文件即可一键刷入（每块板子只需刷一次）：</li>
+    </ol>
+    <a class="btn" href="https://espressif.github.io/esptool-js/" target="_blank" rel="noopener">打开乐鑫官方网页刷机工具 (ESP Web Flasher)</a>
+  </div>
+
+  <div class="card">
+    <h2>第二步：日常烧录 .l 脚本与串口交互 (支持 l.exe 或下方网页直连)</h2>
+    <p>底包固件刷好后，日常修改 <code>.l</code> 脚本<b>无需重新编译固件</b>。你可以在电脑终端用 <code>l.exe</code> 的交互模式输入 <code>upload("COM3", "main.l")</code>，也可以直接用下面的网页串口一键烧录：</p>
+    <div>
+      <button class="btn green" id="btnConnect">1. 连接 ESP32 串口</button>
+      <button class="btn" id="btnUpload" disabled>2. 一键烧录下方 .l 脚本到 ESP32</button>
+      <button class="btn secondary" id="btnPinout" disabled>查询引脚表 ESP32.pinout()</button>
+    </div>
+    <textarea id="scriptBox">// 示例：点亮板载 GPIO 2 LED 并打印芯片信息
+print("Chip:", ESP32.chip(), "Free heap:", ESP32.free_heap());
+const LED = 2;
+pin(LED).on();
+print("GPIO 2 is now:", pin(LED).value());</textarea>
+
+    <div id="term">[未连接串口] 点击上方「连接 ESP32 串口」开始交互...&#10;</div>
+    <div class="row">
+      <input type="text" id="cmdInput" placeholder="输入 L 语言指令回车发送到 ESP32，如 pin(2).toggle() 或 ESP32.info()" disabled />
+      <button class="btn secondary" id="btnSend" disabled>发送</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let port = null, writer = null, reader = null;
+const term = document.getElementById('term');
+
+function log(s) {
+  term.textContent += s;
+  term.scrollTop = term.scrollHeight;
+}
+
+// IEEE 802.3 CRC32 (与 L 语言 stdlib/hal.c 完全一致)
+function crc32Bytes(bytes) {
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) {
+    crc ^= bytes[i];
+    for (let b = 0; b < 8; b++) {
+      crc = (crc >>> 1) ^ (0xEDB88320 & (-(crc & 1)));
+    }
+  }
+  return ((~crc) >>> 0);
+}
+
+document.getElementById('btnConnect').onclick = async () => {
+  if (!('serial' in navigator)) {
+    alert('当前浏览器不支持 Web Serial API，请使用 Chrome 或 Edge 浏览器打开。');
+    return;
+  }
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    writer = port.writable.getWriter();
+    document.getElementById('btnUpload').disabled = false;
+    document.getElementById('btnPinout').disabled = false;
+    document.getElementById('cmdInput').disabled = false;
+    document.getElementById('btnSend').disabled = false;
+    log('\n[已连接 ESP32 串口 @ 115200 bps]\n');
+    await sendText('\r\n');
+    readLoop();
+  } catch (e) {
+    log('\n[连接失败] ' + e.message + '\n');
+  }
+};
+
+async function readLoop() {
+  const decoder = new TextDecoder();
+  while (port && port.readable) {
+    reader = port.readable.getReader();
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) log(decoder.decode(value));
+      }
+    } catch (e) {
+      break;
+    } finally {
+      reader.releaseLock();
+    }
+  }
+}
+
+async function sendText(str) {
+  if (!writer) return;
+  const data = new TextEncoder().encode(str);
+  await writer.write(data);
+}
+
+document.getElementById('btnUpload').onclick = async () => {
+  const code = document.getElementById('scriptBox').value;
+  const bytes = new TextEncoder().encode(code);
+  const crc = crc32Bytes(bytes).toString(16).toUpperCase().padStart(8, '0');
+  log(`\n[网页烧录] 正在写入 l_script 分区 (${bytes.length} 字节, CRC32=0x${crc})...\n`);
+  await sendText(`\r\n__L_UPLOAD_BEGIN__ ${bytes.length} 0x${crc} 1\r\n`);
+  await new Promise(r => setTimeout(r, 60));
+  await writer.write(bytes);
+  await sendText(`\r\n__L_UPLOAD_END__\r\n`);
+};
+
+document.getElementById('btnPinout').onclick = () => sendText('ESP32.pinout();\r\n');
+
+async function sendCmd() {
+  const input = document.getElementById('cmdInput');
+  const v = input.value.trim();
+  if (!v) return;
+  input.value = '';
+  await sendText(v + '\r\n');
+}
+document.getElementById('btnSend').onclick = sendCmd;
+document.getElementById('cmdInput').onkeydown = (e) => { if (e.key === 'Enter') sendCmd(); };
+</script>
+</body>
+</html>

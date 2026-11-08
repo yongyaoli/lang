@@ -1,0 +1,18 @@
+type: Pin pin: 2 mode: out val: 1
+str: <Pin(2, mode="out", value=1)>
+after off: 0
+after toggle: 1
+chained: in_pullup 0 {pin: 2, mode: "in_pullup", value: 0}
+pin(4) level: 1
+pin(4) off: 0
+str chain: ["HELLO", "ESP32"]
+arr chain: 4-3-2-1
+xs map: [10, 20, 30] len: 3 pop: 3
+map methods: true 2 true false ["host"]
+counter: 7 37
+caught div0: RuntimeError | 除数不能为 0
+location: 15_method_try_pin.l 49 16 in sensor_read
+source: return 100 / addr;
+stack depth: 3
+caught throw map: ThrowError 404 无效传感器地址 line: 47 fn: sensor_read
+caught pin err: Pin 引脚号 99 超出 ESP32 范围 (0..39) line: 73 col: 8
