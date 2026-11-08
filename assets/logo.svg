@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" width="720" height="200">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="chipGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="lGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#7dd3fc"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- 卡片背景 -->
+  <rect x="4" y="4" width="712" height="192" rx="20" fill="url(#bgGrad)" stroke="#334155" stroke-width="2"/>
+
+  <!-- 左侧芯片引脚装饰 (象征 ESP32 硬件控制) -->
+  <g stroke="#38bdf8" stroke-width="3" stroke-linecap="round" opacity="0.85">
+    <!-- 左引脚 -->
+    <line x1="34" y1="58" x2="52" y2="58"/>
+    <line x1="34" y1="80" x2="52" y2="80"/>
+    <line x1="34" y1="102" x2="52" y2="102"/>
+    <line x1="34" y1="124" x2="52" y2="124"/>
+    <line x1="34" y1="146" x2="52" y2="146"/>
+    <!-- 右引脚 -->
+    <line x1="172" y1="58" x2="190" y2="58"/>
+    <line x1="172" y1="80" x2="190" y2="80"/>
+    <line x1="172" y1="102" x2="190" y2="102"/>
+    <line x1="172" y1="124" x2="190" y2="124"/>
+    <line x1="172" y1="146" x2="190" y2="146"/>
+    <!-- 上引脚 -->
+    <line x1="76" y1="26" x2="76" y2="42"/>
+    <line x1="98" y1="26" x2="98" y2="42"/>
+    <line x1="126" y1="26" x2="126" y2="42"/>
+    <line x1="148" y1="26" x2="148" y2="42"/>
+    <!-- 下引脚 -->
+    <line x1="76" y1="162" x2="76" y2="178"/>
+    <line x1="98" y1="162" x2="98" y2="178"/>
+    <line x1="126" y1="162" x2="126" y2="178"/>
+    <line x1="148" y1="162" x2="148" y2="178"/>
+  </g>
+
+  <!-- 核心芯片底座 -->
+  <rect x="52" y="42" width="120" height="120" rx="22" fill="#0b1120" stroke="url(#chipGrad)" stroke-width="3.5"/>
+  <rect x="62" y="52" width="100" height="100" rx="14" fill="none" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- 芯片右上角圆点 (Pin 1 标识 / 状态灯) -->
+  <circle cx="148" cy="66" r="5" fill="#22c55e" filter="url(#glow)"/>
+
+  <!-- 醒目的核心字母 L -->
+  <path d="M 86 66 L 86 134 L 142 134" fill="none" stroke="url(#lGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <!-- L 右下角代码光标点缀 -->
+  <rect x="134" y="102" width="12" height="12" rx="3" fill="#38bdf8"/>
+
+  <!-- 右侧主标题区 -->
+  <g font-family="'Segoe UI', 'Inter', 'Microsoft YaHei', sans-serif">
+    <!-- 主标题 L / lang -->
+    <text x="222" y="82" font-size="44" font-weight="800" fill="#f8fafc" letter-spacing="1">
+      L <tspan fill="#38bdf8" font-weight="300">/</tspan> <tspan fill="#7dd3fc">lang</tspan>
+    </text>
+
+    <!-- 版本与定位胶囊标签 -->
+    <rect x="430" y="52" width="142" height="28" rx="14" fill="#0b1120" stroke="#38bdf8" stroke-width="1.2"/>
+    <text x="501" y="71" font-size="13" font-weight="600" fill="#38bdf8" text-anchor="middle">Pure C99 · ESP32</text>
+
+    <!-- 渐变分割线 -->
+    <rect x="222" y="98" width="450" height="3" rx="1.5" fill="url(#accentGrad)"/>
+
+    <!-- 双重含义说明 -->
+    <text x="222" y="128" font-size="15" fill="#e2e8f0" font-weight="600">
+      <tspan fill="#38bdf8">L</tspan>i (作者姓氏 · 李)  <tspan fill="#64748b">×</tspan>  <tspan fill="#22c55e">L</tspan>anguage (轻量级嵌入式脚本语言)
+    </text>
+
+    <!-- 底部特性标语 -->
+    <text x="222" y="156" font-size="13.5" fill="#94a3b8" font-family="Consolas, 'Courier New', monospace">
+      pin(2).on()  |  ESP32.pinout()  |  upload("COM3", "main.l")
+    </text>
+  </g>
+</svg>

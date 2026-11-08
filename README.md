@@ -1,473 +1,398 @@
-# L 语言
+<div align="center">
 
-一门用 C 实现的小型动态类型脚本语言,用来学习如何从零写一门编程语言。
+<img src="assets/logo.svg" alt="L / lang Logo" width="720" />
 
-- **只依赖一个 C 编译器**(gcc / clang / MSVC),不使用 lex、yacc、LLVM 等任何工具
-- 实现方式:**树遍历解释器**(词法分析 → 递归下降语法分析 → AST → 直接求值)
-- 当前版本:**0.1.0**
+# L 语言 (`lang`)
 
-## 目录
+**一门用纯 C99 从零实现的超轻量级嵌入式（ESP32）与通用脚本语言**
 
-1. [快速开始](#快速开始)
-2. [语言速览](#语言速览)
-3. [内置函数](#内置函数)
-4. [交互模式 REPL](#交互模式-repl)
-5. [错误信息与退出码](#错误信息与退出码)
-6. [项目结构与实现原理](#项目结构与实现原理)
-7. [测试](#测试)
-8. [已知限制](#已知限制)
-9. [后续计划](#后续计划)
+[![Version](https://img.shields.io/badge/version-0.1.0-38bdf8.svg)](version.h)
+[![Standard](https://img.shields.io/badge/C-C99%20Zero%20Deps-2563eb.svg)](main.c)
+[![Platform](https://img.shields.io/badge/platform-ESP32%20%7C%20Windows%20%7C%20Linux%20%7C%20macOS-22c55e.svg)](l_hal.h)
+[![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.x%20Ready-f97316.svg)](esp32/)
+[![Tests](https://img.shields.io/badge/tests-17%2F17%20passing-brightgreen.svg)](tests/)
+
+[设计理念与命名](#命名由来为什么叫-l-lang) ·
+[核心能力](#这是什么能做什么) ·
+[快速开始](#快速开始) ·
+[详细使用教程](#详细使用教程) ·
+[ESP32 固件编译与刷机](#esp32-固件编译与刷机详细步骤) ·
+[《ESP32 固件编译与刷机指南》](esp32/ESP32_GUIDE.md)
+
+</div>
+
+---
+
+## 命名由来：为什么叫 `L` (`lang`)？
+
+项目的核心命令与文件后缀均为 **`l`**（仓库名 **`lang`**），字母 **`L`** 承载着两层核心含义：
+
+1. **`L` = Li（李 · 作者姓氏）**  
+   源自项目作者姓氏（**Yongyao Li**）。从词法分析器、递归下降语法分析器、AST、标记-清除垃圾回收器（GC）、硬件抽象层（HAL）到 ESP32 裸机固件，每一行代码均由纯 C 手写而成，凝聚着对底层系统与语言设计的个人匠心。
+2. **`L` = Lang（`Language` · 编程语言的缩写）**  
+   取自 **Language**（同时也寓意 **Lightweight** 轻量级）的缩写。它回归编程语言最纯粹的本质——**零第三方依赖、百余 KB 体积、一行命令即可编译、一句 `pin(2).on()` 即可点亮硬件**。
+
+---
+
+## 这是什么？能做什么？
+
+### 1. 它是什幺？
+
+**`L` (`lang`)** 是一门兼具 **C 语言紧凑语法** 与 **MicroPython 交互式开发体验** 的动态类型脚本语言：
+- **极致轻量**：整个解释器核心与标准库仅数千行标准 C99 代码，不依赖 lex、yacc、LLVM 或任何外部库，只需一个 C 编译器（GCC / Clang / MSVC / ESP-IDF）即可编译。
+- **双栖运行**：通过统一的硬件抽象层（[`l_hal.h`](l_hal.h)），同一套 `.l` 脚本既可以在 **ESP32 系列芯片（ESP32 / ESP32-S3 / ESP32-C3 / ESP32-C6）** 上直接操控真实硬件，也可以在 **Windows / Linux / macOS 电脑上离线仿真运行**。
+
+### 2. 它能做什么？
+
+| 应用场景 | 核心能力说明 |
+| :--- | :--- |
+| **1. ESP32 硬件交互式操控** | 像写脚本一样控制硬件外设：`pin(2).on()`、`PWM(2, 5000, 512)`、`ADC(34).read_mv()`、`I2C()`、`SPI()`、`UART()`，支持方法链式调用。 |
+| **2. 芯片级引脚安全护栏** | 内置 `ESP32` 基础功能类，自动识别芯片型号、主频、内存与引脚限制。当误将内部 SPI Flash 引脚（如 GPIO 6~11）或仅输入引脚（GPIO 34~39）设为输出时，主动拦截并精确定位报错，防止板子死机变砖。 |
+| **3. 免文件系统裸 Flash 存储** | 独创 `l_script` 裸 Flash 分区方案（16B 头部 + IEEE 802.3 CRC32 校验 + `esp_partition_mmap`），**无需挂载 FAT/SPIFFS 文件系统、零 SRAM 源码拷贝**即可在无文件系统的 ESP32 上持久化保存与自启动脚本。 |
+| **4. 串口 0.2 秒极速烧录与远程终端** | 底包固件只需刷一次。日常在电脑 REPL 中执行 `upload("COM3", "main.l")`（或命令行 `l -u COM3 main.l`），0.2 秒即可通过串口将脚本刷入 ESP32 并立即运行；执行 `connect("COM3")` 即可进入板端实时 REPL。 |
+| **5. PC 端全功能硬件离线仿真** | 手头没插开发板时，直接在电脑上运行 `l main.l` 或 `upload("sim", "main.l")`，即可切换模拟不同芯片（`ESP32.set_chip("ESP32-C3")`）、注入虚拟 I2C 从机/ADC/UART 数据，提前跑通全部硬件逻辑。 |
+| **6. 精确错误定位与异常自恢复** | 支持 `try { ... } catch (e) { ... }` 与 `throw`。任何语法或运行时错误均精确输出 **`[文件:行:列]` + 源码行内容 + `^` 指示符 + 完整调用栈回溯**，告别嵌入式盲猜调试。 |
+
+```mermaid
+flowchart TB
+    subgraph PC["电脑端开发与仿真 (Windows / Linux / macOS)"]
+        Script["编写脚本 main.l"] --> Sim["1. 本机离线硬件仿真<br/>l main.l / upload('sim', 'main.l')"]
+        Sim --> Upload["2. 原生串口 0.2s 极速烧录<br/>REPL: upload('COM3', 'main.l')<br/>CLI: l -u COM3 main.l"]
+    end
+    subgraph MCU["ESP32 端运行 (ESP32 / S3 / C3 / C6)"]
+        Upload --> FlashPart["l_script 裸 Flash 分区 (64KB)<br/>16B Header + CRC32 校验"]
+        FlashPart --> MMap["esp_partition_mmap 零 RAM 拷贝执行<br/>上电自启动 + 异常捕获保护"]
+        MMap --> HW["硬件驱动层 (ESP-IDF HAL)<br/>GPIO / PWM / ADC / I2C / SPI / UART"]
+    end
+```
+
+---
+
+## 30 秒直观体验
+
+```javascript
+// 1. 查询芯片信息与安全引脚
+print("芯片:", ESP32.chip(), "架构:", ESP32.info().arch, "可用内存:", ESP32.free_heap());
+
+// 2. 链式控制 GPIO 与 PWM
+const LED = 2;
+let led = pin(LED).on().toggle().on();
+let pwm = PWM(LED, 5000, 512);          // 5kHz, 50% 占空比 (512/1023)
+
+// 3. 定长字节缓冲 bytes 与 I2C 寄存器通信
+let i2c = I2C(0, 21, 22, 400000);
+i2c.sim_device(0x3C);                   // PC 离线模式下注册模拟 OLED 从机
+i2c.write_reg(0x3C, 0x00, bytes([0xAE, 0xD5]));
+print("I2C 读回:", i2c.read_reg(0x3C, 0x00, 2).hex(" "));
+
+// 4. 结构化异常捕获 + 硬件引脚保护拦截
+try {
+    Pin(6, "out");                      // GPIO 6 被内部 SPI Flash 占用，禁止输出！
+} catch (e) {
+    print("成功拦截非法引脚操作:", e.message, "位于第", e.line, "行");
+}
+```
+
+当代码中出现未捕获错误时，`L` 会给出精确到行列号、源码行与调用栈的诊断输出：
+
+```text
+[sensor.l:12:16] 运行时错误: 除数不能为 0
+    12 |     return 100 / scale;
+       |                ^
+  调用栈回溯:
+    at read_sensor (sensor.l:12:16)
+    at main_loop (sensor.l:20:14)
+    at <main> (sensor.l:25:1)
+```
 
 ---
 
 ## 快速开始
 
-### 编译
+### 1. 在电脑上安装或编译 `l` 解释器
 
+#### 方式 A：使用 Windows 安装包（推荐 Windows 用户）
+直接运行发布包中的 `dist/lang-setup-windows-x86_64.exe`（或运行 `powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1` 自动生成），安装程序会自动将 `l.exe` 添加到系统 `PATH` 并关联 `.l` 文件。
+
+#### 方式 B：一行命令从源码编译（Windows / Linux / macOS 通用）
+只需系统中有 `gcc` 或 `clang`：
+```bash
+gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c stdlib/*.c main.c -o l
 ```
-gcc -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c stdlib/*.c main.c -o l
+> 若希望编译针对无文件系统裸机裁剪的最小化版本，可加上 `-DL_WITH_STDLIB_IO=0 -DL_WITH_STDLIB_SYS=0`。
+
+### 2. 命令行用法一览
+
+```powershell
+l                           # 进入交互模式 (REPL)
+l main.l [参数...]          # 运行脚本文件 (参数可通过 sys_args() 获取)
+l -p, --ports               # 扫描并列出本机可用串口 (如 COM3)
+l -u, --upload COM3 main.l  # 将 main.l 通过串口秒级烧录到 ESP32 的 l_script 分区并运行
+l -s, --serial COM3         # 连接 ESP32 串口交互终端 (远程 REPL)
+l -h, --help                # 查看命令行帮助
+l -v, --version             # 查看版本号
 ```
-
-Windows 下会生成 `l.exe`。编译时建议加上 `-Wall -Wextra`,目前零警告。
-
-### 运行
-
-```
-l                 进入交互模式(REPL)
-l 脚本.l          运行脚本文件
-l -h, --help      显示命令行帮助
-l -v, --version   显示版本号
-```
-
-### 第一个程序
-
-新建 `hello.l`:
-
-```
-fn greet(name) {
-    return "你好," + name + "!";
-}
-print(greet("L 语言"));
-```
-
-运行 `l hello.l`,输出 `你好,L 语言!`。
 
 ---
 
-## 语言速览
+## 详细使用教程
 
-> 完整文法见 [L_EBNF.md](L_EBNF.md);在 REPL 里也可以用 `help("keywords")`、`help("types")` 等随时查看。
+> 完整巴科斯范式文法请参见 [`L_EBNF.md`](L_EBNF.md)。在交互模式（REPL）中随时可以输入 `help()` 查看所有内置函数、分组与硬件命令。
 
-### 注释
+### 1. 交互式界面（REPL）与内置帮助系统
 
-```
-// 单行注释
-/* 多行注释(不可嵌套) */
-```
+直接运行 `l` 进入交互式环境，末尾的 `;` 可省略，支持自动识别跨行 `{ ... }` 代码块：
 
-### 数据类型
-
-| 类型 | 示例 | 说明 |
-|---|---|---|
-| int | `1` `0xFF` `0b101` | 32 位有符号整数,溢出回绕;`7 / 2` 为 `3`(C 语义整除) |
-| float | `3.14` `1.0` | 64 位浮点;int 与 float 混算结果为 float;`type(7 / 2.0)` 为 `float` |
-| string | `"hi\n"` | 不可变;转义:`\n` `\t` `\r` `\"` `\\` |
-| bool | `true` `false` | |
-| nil | `nil` | 空值 |
-| array | `[1, "a", [2]]` | `xs[0]` 读取,`xs[0] = 9` 修改 |
-| map | `{ name: "L", "ver": 0.1 }` | 键是字符串;`m.name` 或 `m["name"]` |
-| function | `fn(x) { return x; }` | 一等值,支持闭包 |
-
-**真值规则**:只有 `false` 和 `nil` 为假,`0` 和 `""` 都为真。
-
-### 变量与作用域
-
-```
-let x = 10;          // 声明
-let y;               // 未初始化,值为 nil
-x = x + 1;           // 赋值
-{
-    let x = "内层";  // 花括号块创建新作用域,可遮蔽外层变量
-}
+```text
+L 0.1.0 (Nov  9 2026, 00:45:00) [GCC 16.2.0 64 bit] on win32
+Type "help", "copyright", "license" or "exit" for more information.
+ESP32 快捷命令: ports() | upload("COM3", "main.l") | connect("COM3") | help("esp32")
+>>> help()                  // 查看所有函数分组、常量与 ESP32 快捷操作总览
+>>> help("esp32")           // 查看 ESP32 串口烧录 (upload) 与控制指南
+>>> help(ESP32)             // 查看 ESP32 对象的全部芯片、引脚与 Flash 方法列表
+>>> help(upload)            // 查看 upload() 函数的详细参数说明
+>>> ports()                 // 扫描本机串口，如 ["COM3"]
+>>> upload("sim", "main.l") // 在本机模拟 Flash 分区演练烧录、CRC32 校验与执行
+>>> upload("COM3", "main.l")// 通过串口烧录到真实 ESP32 开发板并立即运行
+>>> connect("COM3")         // 进入 ESP32 串口远程交互终端 (按 Ctrl+] 或输入 .exit 退出)
 ```
 
-使用未声明的变量会报运行时错误。
+---
 
-### 运算符(优先级从低到高)
+### 2. 基础语法与数据类型
 
-| 运算符 | 说明 |
-|---|---|
-| `=` | 赋值,右结合,目标可以是变量、`a[i]`、`a.b` |
-| `? :` | 三元条件运算符,右结合,短路求值:`cond ? then_expr : else_expr` |
-| `or` | 逻辑或,短路,返回决定结果的那个操作数 |
-| `and` | 逻辑与,短路 |
-| `==` `!=` | 不同类型一定不相等;数组、map、函数按引用比较 |
-| `<` `<=` `>` `>=` | 两个数字或两个字符串 |
-| `+` `-` | `+` 还可用于两个字符串拼接;字符串与数字混用会报错,请用 `str()` |
-| `*` `/` `%` | 除数为 0 会报错 |
-| `not` `!` `-` | 一元运算符 |
-| `()` `[]` `.` | 调用、下标、成员访问 |
-
-### 控制流
-
+#### 2.1 变量（`let`）与常量（`const`）
+```javascript
+let count = 10;             // 可变变量
+let empty;                  // 未初始化时默认值为 nil
+const LED_PIN = 2;          // 常量：运行时禁止二次赋值或重定义，否则抛出运行时错误
 ```
-if x > 0 {
-    print("正数");
-} else if x == 0 {
-    print("零");
+
+#### 2.2 八种核心数据类型
+| 类型 (`type(x)`) | 字面量与构造示例 | 特性说明 |
+| :--- | :--- | :--- |
+| **`int`** | `42`, `0xFF`, `0b1010_0001` | 32 位有符号整数（嵌入式寄存器/GPIO 零浮点开销）；`7 / 2 == 3`（C 语义整除） |
+| **`float`** | `3.14`, `2.5e-3`, `7 / 2.0` | 64 位双精度浮点数；`int` 与 `float` 混合运算自动提升为 `float` |
+| **`bool`** | `true`, `false` | 仅 `false` 和 `nil` 为假，数字 `0` 和空串 `""` 均为真 |
+| **`nil`** | `nil` | 空值 |
+| **`string`** | `"你好\nL 语言"` | 不可变 UTF-8 字符串，支持 `+` 拼接、`s[i]` 下标及 `.trim()` / `.split()` 等方法 |
+| **`bytes`** | `bytes(4)`, `bytes([0x48, 0x69])`, `bytes("OK")` | 定长可变字节缓冲区，专为 I2C/SPI/UART 通信设计，支持 `b[0] = 0xFF`、`.hex()`、`.u16_be()` |
+| **`array`** | `[1, "a", true]` | 动态数组，支持 `a[i]` 读写及 `.push()` / `.map()` / `.filter()` / `.sort()` |
+| **`map`** | `{ id: 1, "name": "ESP32" }` | 字符串键字典，支持 `m.id` 与 `m["id"]` 读写，支持绑定自定义方法 |
+| **`function` / `obj`** | `fn(x) { return x + 1; }` / `Pin(2)` | 一等闭包函数与 `.rodata` 零 RAM 方法表原生硬件对象 |
+
+#### 2.3 运算符（支持完整 C 位运算与三元运算符）
+- **算术运算**：`+`、`-`、`*`、`/`（整数相除为整除，含浮点则为浮点除）、`%`
+- **位运算（仅整数）**：`&`（按位与）、`|`（按位或）、`^`（按位异或）、`~`（按位取反）、`<<`（左移）、`>>`（算术右移）
+  ```javascript
+  let reg = (1 << 4) | 0x03;        // 19 (0x13)
+  let high_byte = (0xCAFE >> 8) & 0xFF;
+  ```
+- **比较与逻辑运算**：`==`、`!=`、`<`、`<=`、`>`、`>=`、`and`（短路与）、`or`（短路或）、`not` / `!`
+- **三元条件表达式**：`let level = (temp > 30) ? "HIGH" : "NORMAL";`
+
+#### 2.4 控制流、函数与闭包
+```javascript
+// if / else 分支 (条件无需圆括号)
+if count > 0 {
+    print("positive");
 } else {
-    print("负数");
+    print("non-positive");
 }
 
-while i < 10 { i = i + 1; }
-
-for let i = 0; i < 3; i = i + 1 {
-    if i == 1 { continue; }
+// for 与 while 循环 (支持 break 和 continue)
+for let i = 0; i < 5; i = i + 1 {
+    if i == 2 { continue; }
     print(i);
 }
-```
 
-- `if` / `while` / `for` 的条件**不加括号**,主体**必须用 `{}`**
-- 语句以 `;` 结尾
-- `break`、`continue` 只能出现在循环中;`return` 只能出现在函数中
-
-### 函数与闭包
-
-```
-fn add(a, b) { return a + b; }       // 具名函数
-let sq = fn(n) { return n * n; };    // 匿名函数
-
-fn counter() {                       // 闭包:函数记住定义时的作用域
-    let n = 0;
-    return fn() { n = n + 1; return n; };
+// 一等函数与词法闭包
+fn make_counter(start) {
+    let n = start;
+    return fn(step) {
+        n = n + step;
+        return n;
+    };
 }
-let c = counter();
-print(c(), c(), c());                // 1 2 3
+let c = make_counter(10);
+print(c(5), c(3));                  // 输出: 15 18
 ```
 
-- 参数个数必须与调用时传入的个数一致
-- 没有 `return`(或 `return;`)时返回 `nil`
-- 递归深度上限 1000 层,超过会报"调用栈溢出"
+#### 2.5 对象方法调用与自定义字典方法
+- 字符串、数组、字典、`bytes` 以及所有硬件对象均支持直观的 `.` 方法调用：
+  ```javascript
+  print("  hello esp32  ".trim().upper().split(" ")); // ["HELLO", "ESP32"]
+  print([3, 1, 4, 2].sort().map(fn(x) { return x * 10; })); // [10, 20, 30, 40]
+  ```
+- 自定义 Map 对象的方法中可直接访问隐式绑定 `self`（也可显式声明首参数 `fn(self, ...)`）：
+  ```javascript
+  let sensor = {
+      addr: 0x3C,
+      scale: 2,
+      read: fn(raw) { return raw * self.scale; }
+  };
+  print(sensor.read(21));           // 42
+  ```
 
-### 数组与 map
-
-```
-let xs = [1, 2, 3];
-push(xs, 4);
-print(xs[0], len(xs), pop(xs));      // 1 4 4
-
-let p = { name: "L" };
-p.version = "0.1";                   // 新增或修改键
-print(p.name, p.missing);            // L nil(不存在的键返回 nil)
-print(keys(p));                      // ["name", "version"]
-```
-
-数组下标越界会报错;map 的键必须是字符串。
-
-### 模块系统 (import)
-
-支持以相对路径或绝对路径导入其他 `.l` 脚本文件：
-- 模块拥有独立的全局执行环境，不会污染当前文件的顶层作用域。
-- 模块顶层定义的变量和函数会被收集为一个 Map 对象导出。
-- 内置模块单例缓存，多次导入同一模块不会重复执行。
-
+#### 2.6 异常处理 (`try / catch / throw`)
 ```javascript
-// 导入并按文件名推导变量名 (如 ./helpers.l 绑定为 helpers)
-import "./helpers";
-print(helpers.add(1, 2));
-
-// 导入并指定别名
-import "./utils/math.l" as m;
-print(m.pi);
-```
-
----
-
-## 内置函数
-
-在 REPL 里输入 `help()` 可以查看分组总览,`help("string")`、`help("math")`、`help("time")` 查看某一组的详细说明。
-
-| 函数 | 说明 |
-|---|---|
-| `print(值, ...)` | 以空格分隔打印所有参数,并换行 |
-| `str(值)` | 转换为字符串 |
-| `num(值)` | 字符串转数字,无法转换返回 `nil` |
-| `len(值)` | 字符串字节数 / 数组元素数 / map 键数 |
-| `type(值)` | 返回类型名:`nil` `bool` `int` `float` `string` `array` `map` `function` |
-| `push(数组, 值)` | 在数组末尾追加元素 |
-| `pop(数组)` | 弹出并返回最后一个元素,空数组返回 `nil` |
-| `keys(map)` | 返回所有键组成的数组 |
-| `input([提示])` | 读取一行输入,输入结束返回 `nil` |
-| `clock()` | 程序已用的 CPU 时间(秒) |
-| `read_file(路径)` | 读取文件为字符串,失败返回 `nil` |
-| `write_file(路径, 内容)` | 写入文件,成功返回 `true` |
-| `exit([退出码])` / `quit([退出码])` | 退出程序 |
-| `help([主题])` | 显示帮助 |
-| `copyright()` / `license()` | 版权 / 许可信息 |
-
-### 标准库:字符串与数组
-
-字符串按**字节**处理(与 `len`、下标一致);`split(s, "")`、`chr`、`ord` 按 UTF-8 字符处理。带 `new` 的函数返回新值,不修改原数组。
-
-| 函数 | 说明 |
-|---|---|
-| `split(字符串, 分隔符)` | 拆成数组;分隔符为 `""` 时按字符拆,`split("你好", "")` 得 `["你", "好"]` |
-| `join(数组, [分隔符])` | 把元素连接成字符串,元素按 `print` 的方式转文本 |
-| `substr(字符串, 起点, [长度])` | 截取子串;起点可为负数(从末尾算);越界自动截断 |
-| `upper(s)` / `lower(s)` | 转大写 / 小写(仅 ASCII 字母) |
-| `trim(s)` | 去掉首尾空白 |
-| `contains(容器, 值)` | 字符串含子串 / 数组含元素 / map 含键 |
-| `find(容器, 值)` | 返回位置(字符串或数组),找不到返回 `-1` |
-| `replace(s, 旧, 新)` | 替换所有出现的子串 |
-| `starts_with(s, 前缀)` / `ends_with(s, 后缀)` | 判断开头 / 结尾 |
-| `repeat(s, 次数)` | 重复拼接 |
-| `chr(码点)` / `ord(s)` | 码点与字符互转,`chr(65)` 得 `"A"`,`ord("你")` 得 `20320` |
-| `range(止)` / `range(起, 止, [步长])` | 数字数组,左闭右开,如 `range(5)` 得 `[0, 1, 2, 3, 4]` |
-| `slice(数组, 起, [止])` | 截取数组的一段(new),负数从末尾算 |
-| `reverse(数组)` | 反转(new) |
-| `sort(数组, [比较函数])` | 排序(new),无比较器时要求同类元素;支持自定义 `fn(a, b)` |
-| `map(数组, 函数)` | 对每个元素应用 `fn(item)`，返回新数组 |
-| `filter(数组, 谓词函数)` | 保留使 `pred(item)` 为真的元素，返回新数组 |
-| `reduce(数组, 函数, [初始值])` | 用函数折叠数组，不提供初始值时取第一个元素 |
-| `ulen(字符串)` | 按 UTF-8 字符计算长度，如 `ulen("你好")` 为 2 |
-| `usubstr(字符串, 起点, [长度])` | 按 UTF-8 字符切片，不会截断多字节字符 |
-| `uat(字符串, 索引)` | 获取指定索引字符，负数从末尾算，越界返回 `nil` |
-| `format(模板, 值...)` | 按 `{}` 占位符格式化插值字符串，`{{` 转义为 `{` |
-
-### 标准库:文件输入输出 (io)
-
-| 函数 | 说明 |
-|---|---|
-| `io_exists(路径)` | 检查文件或目录是否存在 |
-| `io_remove(路径)` | 删除文件, 成功返回 `true` |
-| `io_append(路径, 内容)` | 向文件追加写入字符串 |
-| `io_read_lines(路径)` | 按行读取文件为字符串数组 |
-| `io_isdir(路径)` | 是否为目录 |
-| `io_size(路径)` | 文件字节数,失败返回 `nil` |
-| `io_mkdir(路径)` / `io_rmdir(路径)` | 创建单层目录 / 删除空目录 |
-| `io_rename(旧, 新)` / `io_copy(源, 目标)` | 重命名(移动) / 复制文件 |
-| `io_listdir(路径)` | 列出目录条目(已排序),失败返回 `nil` |
-| `io_join(a, b)` / `io_basename(p)` / `io_dirname(p)` / `io_ext(p)` | 路径拼接与拆分 |
-
-### 标准库:系统与运行时 (sys)
-
-| 函数 | 说明 |
-|---|---|
-| `sys_platform()` | 返回系统名: `"win32"` / `"linux"` / `"darwin"` |
-| `sys_version()` | 返回语言版本号 |
-| `sys_getenv(变量名)` | 获取环境变量，不存在返回 `nil` |
-| `sys_exec(shell命令)` | 执行系统 shell 命令并返回退出状态码 |
-| `sys_cwd()` | 获取当前工作目录路径 |
-| `sys_gc_collect()` | 手动触发一次完整垃圾回收 |
-| `sys_allocated()` | 获取当前 GC 托管分配的堆内存字节数 |
-| `sys_args()` | 命令行参数数组 `[脚本路径, 参数...]`(运行 `l 脚本.l a b`) |
-| `sys_script()` | 当前脚本路径,REPL 下为 `nil` |
-| `sys_setenv(名, 值)` | 设置环境变量 |
-| `sys_chdir(路径)` | 切换工作目录 |
-| `sys_pid()` | 当前进程号 |
-
-### 标准库:硬件外设 (`Pin` / ESP32 GPIO)
-
-| 构造 / 方法 | 说明 |
-|---|---|
-| `Pin(引脚号, [模式="out"], [初值])` / `pin(...)` | 创建 GPIO 引脚对象(模式可选 `"out"` `"in"` `"in_pullup"` `"in_pulldown"` `"open_drain"`) |
-| `p.on()` / `p.high()` | 输出高电平(`1`),返回 `p` 支持链式调用 |
-| `p.off()` / `p.low()` | 输出低电平(`0`),返回 `p` |
-| `p.toggle()` | 翻转当前电平(`0 <-> 1`),返回 `p` |
-| `p.value([电平])` | 无参读取电平(`0`/`1`);有参设置电平并返回 `p` |
-| `p.mode([模式])` | 无参读取当前模式字符串;有参切换模式并返回 `p` |
-| `p.pin()` / `p.info()` | 返回引脚编号 / 返回 `{pin, mode, value}` 字典 |
-
-```
-let led = Pin(2, "out").on();
-led.toggle();
-pin(4).on();
-```
-
-### 方法调用语法 (`obj.method(...)`)
-
-- **字符串方法**:`"  hi, l  ".trim().upper().split(", ")`、`.len()`、`.ulen()`、`.substr()`、`.replace()`、`.find()`、`.starts_with()`、`.ends_with()`
-- **数组方法**:`[3, 1, 2].sort().reverse().join("-")`、`.push(v)`、`.pop()`、`.slice()`、`.map(fn)`、`.filter(fn)`、`.reduce(fn, init)`、`.len()`
-- **字典方法与对象 `self`**:`.has(k)`、`.remove(k)`、`.keys()`、`.len()`;字典中的函数作为方法调用时自动绑定 `self`(同时支持隐式 `self.x` 与显式 `fn(self, ...)` 参数)。
-
-### 异常处理与精确错误定位 (`try / catch / throw`)
-
-```
 try {
-    let x = 10 / 0;
+    throw { code: 500, message: "传感器响应超时" };
 } catch (e) {
-    print(e.type, e.message, e.file, e.line, e.col, e.fn, e.source);
+    // e 自动包含: type, message, file, line, col, fn, source, stack
+    print("捕获异常:", e.message, "位置:", e.file + ":" + str(e.line) + ":" + str(e.col));
 }
 ```
 
-- 支持主动抛出字符串或字典:`throw "传感器超时";` 或 `throw { code: 404, message: "I2C 异常" };`
-- 未捕获的错误会自动打印 `[文件:行:列]`、出错源码行与 `^` 指示符以及完整调用栈回溯。
+#### 2.7 模块化导入 (`import`)
+```javascript
+// 1. 导入内置硬件模块（无需文件系统即可在 ESP32 裸机上使用）
+import "esp32" as hw;
 
-### 标准库:数学
-
-常量 `PI`、`E`。
-
-| 函数 | 说明 |
-|---|---|
-| `abs(x)` `floor(x)` `ceil(x)` `round(x)` | 绝对值、向下取整、向上取整、四舍五入 |
-| `sqrt(x)` `pow(x, y)` | 平方根(`x` 不能为负)、乘方 |
-| `min(x, ...)` `max(x, ...)` | 最小 / 最大值,也可以传一个数字数组 |
-| `random()` | `[0, 1)` 的随机小数 |
-| `randint(下界, 上界)` | 闭区间内的随机整数 |
-| `random_seed(整数)` | 固定种子,使随机结果可重复 |
-
-### 标准库:日期与时间
-
-**时间戳**是从 1970-01-01 00:00:00 UTC 起的秒数(数字);日期时间一律按**本地时区**解释。
-
-| 函数 | 说明 |
-|---|---|
-| `time()` | 当前时间戳 |
-| `date([时间戳])` | `"2026-11-06"`,缺省为今天 |
-| `datetime([时间戳])` | `"2026-11-06 14:30:05"`,缺省为现在 |
-| `format_time(时间戳, 格式)` | 按 `strftime` 格式化,支持中文字面量,如 `format_time(t, "%Y年%m月%d日")` |
-| `localtime([时间戳])` | 拆成 map:`year` `month`(1-12)`day` `hour` `minute` `second` `weekday`(0=星期日)`yearday`(1-366) |
-| `make_time(年, 月, 日, [时, 分, 秒])` | 构造时间戳;日期不存在(如 2 月 30 日)返回 `nil` |
-| `parse_time(字符串)` | 解析 `"YYYY-MM-DD"` 或 `"YYYY-MM-DD HH:MM:SS"`,失败返回 `nil` |
-| `sleep(秒)` | 暂停,可以是小数 |
-
-```
-let t = parse_time("2026-11-06 14:30:05");
-print(datetime(t), localtime(t).weekday);           // 2026-11-06 14:30:05 5
-print((parse_time("2026-12-25") - time()) / 86400); // 距离圣诞节还有多少天
-print(join(reverse(split("a,b,c", ",")), "-"));     // c-b-a
+// 2. 导入本地模块文件（自动缓存，支持 as 别名）
+import "./utils/math_ext.l" as m;
 ```
 
 ---
 
-## 交互模式 REPL
+### 3. ESP32 基础功能类与外设库速查
 
-不带参数运行 `l` 进入 REPL,启动信息仿照 Python:
+#### 3.1 `ESP32` / `esp32` 全局基础类
+| 方法 | 说明 |
+| :--- | :--- |
+| `ESP32.chip()` / `ESP32.version()` | 返回当前芯片型号（`"ESP32"` / `"ESP32-S3"` / `"ESP32-C3"` / `"ESP32-C6"`）与 ESP-IDF 版本 |
+| `ESP32.info()` | 返回完整硬件字典 `{chip, arch, cores, freq_mhz, sram_kb, flash_mb, psram_kb, max_pin, gpio_count, free_heap, idf, mac}` |
+| `ESP32.config()` | 返回当前 HAL 平台（`"esp-idf"` 或 `"host-sim"`）、Flash 分区大小、GC 阈值与已启用的模块列表 |
+| `ESP32.pin_info(pin)` | 查询单个引脚能力：`{pin, name, valid, usable, in, out, mode, value, input_only, flash, strapping, pwm, adc, note}` |
+| `ESP32.pins()` | 返回芯片引脚分类汇总：`{usable_pins, input_only_pins, flash_pins, strapping_pins, default_i2c, default_spi, default_uart}` |
+| `ESP32.pinout()` | 在终端打印格式化的整块芯片引脚状态、电平、ADC 通道与限制速查表 |
+| `ESP32.set_chip(型号)` | 在 PC 仿真时切换目标芯片（如 `ESP32.set_chip("ESP32-C3")`），自动切换对应的引脚约束规则 |
+| `ESP32.freq([MHz])` / `ESP32.free_heap()` | 读取或设置 CPU 主频（40/80/160/240 MHz） / 查询剩余可用堆内存字节数 |
+| `ESP32.ticks_ms()` / `ESP32.delay_ms(ms)` | 获取启动以来的毫秒计数 / 毫秒级延时 |
+| `ESP32.crc32(data)` | 计算字符串或 `bytes` 的 IEEE 802.3 CRC32 校验值（如 `"0xCBF43926"`） |
+| `ESP32.flash_write(code)` / `ESP32.flash_exec()` | 将脚本带 16B 头与 CRC32 写入 `l_script` 裸分区 / 从映射区零拷贝直接执行 |
+| `ESP32.flash_read()` / `ESP32.flash_info()` / `ESP32.flash_erase()` | 读取裸分区源码、查询分区校验状态、擦除裸分区 |
+| `ports()` / `upload(port, file)` / `connect(port)` | 扫描本机串口、通过串口一键烧录 `.l` 脚本到 ESP32、连接远程串口终端 |
 
+#### 3.2 硬件外设类 (`Pin` / `PWM` / `ADC` / `I2C` / `SPI` / `UART` / `bytes`)
+| 外设构造 | 核心方法与示例 |
+| :--- | :--- |
+| **`Pin(pin, [mode="out"], [val])`**<br/>或简写 **`pin(pin)`** | 模式支持 `"out"`、`"in"`、`"in_pullup"`、`"in_pulldown"`、`"open_drain"`。<br/>方法：`.on()` / `.high()`、`.off()` / `.low()`、`.toggle()`、`.value([0/1])`、`.mode([m])`、`.info()` |
+| **`PWM(pin, [freq=1000], [duty=0])`** | 10 位分辨率占空比（`0..1023`）。<br/>方法：`.freq([hz])`、`.duty([0..1023])`、`.duty_percent([0..100])`、`.stop()` / `.deinit()` |
+| **`ADC(pin, [atten="11db"])`** | 自动校验引脚是否具备 ADC 通道。<br/>方法：`.read()`（0..4095）、`.read_mv()`（毫伏）、`.read_uv()`（微伏）、`.atten(db)`、`.write_sim(raw)` |
+| **`I2C([bus=0], [sda], [scl], [freq])`** | 方法：`.scan()`、`.write(addr, data)`、`.read(addr, len)`、`.write_reg(addr, reg, data)`、`.read_reg(addr, reg, len)`、`.sim_device(addr)` |
+| **`SPI([bus=1], [sck], [mosi], [miso], [freq])`** | 方法：`.transfer(data)` / `.xfer(data)`（全双工收发并返回 `bytes`）、`.write(data)`、`.read(len, [fill])` |
+| **`UART([port=1], [baud=115200], [tx], [rx])`** | 方法：`.write(data)`、`.any()`、`.read([len])`、`.read_str()`、`.sim_input(data)` |
+| **`bytes(len \| array \| str)`** | 方法：`.len()`、`.hex([sep])`、`.to_str()`、`.to_array()`、`.fill(b)`、`.slice(s, [e])`、`.u16_be(off)`、`.u16_le(off)`、`.set_u16_be(off, v)`、`.set_u16_le(off, v)` |
+
+---
+
+## ESP32 固件编译与刷机详细步骤
+
+> 📖 **完整图文工作流与常见问题排查请阅读：[《ESP32 固件编译与刷机指南》(esp32/ESP32_GUIDE.md)](esp32/ESP32_GUIDE.md)**
+
+要让 ESP32 运行 `.l` 脚本，每块开发板只需在**第一次使用时刷入一次 L 语言底包固件（`.bin`）**。我们提供**「云端零安装自动编译」**与**「本地 ESP-IDF 编译」**两种方式：
+
+### 方式一：GitHub Actions 云端自动编译固件（推荐 · 本机零安装）
+
+如果你不想在电脑上安装庞大的 ESP-IDF 工具链（约 5~10 GB），可以直接使用项目内置的 [`.github/workflows/esp32-firmware.yml`](.github/workflows/esp32-firmware.yml)：
+
+1. **推送代码到 GitHub 仓库**：
+   ```powershell
+   git add .
+   git commit -m "build: build esp32 firmware"
+   git push -u origin main
+   ```
+2. **下载云端编译好的单文件固件**：
+   打开 GitHub 仓库的 **Actions → Build ESP32 Firmware (Cloud Zero-Install)** 页面，在构建完成后的 **Artifacts** 区域直接下载对应开发板的单文件合并固件：
+   - `l-esp32-merged.bin`（经典 ESP32）
+   - `l-esp32c3-merged.bin`（ESP32-C3）
+   - `l-esp32s3-merged.bin`（ESP32-S3）
+
+### 方式二：本机使用 ESP-IDF 编译固件步骤
+
+如果本机已安装 **ESP-IDF v5.x**，可在 `ESP-IDF PowerShell / Terminal` 中执行以下 4 步：
+
+```powershell
+# 1. 进入项目的 esp32 固件工程目录
+cd esp32
+
+# 2. 设置目标芯片 (esp32 / esp32c3 / esp32s3 / esp32c6)
+idf.py set-target esp32
+
+# 3. 编译固件
+idf.py build
+
+# 4. 将 bootloader、分区表(含 64KB l_script 裸分区)与应用合成为 0x0 起始的单文件固件
+cd build
+esptool.py --chip esp32 merge_bin -o l-esp32-merged.bin --flash_mode dio --flash_size 4MB @flash_args
 ```
-L 0.1.0 (Nov  6 2026, 13:59:24) [GCC 16.2.0 64 bit] on win32
-Type "help", "copyright", "license" or "exit" for more information.
->>> 1 + 2
-3
->>> let name = "L"
->>> "hello " + name
-"hello L"
->>> fn sq(n) {
-...     return n * n;
-... }
->>> sq(7)
-49
+
+### 刷入底包与日常烧录 `.l` 脚本
+
+1. **首次刷入底包固件 `.bin`（只需一次）**：
+   - **浏览器免安装刷机**：用 Chrome / Edge 打开项目内的 [`esp32/web_flasher.html`](esp32/web_flasher.html)，点击打开乐鑫官方网页刷机工具，连接串口，地址填 **`0x0`**，选择 `l-esp32-merged.bin` 一键刷入。
+   - **或者命令行刷机**：`esptool.py --port COM3 write_flash 0x0 l-esp32-merged.bin`
+2. **日常秒级烧录 `.l` 脚本（无需再编固件）**：
+   ```powershell
+   # 方式 A：在 l.exe 交互界面 (REPL) 内一键烧录
+   >>> ports()
+   >>> upload("COM3", "main.l")
+   >>> connect("COM3")
+
+   # 方式 B：在命令行直接烧录
+   l -u COM3 main.l
+   ```
+
+---
+
+## 项目结构与测试
+
+```text
+lang/
+├── assets/logo.svg          # 项目图标 (L = Li × Language)
+├── l_config.h               # 平台自动识别与标准库模块裁剪配置
+├── l_hal.h                  # 硬件抽象层接口定义 (GPIO/PWM/ADC/I2C/SPI/UART/裸Flash/串口)
+├── lexer.h / lexer.c        # 词法分析器 (支持 0x/0b 字面量与源码行指针记录)
+├── ast.h / ast.c            # 抽象语法树节点定义
+├── parser.h / parser.c      # 递归下降语法分析器
+├── value.h / value.c        # 动态值系统 (int/float/bool/nil/string/bytes/array/map/fn/obj)
+├── gc.h / gc.c              # 标记-清除垃圾回收器
+├── interp.h / interp.c      # 解释器核心、方法派发、try/catch 异常与精确错误定位
+├── builtins.c               # 核心内置函数与交互式 help() 文档系统
+├── main.c                   # CLI 入口 (REPL / 脚本执行 / -p 扫描串口 / -u 烧录 / -s 终端)
+├── stdlib/
+│   ├── hal.c                # HAL 实现 (ESP-IDF 真机驱动 + PC 硬件/裸Flash模拟 + 原生串口烧录)
+│   ├── hw.c                 # ESP32 基础功能类与 Pin/PWM/ADC/I2C/SPI/UART/bytes 实现
+│   ├── string.c             # 字符串与数组高阶方法标准库
+│   ├── math.c               # 数学标准库
+│   ├── time.c               # 时间与日期标准库
+│   ├── io.c                 # 文件系统与路径标准库 (裸机可裁剪)
+│   └── sys.c                # 系统与进程标准库 (裸机可裁剪)
+├── esp32/                   # ESP-IDF 固件工程与网页免安装工具箱
+│   ├── CMakeLists.txt
+│   ├── partitions.csv       # 含 64KB l_script 无文件系统裸脚本分区 (0x99)
+│   ├── main/app_main.c      # ESP32 上电自启动、串口在线烧录接收与板端 REPL
+│   ├── web_flasher.html     # 浏览器免安装刷机与 Web Serial 脚本烧录工作台
+│   └── ESP32_GUIDE.md       # 《ESP32 固件编译与刷机指南》
+├── .github/workflows/
+│   └── esp32-firmware.yml   # GitHub Actions 云端自动编译 ESP32/C3/S3 固件工作流
+├── tests/                   # 17 组自动化回归测试 (01_basic.l ~ 17_hal_flash_m4.l)
+└── run_tests.ps1            # 回归测试运行脚本
 ```
 
-- 直接输入表达式会显示结果(`nil` 不显示),行尾的 `;` 可以省略
-- 花括号 `{` 未配对时继续读取下一行,提示符变为 `...`
-- 错误不会让 REPL 退出,之前定义的变量和函数仍然保留
-- 输入 `help`(不带括号)会给出提示,输入 `help()` 才是完整帮助
-- 输入 `copyright`、`license` 直接显示对应信息
-- 退出:`exit()` / `quit()`,或 Ctrl+Z 回车(Windows)/ Ctrl+D(其他系统)
+### 运行回归测试
 
-### help 的用法
-
-```
-help()                 总览:所有内置函数和语言主题
-help(print)            查看某个函数
-help("len")            同上,用字符串也可以
-help("keywords")       语言主题:keywords types operators syntax repl
-help("string")         函数分组:core string math time(分组名优先于同名函数,看 time 函数本身用 help(time))
-help(my_function)      查看用户自定义函数的签名
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run_tests.ps1
 ```
 
 ---
 
-## 错误信息与退出码
+## 相关文档链接
 
-错误都带有 `[行:列]` 位置:
-
-```
-[1:9] 运行时错误: '+' 只能用于两个数字或两个字符串,实际是 int 和 string
-[3:5] 语法错误(在 '}' 附近): 表达式后期望 ';'
-```
-
-语法分析遇到错误后会自动恢复并继续检查,一次报告多个错误。
-
-| 退出码 | 含义 |
-|---|---|
-| 0 | 成功 |
-| 64 | 命令行参数错误 |
-| 65 | 语法错误(脚本不会被执行) |
-| 70 | 运行时错误 |
-| 74 | 脚本文件无法读取 |
-
----
-
-## 项目结构与实现原理
-
-```
-源码 → Lexer → Token 流 → Parser → AST → Interpreter → 结果
-```
-
-| 文件 | 职责 |
-|---|---|
-| `lexer.h/.c` | 词法分析:源码 → Token,带行列号,识别关键字、数字、字符串转义、注释 |
-| `ast.h/.c` | AST 节点定义、释放、S 表达式打印(调试用) |
-| `parser.h/.c` | 递归下降语法分析;二元运算用优先级爬升;`setjmp/longjmp` 实现错误恢复 |
-| `gc.h/.c` | 标记-清除垃圾回收器(Mark-Sweep GC),管理字符串、数组、字典、闭包与作用域环境 |
-| `value.h/.c` | 运行时值(nil/bool/int/float/string/array/map/function)、相等、转文本 |
-| `interp.h/.c` | 树遍历解释器:环境、求值、语句执行、函数调用与闭包、运行时错误 |
-| `builtins.c` | 核心内置函数与 `help` 系统(函数表同时是帮助文档的数据来源) |
-| `stdlib/` | 标准库独立目录:包含 `str.c`、`math.c`、`time.c` |
-| `main.c` | 命令行入口、REPL、启动信息 |
-| `version.h` | 版本号 |
-| `lexer_main.c` `parser_main.c` | 词法/语法分析器的单独调试入口,打印 Token 或 AST |
-| `L_EBNF.md` | 语言的完整 EBNF 文法 |
-| `tests/` `run_tests.ps1` | 回归测试 |
-
-### 设计要点
-
-- **环境(Environment)**:每个作用域是一张变量表加父作用域指针;函数调用创建新环境,闭包 = 函数 + 定义时的环境
-- **控制流**:`break` / `continue` / `return` 通过 `exec` 的返回信号传递,不使用异常
-- **错误处理**:运行时错误通过 `longjmp` 跳回 `interp_run`,REPL 因此可以在出错后继续
-- **内存**:没被闭包捕获的作用域在离开时会释放;字符串和 AST 不回收(见下文限制)
-- **新增内置函数**:在对应的 `.c` 文件里写一个 C 函数,并在该文件的函数表里加一行(名字、参数个数、函数指针、usage、doc),`help` 会自动收录。要新增一个分组:新建 `stdlib_xxx.c` 导出 `NativeGroup`,在 `interp.h` 声明,并加入 `builtins.c` 的 `groups[]`
-
----
-
-## 测试
-
-`tests/` 下每个 `.l` 脚本配一个同名 `.out` 文件保存期望的标准输出。
-
-```
-.\run_tests.ps1            运行全部测试
-.\run_tests.ps1 -Update    用当前输出重新生成 .out(请先人工确认输出正确)
-```
-
-| 测试 | 内容 |
-|---|---|
-| `01_basic.l` | 算术、比较、逻辑、`if` / `while` / `for`、递归 |
-| `02_closure.l` | 闭包、作用域、高阶函数 |
-| `03_collections.l` | 数组、map、内置函数 |
-| `04_help.l` | help 系统 |
-| `05_stdlib_string.l` | 字符串与数组函数 |
-| `06_stdlib_math_time.l` | 数学与日期时间函数(固定时间戳,结果与时区无关) |
-
-新增特性时请同时加一个测试。
-
----
-
-## 已知限制
-
-- **已实现自动垃圾回收(Mark-Sweep GC)**: 字符串拼接、临时数组与 Map、闭包均自动回收并维护生命周期。
-- **字符串按字节处理**:`len("你好")` 是 6,`"你好"[0]` 取到的是单个字节;`substr` 同理,可能切断中文字符(`split(s, "")` 按字符拆则是安全的)
-- **`upper` / `lower` 只处理 ASCII 字母**
-- **时间函数按本地时区**,不支持指定时区;Windows 上 `make_time` 不支持 1970 年之前的日期
-- **map 用线性查找**:键很多时较慢
-- **语句开头不能直接写匿名函数调用**:`fn() {...}();` 不行,请写成 `let f = fn() {...}; f();`
-- **语法错误后**,已解析了一半的 AST 节点会泄漏(进程随后退出,无影响)
-- 没有模块系统、没有错误捕获(`try`)机制、没有面向对象
-
-## 后续计划
-
-- 标准库补充:按字符(而非字节)处理字符串的函数、`sort` 自定义比较函数、`map` / `filter` / `reduce`、`format` 字符串格式化
-- 垃圾回收(标记清除)
-- 字节码虚拟机,提升执行速度
-- 模块 `import`
+- 📘 **[《ESP32 固件编译与刷机指南》(`esp32/ESP32_GUIDE.md`)](esp32/ESP32_GUIDE.md)**
+- 🌐 **[ESP32 网页免安装刷机与串口工作台 (`esp32/web_flasher.html`)](esp32/web_flasher.html)**
+- 📐 **[L 语言完整 EBNF 语法规范 (`L_EBNF.md`)](L_EBNF.md)**
+- 🛠️ **[ESP32 嵌入式架构设计与演进路线 (`改进.md`)](改进.md)**
+- 📦 **[安装包打包与构建说明 (`INSTALL.md`)](INSTALL.md)**
