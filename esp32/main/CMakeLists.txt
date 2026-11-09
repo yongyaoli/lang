@@ -14,7 +14,7 @@ idf_component_register(
         "${LANG_ROOT}/builtins.c"
         "${LANG_ROOT}/stdlib/hal.c"
         "${LANG_ROOT}/stdlib/hw.c"
-        "${LANG_ROOT}/stdlib/string.c"
+        "${LANG_ROOT}/stdlib/str.c"
         "${LANG_ROOT}/stdlib/math.c"
         "${LANG_ROOT}/stdlib/time.c"
         "${LANG_ROOT}/stdlib/io.c"
