@@ -3,6 +3,7 @@ name: Build ESP32 Firmware (Cloud Zero-Install)
 on:
   push:
     branches: [ "main", "master" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
@@ -44,3 +45,40 @@ jobs:
           name: l-firmware-${{ matrix.target }}
           path: esp32/build/l-${{ matrix.target }}-merged.bin
           retention-days: 90
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build-esp32-firmware
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all firmware artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Inspect firmware files
+        run: |
+          echo "=== 待发布的固件列表 ==="
+          ls -lh release-assets/
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME 已存在, 上传/覆盖固件资产..."
+            gh release upload "$TAG_NAME" release-assets/*.bin --clobber
+          else
+            echo "创建新 Release $TAG_NAME 并上传固件资产..."
+            gh release create "$TAG_NAME" release-assets/*.bin \
+              --title "L 语言 ESP32 固件 $TAG_NAME" \
+              --generate-notes
+          fi
