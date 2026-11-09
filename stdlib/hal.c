@@ -759,56 +759,84 @@ static HANDLE open_win_serial(const char *port, int baud, char *err_buf, size_t 
 
 int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
                         char *err_buf, size_t err_cap) {
-    uint32_t crc = l_hal_crc32(src, len);
-    /* 支持 "sim" / "loopback" 本地离线模拟演练烧录 (无需连接真机也可完整测试烧录协议与校验) */
+    if (len == 0 || !src) {
+        snprintf(err_buf, err_cap, "脚本内容为空");
+        return -1;
+    }
+
+    /* 1. 规范化换行符为 '\n' (消除 Windows \r\n 传输中被截断或改变体积的问题) */
+    char *clean_src = (char *)malloc(len + 1);
+    size_t clean_len = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (src[i] != '\r') {
+            clean_src[clean_len++] = src[i];
+        }
+    }
+    clean_src[clean_len] = '\0';
+    uint32_t crc = l_hal_crc32(clean_src, clean_len);
+
+    /* 支持 "sim" / "loopback" 本地离线模拟演练烧录 */
     if (strcmp(port, "sim") == 0 || strcmp(port, "SIM") == 0 || strcmp(port, "loopback") == 0) {
-        LFlashStatus st = l_hal_flash_write_script(src, len, 1u);
+        LFlashStatus st = l_hal_flash_write_script(clean_src, clean_len, 1u);
+        free(clean_src);
         if (st != L_FLASH_OK) {
             snprintf(err_buf, err_cap, "写入模拟 Flash 分区 l_script 失败(状态码 %d)", (int)st);
             return -1;
         }
         printf("[upload:sim] 已向裸分区 %s 烧录 %zu 字节, CRC32=0x%08X (校验通过)\n",
-               L_FLASH_PART_NAME, len, (unsigned)crc);
-        return 1; /* 返回 1 表示模拟烧录成功, 调用方可立即触发 flash_exec */
+               L_FLASH_PART_NAME, clean_len, (unsigned)crc);
+        return 1;
     }
 
 #if defined(_WIN32) && !L_PLATFORM_ESP_IDF
     HANDLE h = open_win_serial(port, baud, err_buf, err_cap);
-    if (h == INVALID_HANDLE_VALUE) return -1;
+    if (h == INVALID_HANDLE_VALUE) {
+        free(clean_src);
+        return -1;
+    }
 
     printf("[upload] 已连接 %s (%d bps), 准备烧录 %zu 字节 (CRC32=0x%08X)...\n",
-           port, baud, len, (unsigned)crc);
+           port, baud, clean_len, (unsigned)crc);
 
-    /* 1. 发送烧录帧起始命令 */
+    /* 2. 清空串口并发送一个 Ctrl+C，确保 ESP32 从任何死循环中退出到提示符 */
+    PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR);
+    DWORD written = 0;
+    WriteFile(h, "\x03\r\n", 3, &written, NULL);
+    Sleep(80);
+    PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR);
+
+    /* 3. 发送烧录帧起始命令 */
     char hdr_cmd[128];
     int hdr_len = snprintf(hdr_cmd, sizeof hdr_cmd,
-                           "\r\n__L_UPLOAD_BEGIN__ %zu 0x%08X 1\r\n", len, (unsigned)crc);
-    DWORD written = 0;
+                           "__L_UPLOAD_BEGIN__ %zu 0x%08X 1\r\n", clean_len, (unsigned)crc);
     WriteFile(h, hdr_cmd, (DWORD)hdr_len, &written, NULL);
-    Sleep(80);
+    Sleep(60);
 
-    /* 2. 分块发送脚本源码 */
+    /* 4. 分块发送脚本源码: 每块 64 字节，休眠 6ms，确保 MCU 串口硬件接收绝不丢包 */
     size_t sent = 0;
-    while (sent < len) {
-        size_t chunk = (len - sent > 256) ? 256 : (len - sent);
+    while (sent < clean_len) {
+        size_t chunk = (clean_len - sent > 64) ? 64 : (clean_len - sent);
         DWORD w = 0;
-        if (!WriteFile(h, src + sent, (DWORD)chunk, &w, NULL) || w == 0) {
+        if (!WriteFile(h, clean_src + sent, (DWORD)chunk, &w, NULL) || w == 0) {
             CloseHandle(h);
-            snprintf(err_buf, err_cap, "串口发送中断 (已发 %zu/%zu 字节)", sent, len);
+            free(clean_src);
+            snprintf(err_buf, err_cap, "串口发送中断 (已发 %zu/%zu 字节)", sent, clean_len);
             return -1;
         }
         sent += (size_t)w;
-        Sleep(5);
+        Sleep(6);
     }
+    free(clean_src);
 
-    /* 3. 发送烧录结束标记并读取设备响应 */
+    /* 5. 发送烧录结束标记回车换行 */
     const char *end_cmd = "\r\n__L_UPLOAD_END__\r\n";
     WriteFile(h, end_cmd, (DWORD)strlen(end_cmd), &written, NULL);
 
+    /* 6. 循环读取板子响应 (等待 __L_UPLOAD_OK__ 或 __L_UPLOAD_ERR__) */
     char rx_buf[2048];
     size_t rx_total = 0;
     int ok = 0;
-    for (int tick = 0; tick < 60; tick++) { /* 最多等待约 1.2 秒 */
+    for (int tick = 0; tick < 100; tick++) { /* 最多等待约 2 秒 */
         DWORD r = 0;
         if (ReadFile(h, rx_buf + rx_total, (DWORD)(sizeof(rx_buf) - 1 - rx_total), &r, NULL) && r > 0) {
             rx_total += (size_t)r;
@@ -823,16 +851,16 @@ int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
                 return -1;
             }
         }
-    }
-    if (rx_total > 0) {
-        printf("%s\n", rx_buf);
+        Sleep(20);
     }
     CloseHandle(h);
+
     if (!ok) {
-        printf("[upload] 已发送完毕 (%zu 字节)。若板子未响应 __L_UPLOAD_OK__, 请确认板子已刷入 L 语言 ESP32 固件。\n", len);
-    } else {
-        printf("[upload] ESP32 端确认烧录并校验成功!\n");
+        snprintf(err_buf, err_cap, "ESP32 端响应超时 (未收到 __L_UPLOAD_OK__)，请确认固件已升级至最新版本");
+        return -1;
     }
+
+    printf("[upload] 烧录成功! ESP32 已校验 CRC32 并热重载执行脚本。\n");
     return 0;
 #else
     (void)baud;
