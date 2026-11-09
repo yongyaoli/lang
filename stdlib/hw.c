@@ -6,6 +6,7 @@
 
 #include "../interp.h"
 #include "../l_hal.h"
+#include "../version.h"
 
 #if L_WITH_STDLIB_HW
 
@@ -282,8 +283,55 @@ static Value m_esp_info(Interp *in, const Node *at, Value self, int argc, Value 
     map_put_val(in, m, "free_heap", m_esp_free_heap(in, at, self, argc, argv));
     map_put_val(in, m, "idf", m_esp_version(in, at, self, argc, argv));
     map_put_val(in, m, "mac", m_esp_mac(in, at, self, argc, argv));
+    int wifi_conn = l_hal_wifi_is_connected();
+    map_put_bool(in, m, "wifi_connected", wifi_conn);
+    char ip_buf[32] = {0};
+    if (wifi_conn && l_hal_wifi_get_ip(ip_buf, sizeof ip_buf) == 0) {
+        map_put_cstr(in, m, "ip", ip_buf);
+        map_put_cstr(in, m, "wifi_ip", ip_buf);
+    } else {
+        map_put_cstr(in, m, "ip", NULL);
+        map_put_cstr(in, m, "wifi_ip", NULL);
+    }
     gc_pop_roots(in, 1);
     return mv;
+}
+
+static Value m_esp_status(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)self; (void)argc; (void)argv;
+    const ChipSpec *sp = &chip_specs[cur_chip];
+    char mac[32] = {0};
+    l_hal_wifi_get_mac(mac, sizeof mac);
+    int connected = l_hal_wifi_is_connected();
+    char ip[32] = {0};
+    if (connected) {
+        l_hal_wifi_get_ip(ip, sizeof ip);
+    }
+    LScriptHeader hdr;
+    size_t part_sz = 0;
+    LFlashStatus st = l_hal_flash_info(&hdr, &part_sz);
+
+    printf("====================================================\n");
+    printf("  ESP32 系统状态与网络信息概览\n");
+    printf("====================================================\n");
+    printf("  [硬件规格]\n");
+    printf("    芯片型号:      %s (%s)\n", sp->name, sp->arch);
+    printf("    CPU 核心/主频: %d 核, %d MHz\n", sp->cores, l_hal_get_cpu_mhz());
+    printf("    SRAM / 堆内存: %d KB / 剩余 %d 字节\n", sp->sram_kb, (int)l_hal_free_heap(0, 0));
+    printf("    固件 / IDF:    L %s (%s)\n", L_VERSION, l_hal_idf_version());
+    printf("\n  [无线网络 (WiFi)]\n");
+    printf("    物理 MAC:      %s\n", mac[0] ? mac : "00:00:00:00:00:00");
+    printf("    连接状态:      %s\n", connected ? "已连接 (Connected)" : "未连接 (Disconnected)");
+    printf("    局域网 IP:     %s\n", (connected && ip[0]) ? ip : "-");
+    printf("\n  [裸 Flash 存储 (l_script)]\n");
+    printf("    分区容量:      %d KB\n", (int)(part_sz / 1024));
+    printf("    脚本状态:      %s\n", st == L_FLASH_OK ? "有效 (CRC32 校验通过)" : (st == L_FLASH_EMPTY ? "空 (未烧录脚本)" : "损坏/错误"));
+    if (st == L_FLASH_OK) {
+        printf("    有效脚本长度:  %u 字节 (CRC32=0x%08X)\n", (unsigned)hdr.length, (unsigned)hdr.crc32);
+        printf("    上电自启标志:  %s\n", (hdr.flags & 1u) ? "已开启" : "未开启");
+    }
+    printf("====================================================\n");
+    return val_nil();
 }
 
 static Value m_esp_pin_info(Interp *in, const Node *at, Value self, int argc, Value *argv) {
@@ -576,6 +624,7 @@ static const ObjMethod esp32_methods[] = {
     {"model",       0, 0, m_esp_chip,        "ESP32.model()",                  "同 chip()"},
     {"set_chip",    1, 1, m_esp_set_chip,    "ESP32.set_chip(型号)",           "切换模拟的芯片型号及对应引脚约束"},
     {"version",     0, 0, m_esp_version,     "ESP32.version()",                "返回 ESP-IDF 框架版本"},
+    {"status",      0, 0, m_esp_status,      "ESP32.status()",                 "输出完整的 ESP32 系统状态与 WiFi/IP/Flash 看板"},
     {"info",        0, 0, m_esp_info,        "ESP32.info()",                   "返回芯片完整硬件信息字典(核心数/主频/SRAM/Flash/MAC等)"},
     {"config",      0, 0, m_esp_config,      "ESP32.config()",                 "返回当前 HAL 平台与模块裁剪配置字典"},
     {"pins",        0, 0, m_esp_pins,        "ESP32.pins()",                   "返回可用引脚分类及默认 I2C/SPI/UART 引脚映射"},

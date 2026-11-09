@@ -93,7 +93,7 @@ void app_main(void) {
 
     printf("\n================================================\n");
     printf("  L 语言 ESP32 固件 %s (%s)\n", L_VERSION, l_hal_idf_version());
-    printf("  输入 help() 查看帮助, 输入 ESP32.pinout() 查看引脚表\n");
+    printf("  输入 help() 查看帮助, 输入 ESP32.status() 查看系统与网络状态\n");
     printf("================================================\n");
 
     /* 1. 检查 l_script 裸 Flash 分区是否存在有效脚本, 有则自动执行 */
