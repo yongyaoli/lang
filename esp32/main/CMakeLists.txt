@@ -1,6 +1,6 @@
 # L 语言 ESP-IDF 主组件 CMakeLists.txt
-# 使用 CMAKE_CURRENT_LIST_DIR 将父目录源码解析为绝对路径, 避免 Ninja 在 Docker/Linux 下出现路径寻址失败
-set(LANG_ROOT "${CMAKE_CURRENT_LIST_DIR}/../..")
+# 使用 get_filename_component 规范化解析出仓库根目录绝对路径
+get_filename_component(LANG_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 
 idf_component_register(
     SRCS
