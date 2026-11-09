@@ -1,4 +1,5 @@
 # L 语言 ESP-IDF 主组件 CMakeLists.txt
+# 注意: main 组件不显式指定 REQUIRES, 以便 ESP-IDF 自动引入全部系统/驱动组件
 idf_component_register(
     SRCS
         "app_main.c"
@@ -18,11 +19,11 @@ idf_component_register(
         "../../stdlib/sys.c"
     INCLUDE_DIRS
         "../.."
-    REQUIRES
-        driver
-        esp_timer
-        esp_partition
-        esp_hw_support
-        efuse
-        vfs
+)
+
+target_compile_options(${COMPONENT_LIB} PRIVATE
+    -Wno-error
+    -Wno-unused-function
+    -Wno-unused-parameter
+    -Wno-format-truncation
 )

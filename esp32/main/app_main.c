@@ -1,5 +1,5 @@
-/* L 语言 ESP32 固件入口 (基于 ESP-IDF):
- * 1. 上电自动校验并零拷贝运行 l_script 裸 Flash 分区中的脚本
+/* L 语言 ESP32 固件入口 (基于 ESP-IDF v5.x):
+ * 1. 上电自动校验并运行 l_script 裸 Flash 分区中的脚本
  * 2. 提供 UART0 / USB Serial 实时交互终端 (REPL)
  * 3. 支持电脑端 `l -u COM3 main.l` 或 REPL 内 `upload("COM3", "main.l")` 秒级烧录更新 */
 #include <stdio.h>
@@ -10,13 +10,6 @@
 #include "l_hal.h"
 #include "parser.h"
 #include "version.h"
-
-#ifdef ESP_PLATFORM
-#  include "driver/uart.h"
-#  include "esp_vfs_dev.h"
-#  include "freertos/FreeRTOS.h"
-#  include "freertos/task.h"
-#endif
 
 /* 解释器实例放在静态 BSS 段, 避免占用 FreeRTOS 任务栈 */
 static Interp s_interp;
@@ -60,7 +53,9 @@ static void handle_serial_upload(const char *header_line) {
 
     /* 吸收结尾的 __L_UPLOAD_END__ 行 */
     char tail[64];
-    fgets(tail, sizeof tail, stdin);
+    if (fgets(tail, sizeof tail, stdin) == NULL) {
+        tail[0] = '\0';
+    }
 
     uint32_t actual_crc = l_hal_crc32(buf, exp_len);
     if (actual_crc != (uint32_t)exp_crc) {
@@ -78,16 +73,11 @@ static void handle_serial_upload(const char *header_line) {
     }
 
     printf("__L_UPLOAD_OK__ %lu bytes written (CRC32=0x%08X)\n", exp_len, (unsigned)actual_crc);
-    /* 烧录成功后立即从 Flash 映射区零拷贝运行新脚本 */
+    /* 烧录成功后立即运行新脚本 */
     exec_snippet("ESP32.flash_exec();", "<boot>", 0);
 }
 
 void app_main(void) {
-#ifdef ESP_PLATFORM
-    /* 配置 UART0 标准输入输出为行缓冲/无缓冲以支持交互 REPL */
-    uart_driver_install(UART_NUM_0, 2048, 0, 0, NULL, 0);
-    esp_vfs_dev_uart_use_driver(UART_NUM_0);
-#endif
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
 

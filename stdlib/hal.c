@@ -14,6 +14,7 @@
 #  include "driver/i2c.h"
 #  include "driver/spi_master.h"
 #  include "driver/uart.h"
+#  include "esp_idf_version.h"
 #  include "esp_timer.h"
 #  include "esp_system.h"
 #  include "esp_mac.h"
@@ -492,8 +493,7 @@ void l_hal_uart_sim_input(int port, const uint8_t *data, size_t len) {
 
 #if L_PLATFORM_ESP_IDF
 static const esp_partition_t *s_script_part = NULL;
-static esp_partition_mmap_handle_t s_mmap_handle = 0;
-static const void *s_mmap_ptr = NULL;
+static char *s_esp_script_buf = NULL;
 
 static const esp_partition_t *get_script_part(void) {
     if (!s_script_part) {
@@ -548,9 +548,9 @@ LFlashStatus l_hal_flash_erase_script(void) {
 #if L_PLATFORM_ESP_IDF
     const esp_partition_t *part = get_script_part();
     if (!part) return L_FLASH_ERR_PART;
-    if (s_mmap_ptr) {
-        esp_partition_munmap(s_mmap_handle);
-        s_mmap_ptr = NULL;
+    if (s_esp_script_buf) {
+        free(s_esp_script_buf);
+        s_esp_script_buf = NULL;
     }
     return (esp_partition_erase_range(part, 0, part->size) == ESP_OK) ? L_FLASH_OK : L_FLASH_ERR_IO;
 #else
@@ -570,9 +570,9 @@ LFlashStatus l_hal_flash_write_script(const char *src, size_t len, uint32_t flag
 #if L_PLATFORM_ESP_IDF
     const esp_partition_t *part = get_script_part();
     if (!part || sizeof(LScriptHeader) + len + 1 > part->size) return L_FLASH_ERR_PART;
-    if (s_mmap_ptr) {
-        esp_partition_munmap(s_mmap_handle);
-        s_mmap_ptr = NULL;
+    if (s_esp_script_buf) {
+        free(s_esp_script_buf);
+        s_esp_script_buf = NULL;
     }
     size_t erase_sz = (sizeof(LScriptHeader) + len + 1 + 4095) & ~(size_t)4095;
     if (erase_sz > part->size) erase_sz = part->size;
@@ -601,30 +601,43 @@ const char *l_hal_flash_read_script(size_t *out_len, LFlashStatus *out_status) {
         if (out_status) *out_status = L_FLASH_ERR_PART;
         return NULL;
     }
-    if (!s_mmap_ptr) {
-        if (esp_partition_mmap(part, 0, part->size, ESP_PARTITION_MMAP_DATA, &s_mmap_ptr, &s_mmap_handle) != ESP_OK) {
-            if (out_status) *out_status = L_FLASH_ERR_IO;
-            return NULL;
-        }
+    LScriptHeader hdr;
+    if (esp_partition_read(part, 0, &hdr, sizeof hdr) != ESP_OK) {
+        if (out_status) *out_status = L_FLASH_ERR_IO;
+        return NULL;
     }
-    const LScriptHeader *hdr = (const LScriptHeader *)s_mmap_ptr;
-    if (hdr->magic != L_SCRIPT_MAGIC_SRC && hdr->magic != L_SCRIPT_MAGIC_BC) {
+    if (hdr.magic != L_SCRIPT_MAGIC_SRC && hdr.magic != L_SCRIPT_MAGIC_BC) {
         if (out_status) *out_status = L_FLASH_EMPTY;
         return NULL;
     }
-    if (sizeof(LScriptHeader) + hdr->length + 1 > part->size) {
+    if (sizeof(LScriptHeader) + hdr.length + 1 > part->size) {
         if (out_status) *out_status = L_FLASH_EMPTY;
         return NULL;
     }
-    const char *body = (const char *)s_mmap_ptr + sizeof(LScriptHeader);
-    uint32_t calc = l_hal_crc32(body, hdr->length);
-    if (calc != hdr->crc32) {
+    if (s_esp_script_buf) {
+        free(s_esp_script_buf);
+        s_esp_script_buf = NULL;
+    }
+    s_esp_script_buf = (char *)malloc(hdr.length + 1);
+    if (!s_esp_script_buf) {
+        if (out_status) *out_status = L_FLASH_ERR_IO;
+        return NULL;
+    }
+    if (esp_partition_read(part, sizeof(LScriptHeader), s_esp_script_buf, hdr.length) != ESP_OK) {
+        free(s_esp_script_buf);
+        s_esp_script_buf = NULL;
+        if (out_status) *out_status = L_FLASH_ERR_IO;
+        return NULL;
+    }
+    s_esp_script_buf[hdr.length] = '\0';
+    uint32_t calc = l_hal_crc32(s_esp_script_buf, hdr.length);
+    if (calc != hdr.crc32) {
         if (out_status) *out_status = L_FLASH_ERR_CRC;
         return NULL;
     }
-    if (out_len) *out_len = hdr->length;
+    if (out_len) *out_len = hdr.length;
     if (out_status) *out_status = L_FLASH_OK;
-    return body;
+    return s_esp_script_buf;
 #else
     ensure_sim_flash();
     LScriptHeader hdr;

@@ -7,12 +7,14 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+env:
+  # 启用 Node.js 24 运行时，消除 GitHub Actions Node 20 弃用警告
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-esp32-firmware:
     name: Build Firmware (${{ matrix.target }})
-    runs-on: ubuntu-latest
-    container:
-      image: espressif/idf:v5.3
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -25,17 +27,20 @@ jobs:
       - name: Build ESP-IDF firmware and merge into single .bin (offset 0x0)
         shell: bash
         run: |
-          . $IDF_PATH/export.sh
-          cd esp32
-          idf.py set-target ${{ matrix.target }}
-          idf.py build
-          cd build
-          esptool.py --chip ${{ matrix.target }} merge_bin \
-            -o l-${{ matrix.target }}-merged.bin \
-            --flash_mode dio \
-            --flash_size 4MB \
-            @flash_args
-          ls -lh l-${{ matrix.target }}-merged.bin
+          docker run --rm \
+            -v "${{ github.workspace }}:/project" \
+            -w /project/esp32 \
+            espressif/idf:v5.3 \
+            bash -e -c "
+              . /opt/esp/idf/export.sh
+              idf.py set-target ${{ matrix.target }}
+              idf.py build
+              cd build
+              esptool.py --chip ${{ matrix.target }} merge_bin \
+                -o l-${{ matrix.target }}-merged.bin \
+                @flash_args
+              ls -lh l-${{ matrix.target }}-merged.bin
+            "
 
       - name: Upload merged .bin artifact
         uses: actions/upload-artifact@v4
