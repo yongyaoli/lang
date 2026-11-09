@@ -43,6 +43,7 @@ int64_t     l_hal_ticks_us(void);
 void        l_hal_delay_ms(uint32_t ms);
 int32_t     l_hal_free_heap(size_t vm_allocated_bytes, int sram_kb);
 const char *l_hal_idf_version(void);
+int         l_hal_is_hardware(void);
 void        l_hal_get_mac(uint8_t mac[6], int chip_id);
 int         l_hal_get_cpu_mhz(void);
 void        l_hal_set_cpu_mhz(int mhz);
@@ -114,6 +115,7 @@ typedef struct {
 int  l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms);
 int  l_hal_wifi_disconnect(void);
 int  l_hal_wifi_is_connected(void);
+int  l_hal_wifi_get_ssid(char *buf, size_t max_len);
 int  l_hal_wifi_get_ip(char *buf, size_t max_len);
 int  l_hal_wifi_get_mac(char *buf, size_t max_len);
 int  l_hal_wifi_start_ap(const char *ssid, const char *password);

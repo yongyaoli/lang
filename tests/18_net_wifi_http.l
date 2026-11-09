@@ -8,7 +8,12 @@ fn assert(cond, msg) {
 }
 
 print("--- 测试 1. WiFi 状态与网络属性 ---");
-assert(wifi_is_connected() == true, "PC 宿主默认处于连网状态");
+let conn_ok = wifi_connect("TestAP", "12345678");
+assert(conn_ok == true, "WiFi 连接应成功");
+assert(wifi_is_connected() == true, "WiFi 处于连网状态");
+let ssid = wifi_ssid();
+print("获取到当前 WiFi 名称:", ssid);
+assert(ssid == "TestAP", "WiFi 名称应为 TestAP");
 let ip = wifi_ip();
 print("获取到当前局域网 IP 状态:", ip != nil);
 assert(ip != nil and len(ip) > 6, "IP 地址格式有效");

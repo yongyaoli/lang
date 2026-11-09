@@ -1,28 +1,37 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "L",
+  "scopeName": "source.l",
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
     { "include": "#numbers" },
     { "include": "#keywords" },
+    { "include": "#function-declarations" },
+    { "include": "#variable-declarations" },
+    { "include": "#classes-and-types" },
+    { "include": "#function-calls" },
     { "include": "#operators" },
     { "include": "#constants" },
     { "include": "#builtins" },
-    { "include": "#types" },
-    { "include": "#functions" }
+    { "include": "#punctuation" }
   ],
   "repository": {
     "comments": {
       "patterns": [
         {
-          "name": "comment.line.double-slash.l",
-          "match": "//.*$"
+          "name": "comment.block.documentation.l",
+          "begin": "/\\*\\*",
+          "end": "\\*/"
         },
         {
           "name": "comment.block.l",
           "begin": "/\\*",
           "end": "\\*/"
+        },
+        {
+          "name": "comment.line.double-slash.l",
+          "match": "//.*$"
         }
       ]
     },
@@ -35,7 +44,18 @@
           "patterns": [
             {
               "name": "constant.character.escape.l",
-              "match": "\\\\([\"\\\\/bfnrt]|u[0-9a-fA-F]{4})"
+              "match": "\\\\([\"'\\\\/bfnrt]|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2})"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.l",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.l",
+              "match": "\\\\([\"'\\\\/bfnrt]|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2})"
             }
           ]
         }
@@ -48,6 +68,10 @@
           "match": "\\b0[xX][0-9a-fA-F]+\\b"
         },
         {
+          "name": "constant.numeric.binary.l",
+          "match": "\\b0[bB][01]+\\b"
+        },
+        {
           "name": "constant.numeric.float.l",
           "match": "\\b[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b"
         },
@@ -57,15 +81,71 @@
         }
       ]
     },
+    "function-declarations": {
+      "patterns": [
+        {
+          "match": "\\b(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.function.l" },
+            "2": { "name": "entity.name.function.l" }
+          }
+        }
+      ]
+    },
+    "variable-declarations": {
+      "patterns": [
+        {
+          "match": "\\b(var|let|const)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.variable.l" },
+            "2": { "name": "variable.other.declaration.l" }
+          }
+        }
+      ]
+    },
     "keywords": {
       "patterns": [
         {
           "name": "keyword.control.l",
-          "match": "\\b(if|else|while|for|return|try|catch|throw)\\b"
+          "match": "\\b(if|else|while|for|in|return|break|continue|try|catch|throw)\\b"
+        },
+        {
+          "name": "keyword.other.l",
+          "match": "\\b(import|as|from|export|global)\\b"
         },
         {
           "name": "storage.type.l",
-          "match": "\\b(let|const|fn|import|as)\\b"
+          "match": "\\b(fn|var|let|const|class)\\b"
+        }
+      ]
+    },
+    "classes-and-types": {
+      "patterns": [
+        {
+          "name": "entity.name.type.class.l",
+          "match": "\\b(ESP32|Pin|PWM|ADC|DAC|I2C|SPI|UART|WiFi|HTTP|SNTP|Math|Time|File|Sys|Net|Core|Hook|[A-Z][a-zA-Z0-9_]*)\\b"
+        }
+      ]
+    },
+    "function-calls": {
+      "patterns": [
+        {
+          "match": "(?<=\\.)([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": { "name": "entity.name.function.member.l" }
+          }
+        },
+        {
+          "match": "(?<=::)([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": { "name": "entity.name.function.member.l" }
+          }
+        },
+        {
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": { "name": "entity.name.function.l" }
+          }
         }
       ]
     },
@@ -73,15 +153,15 @@
       "patterns": [
         {
           "name": "keyword.operator.logical.l",
-          "match": "\\b(and|or|not)\\b"
+          "match": "(&&|\\|\\||!|\\b(and|or|not)\\b)"
         },
         {
           "name": "keyword.operator.comparison.l",
-          "match": "(==|!=|<=|>=|<|>)"
+          "match": "(===|==|!==|!=|<=|>=|<|>)"
         },
         {
           "name": "keyword.operator.assignment.l",
-          "match": "(=)"
+          "match": "(\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|>>=|<<=|=)"
         },
         {
           "name": "keyword.operator.arithmetic.l",
@@ -90,6 +170,10 @@
         {
           "name": "keyword.operator.bitwise.l",
           "match": "(&|\\||\\^|~|<<|>>)"
+        },
+        {
+          "name": "keyword.operator.arrow.l",
+          "match": "(->|=>)"
         }
       ]
     },
@@ -97,15 +181,7 @@
       "patterns": [
         {
           "name": "constant.language.l",
-          "match": "\\b(true|false|nil|null|PI|E)\\b"
-        }
-      ]
-    },
-    "types": {
-      "patterns": [
-        {
-          "name": "support.class.l",
-          "match": "\\b(ESP32|Pin|PWM|ADC|I2C|SPI|UART|WiFi|HTTP|bytes)\\b"
+          "match": "\\b(true|false|nil|null|nan|inf|PI|E)\\b"
         }
       ]
     },
@@ -113,17 +189,31 @@
       "patterns": [
         {
           "name": "support.function.builtin.l",
-          "match": "\\b(print|help|exit|quit|len|type|str|num|ports|upload|connect|pin|wifi_connect|wifi_disconnect|wifi_is_connected|wifi_ip|wifi_mac|wifi_ap|wifi_scan|http_get|http_post|sntp_sync|time|date|datetime|io_exists|io_remove|io_read_lines|io_append|io_size|io_isdir|io_mkdir|io_rmdir|io_rename|io_copy|io_listdir|io_join|io_basename|io_dirname|io_ext|sys_args|sys_platform|sys_version|sys_getenv|sys_setenv|sys_cwd|sys_chdir|sys_pid|sys_script|sys_exec|sys_gc_collect|sys_allocated)\\b"
+          "match": "\\b(print|println|printf|help|exit|quit|len|type|str|num|ports|upload|connect|pin|wifi_connect|wifi_disconnect|wifi_is_connected|wifi_ip|wifi_mac|wifi_ssid|wifi_ap|wifi_scan|http_get|http_post|sntp_sync|time|date|datetime|io_exists|io_remove|io_read_lines|io_append|io_size|io_isdir|io_mkdir|io_rmdir|io_rename|io_copy|io_listdir|io_join|io_basename|io_dirname|io_ext|sys_args|sys_platform|sys_version|sys_getenv|sys_setenv|sys_cwd|sys_chdir|sys_pid|sys_script|sys_exec|sys_gc_collect|sys_allocated)\\b"
         }
       ]
     },
-    "functions": {
+    "punctuation": {
       "patterns": [
         {
-          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()",
-          "captures": {
-            "1": { "name": "entity.name.function.l" }
-          }
+          "name": "punctuation.accessor.scope.l",
+          "match": "::"
+        },
+        {
+          "name": "punctuation.accessor.dot.l",
+          "match": "\\."
+        },
+        {
+          "name": "punctuation.separator.comma.l",
+          "match": ","
+        },
+        {
+          "name": "punctuation.terminator.statement.l",
+          "match": ";"
+        },
+        {
+          "name": "punctuation.bracket.l",
+          "match": "[\\(\\)\\[\\]\\{\\}]"
         }
       ]
     }

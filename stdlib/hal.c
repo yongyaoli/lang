@@ -123,6 +123,14 @@ const char *l_hal_idf_version(void) {
 #endif
 }
 
+int l_hal_is_hardware(void) {
+#if L_PLATFORM_ESP_IDF
+    return 1;
+#else
+    return 0;
+#endif
+}
+
 void l_hal_get_mac(uint8_t mac[6], int chip_id) {
 #if L_PLATFORM_ESP_IDF
     (void)chip_id;
@@ -993,6 +1001,20 @@ int l_hal_wifi_is_connected(void) {
     return s_wifi_connected;
 }
 
+int l_hal_wifi_get_ssid(char *buf, size_t max_len) {
+    if (!buf || max_len == 0) return -1;
+    buf[0] = '\0';
+    if (!s_wifi_connected) return -1;
+    wifi_config_t conf;
+    memset(&conf, 0, sizeof(conf));
+    if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK) {
+        strncpy(buf, (const char *)conf.sta.ssid, max_len - 1);
+        buf[max_len - 1] = '\0';
+        return 0;
+    }
+    return -1;
+}
+
 int l_hal_wifi_get_ip(char *buf, size_t max_len) {
     if (!buf || max_len == 0) return -1;
     if (s_wifi_connected && s_sta_ip_str[0]) {
@@ -1191,9 +1213,9 @@ int l_hal_sntp_sync(const char *ntp_server, int timeout_ms) {
 
 #else /* ================= PC 宿主端 (Windows / Linux) 网络与模拟实现 ================= */
 
-static int  s_sim_wifi_connected = 1; /* PC 宿主默认处于有网状态 */
-static char s_sim_wifi_ssid[33]  = "Host_WiFi_Sim";
-static char s_sim_wifi_ip[32]    = "192.168.1.100";
+static int  s_sim_wifi_connected = 0; /* 默认未连接 WiFi */
+static char s_sim_wifi_ssid[33]  = "";
+static char s_sim_wifi_ip[32]    = "";
 
 static void ensure_pc_host_ip(void) {
 #if defined(_WIN32)
@@ -1234,6 +1256,17 @@ int l_hal_wifi_disconnect(void) {
 
 int l_hal_wifi_is_connected(void) {
     return s_sim_wifi_connected;
+}
+
+int l_hal_wifi_get_ssid(char *buf, size_t max_len) {
+    if (!buf || max_len == 0) return -1;
+    if (!s_sim_wifi_connected || !s_sim_wifi_ssid[0]) {
+        buf[0] = '\0';
+        return -1;
+    }
+    strncpy(buf, s_sim_wifi_ssid, max_len - 1);
+    buf[max_len - 1] = '\0';
+    return 0;
 }
 
 int l_hal_wifi_get_ip(char *buf, size_t max_len) {

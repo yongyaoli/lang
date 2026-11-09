@@ -55,6 +55,16 @@ static Value f_wifi_is_connected(Interp *in, const Node *at, int argc, Value *ar
     return val_bool(l_hal_wifi_is_connected() != 0);
 }
 
+/* wifi_ssid(): 获取当前连接的 WiFi 名称 (SSID), 未连接返回 nil */
+static Value f_wifi_ssid(Interp *in, const Node *at, int argc, Value *argv) {
+    (void)at; (void)argc; (void)argv;
+    char ssid[64];
+    if (l_hal_wifi_is_connected() && l_hal_wifi_get_ssid(ssid, sizeof ssid) == 0 && ssid[0]) {
+        return val_str(str_new(in, ssid, strlen(ssid)));
+    }
+    return val_nil();
+}
+
 /* wifi_ip(): 获取当前局域网 IPv4 地址, 未连接返回 nil */
 static Value f_wifi_ip(Interp *in, const Node *at, int argc, Value *argv) {
     (void)at; (void)argc; (void)argv;
@@ -212,6 +222,7 @@ static const Native net_natives[] = {
     {"wifi_connect",      1, 3, f_wifi_connect,      "wifi_connect(ssid, [pwd], [timeout_ms])", "连接 WiFi 热点, 成功返回 true"},
     {"wifi_disconnect",   0, 0, f_wifi_disconnect,   "wifi_disconnect()",                      "断开当前 WiFi 连接"},
     {"wifi_is_connected",0, 0, f_wifi_is_connected, "wifi_is_connected()",                   "查询 WiFi 是否已连接并获取 IP"},
+    {"wifi_ssid",        0, 0, f_wifi_ssid,         "wifi_ssid()",                            "获取当前连接的 WiFi 名称(SSID), 未连接返回 nil"},
     {"wifi_ip",           0, 0, f_wifi_ip,           "wifi_ip()",                              "获取当前局域网 IP, 未连接返回 nil"},
     {"wifi_mac",          0, 0, f_wifi_mac,          "wifi_mac()",                             "获取 WiFi 硬件物理 MAC 地址"},
     {"wifi_ap",           1, 2, f_wifi_ap,           "wifi_ap(ssid, [pwd])",                   "开启 SoftAP 热点模式"},
