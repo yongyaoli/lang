@@ -25,6 +25,8 @@ idf_component_register(
 
 target_compile_options(${COMPONENT_LIB} PRIVATE
     -Wno-error
+    -Wno-error=format
+    -Wno-format
     -Wno-unused-function
     -Wno-unused-parameter
     -Wno-format-truncation

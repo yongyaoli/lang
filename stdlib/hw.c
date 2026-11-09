@@ -939,7 +939,7 @@ static const ObjMethod pwm_methods[] = {
 
 static void pwm_format(const NativeObj *obj, char *buf, size_t size) {
     snprintf(buf, size, "<PWM(pin=%d, freq=%dHz, duty=%d/1023)>",
-             obj->fields[0], obj->fields[1], obj->fields[2]);
+             (int)obj->fields[0], (int)obj->fields[1], (int)obj->fields[2]);
 }
 
 const ObjClass pwm_class = {
@@ -1026,10 +1026,10 @@ static const ObjMethod adc_methods[] = {
 };
 
 static void adc_format(const NativeObj *obj, char *buf, size_t size) {
-    int pin = obj->fields[0];
+    int pin = (int)obj->fields[0];
     int raw = l_hal_adc_read_raw(pin);
     snprintf(buf, size, "<ADC(pin=%d, raw=%d, mv=%d)>",
-             pin, raw, (raw * obj->fields[1]) / 4095);
+             pin, raw, (int)((raw * obj->fields[1]) / 4095));
 }
 
 const ObjClass adc_class = {
@@ -1145,7 +1145,7 @@ static const ObjMethod i2c_methods[] = {
 
 static void i2c_format(const NativeObj *obj, char *buf, size_t size) {
     snprintf(buf, size, "<I2C(bus=%d, sda=%d, scl=%d, freq=%dHz)>",
-             obj->fields[0], obj->fields[1], obj->fields[2], obj->fields[3]);
+             (int)obj->fields[0], (int)obj->fields[1], (int)obj->fields[2], (int)obj->fields[3]);
 }
 
 const ObjClass i2c_class = {
@@ -1209,7 +1209,7 @@ static const ObjMethod spi_methods[] = {
 
 static void spi_format(const NativeObj *obj, char *buf, size_t size) {
     snprintf(buf, size, "<SPI(bus=%d, sck=%d, mosi=%d, miso=%d)>",
-             obj->fields[0], obj->fields[1], obj->fields[2], obj->fields[3]);
+             (int)obj->fields[0], (int)obj->fields[1], (int)obj->fields[2], (int)obj->fields[3]);
 }
 
 const ObjClass spi_class = {
@@ -1290,7 +1290,7 @@ static const ObjMethod uart_methods[] = {
 
 static void uart_format(const NativeObj *obj, char *buf, size_t size) {
     snprintf(buf, size, "<UART(port=%d, baud=%d, tx=%d, rx=%d)>",
-             obj->fields[0], obj->fields[1], obj->fields[2], obj->fields[3]);
+             (int)obj->fields[0], (int)obj->fields[1], (int)obj->fields[2], (int)obj->fields[3]);
 }
 
 const ObjClass uart_class = {
