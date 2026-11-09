@@ -628,10 +628,30 @@ static Value m_esp_upload(Interp *in, const Node *at, Value self, int argc, Valu
 static Value f_connect(Interp *in, const Node *at, int argc, Value *argv) {
     need_arg(in, at, "connect", argv, 0, V_STR, "string");
     const char *port = val_get_cstr(argv[0]);
-    int baud = (argc >= 2) ? int_arg(in, at, "connect", argv, 1) : 115200;
+    int baud = 115200;
+    const char *code = NULL;
+
+    if (argc >= 2) {
+        if (argv[1].type == V_STR) {
+            code = val_get_cstr(argv[1]);
+            if (argc >= 3) baud = int_arg(in, at, "connect", argv, 2);
+        } else {
+            baud = int_arg(in, at, "connect", argv, 1);
+            if (argc >= 3 && argv[2].type == V_STR) {
+                code = val_get_cstr(argv[2]);
+            }
+        }
+    }
+
     char err_buf[256] = {0};
-    if (l_hal_serial_monitor(port, baud, err_buf, sizeof err_buf) < 0) {
-        rt_error(in, at, "connect() 连接失败: %s", err_buf);
+    if (code) {
+        if (l_hal_serial_exec(port, baud, code, err_buf, sizeof err_buf) < 0) {
+            rt_error(in, at, "connect() 远程执行失败: %s", err_buf);
+        }
+    } else {
+        if (l_hal_serial_monitor(port, baud, err_buf, sizeof err_buf) < 0) {
+            rt_error(in, at, "connect() 连接失败: %s", err_buf);
+        }
     }
     return val_bool(1);
 }
@@ -665,7 +685,7 @@ static const ObjMethod esp32_methods[] = {
     {"flash_info",  0, 0, m_esp_flash_info,  "ESP32.flash_info()",             "查询裸 Flash 脚本分区状态 {partition, size, valid, status, length, crc32}"},
     {"ports",       0, 0, m_esp_ports,       "ESP32.ports()",                  "扫描并列出本机可用串口(如 [\"COM3\"])"},
     {"upload",      2, 3, m_esp_upload,      "ESP32.upload(串口,脚本,[波特率])","通过串口(或 \"sim\")将脚本文件烧录到 ESP32 的 l_script 分区"},
-    {"connect",     1, 2, m_esp_connect,     "ESP32.connect(串口,[波特率])",   "进入 ESP32 串口交互终端(按 Ctrl+] 或输入 .exit 退出)"},
+    {"connect",     1, 3, m_esp_connect,     "ESP32.connect(串口,[代码或波特率],[代码])", "进入 ESP32 串口交互终端，或直接远程发送执行代码"},
 };
 
 static void esp32_format(const NativeObj *obj, char *buf, size_t size) {
@@ -1413,7 +1433,7 @@ static const Native hw_natives[] = {
     {"UART",    0, 4, f_uart,    "UART([port=1], [baud=115200], [tx], [rx])",     "创建 UART 串口对象, 支持 .write() .read() .read_str() .any()"},
     {"ports",   0, 0, f_ports,   "ports()",                                       "扫描本机可用串口(如 [\"COM3\"])"},
     {"upload",  2, 3, f_upload,  "upload(串口, 脚本文件或代码, [波特率=115200])", "通过串口(或 \"sim\")将脚本烧录到 ESP32 的 l_script 分区"},
-    {"connect", 1, 2, f_connect, "connect(串口, [波特率=115200])",                "连接 ESP32 串口交互终端(按 Ctrl+] 或输入 .exit 退出)"},
+    {"connect", 1, 3, f_connect, "connect(串口, [代码或波特率], [代码])",            "连接 ESP32 串口交互终端，或直接远程发送执行代码"},
 };
 
 const NativeGroup group_hw = {

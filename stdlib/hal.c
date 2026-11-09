@@ -904,6 +904,57 @@ int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_c
 #endif
 }
 
+int l_hal_serial_exec(const char *port, int baud, const char *code, char *err_buf, size_t err_cap) {
+#if defined(_WIN32) && !L_PLATFORM_ESP_IDF
+    HANDLE h = open_win_serial(port, baud, err_buf, err_cap);
+    if (h == INVALID_HANDLE_VALUE) return -1;
+
+    /* 清空残留输入输出缓冲 */
+    PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR);
+
+    /* 激活 ESP32 终端 */
+    DWORD w = 0;
+    WriteFile(h, "\r\n", 2, &w, NULL);
+    Sleep(60);
+
+    /* 发送用户代码 */
+    size_t code_len = strlen(code);
+    WriteFile(h, code, (DWORD)code_len, &w, NULL);
+    WriteFile(h, "\r\n", 2, &w, NULL);
+
+    /* 接收回显并打印到控制台，等待命令执行完毕 */
+    char rx[256];
+    DWORD start_t = GetTickCount();
+    int got_data = 0;
+
+    while (GetTickCount() - start_t < 2500) {
+        DWORD r = 0;
+        if (ReadFile(h, rx, sizeof(rx) - 1, &r, NULL) && r > 0) {
+            rx[r] = '\0';
+            printf("%s", rx);
+            fflush(stdout);
+            got_data = 1;
+            /* 收到返回的 prompt 说明执行结束 */
+            if (strstr(rx, "esp32>>>") != NULL) {
+                break;
+            }
+        } else {
+            Sleep(10);
+            if (got_data && (GetTickCount() - start_t > 800)) {
+                break;
+            }
+        }
+    }
+    printf("\n");
+    CloseHandle(h);
+    return 0;
+#else
+    (void)port; (void)baud; (void)code;
+    snprintf(err_buf, err_cap, "当前平台不支持串口通信");
+    return -1;
+#endif
+}
+
 /* ================= 12. WiFi 网络与热点 HAL 实现 ================= */
 
 #if L_PLATFORM_ESP_IDF

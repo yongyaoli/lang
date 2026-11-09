@@ -105,6 +105,9 @@ int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
 /* 进入 ESP32 串口交互终端 (按 Ctrl+] 或输入 .exit 退出), 成功返回 0, 失败返回负数 */
 int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_cap);
 
+/* 通过串口向 ESP32 发送单条代码语句并接收回显输出, 成功返回 0, 失败返回负数 */
+int l_hal_serial_exec(const char *port, int baud, const char *code, char *err_buf, size_t err_cap);
+
 /* ================= 12. WiFi 网络与热点 HAL ================= */
 typedef struct {
     char    ssid[33];

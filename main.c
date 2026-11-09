@@ -222,6 +222,7 @@ static void repl(void) {
 static void print_usage(const char *prog) {
     printf("L 语言 %s\n\n用法:\n", L_VERSION);
     printf("  %s                          进入交互模式(REPL)\n", prog);
+    printf("  %s -e \"代码语句\"            直接在命令行执行指定的代码语句\n", prog);
     printf("  %s 脚本.l [参数...]          运行脚本文件(参数可用 sys_args() 读取)\n", prog);
     printf("  %s 脚本.lc [参数...]         直接加载并运行预编译致密字节码文件\n", prog);
     printf("  %s --vm 脚本.l              强制启用栈式虚拟机(VM)执行脚本\n", prog);
@@ -246,6 +247,22 @@ int main(int argc, char **argv) {
     if (argc == 2 && (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0)) {
         printf("L %s\n", L_VERSION);
         return 0;
+    }
+    if (argc >= 3 && strcmp(argv[1], "-e") == 0) {
+        const char *code = argv[2];
+        Interp in;
+        interp_init(&in);
+        in.current_file = "<cmd>";
+        int had_err = 0;
+        Node *prog = parse_program_file(code, "<cmd>", &had_err);
+        int rc = 0;
+        if (!had_err && prog) {
+            rc = interp_run(&in, prog, 1);
+        } else {
+            rc = 65;
+        }
+        interp_destroy(&in);
+        return rc;
     }
     if (argc >= 3 && strcmp(argv[1], "-c") == 0) {
         const char *src_file = argv[2];
