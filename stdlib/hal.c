@@ -810,9 +810,28 @@ int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
     int hdr_len = snprintf(hdr_cmd, sizeof hdr_cmd,
                            "__L_UPLOAD_BEGIN__ %zu 0x%08X 1\r\n", clean_len, (unsigned)crc);
     WriteFile(h, hdr_cmd, (DWORD)hdr_len, &written, NULL);
-    Sleep(60);
 
-    /* 4. 分块发送脚本源码: 每块 64 字节，休眠 6ms，确保 MCU 串口硬件接收绝不丢包 */
+    /* 4. 等待 ESP32 就绪握手 __L_UPLOAD_READY__ (最多等待 2 秒) */
+    char rx_buf[2048];
+    size_t rx_total = 0;
+    int ready = 0;
+    for (int tick = 0; tick < 100; tick++) {
+        DWORD r = 0;
+        if (ReadFile(h, rx_buf + rx_total, (DWORD)(sizeof(rx_buf) - 1 - rx_total), &r, NULL) && r > 0) {
+            rx_total += (size_t)r;
+            rx_buf[rx_total] = '\0';
+            if (strstr(rx_buf, "__L_UPLOAD_READY__")) {
+                ready = 1;
+                break;
+            }
+        }
+        Sleep(20);
+    }
+    if (!ready) {
+        Sleep(100);
+    }
+
+    /* 5. 分块发送脚本源码: 每块 64 字节，休眠 6ms，确保 MCU 串口硬件接收绝不丢包 */
     size_t sent = 0;
     while (sent < clean_len) {
         size_t chunk = (clean_len - sent > 64) ? 64 : (clean_len - sent);
@@ -828,15 +847,10 @@ int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
     }
     free(clean_src);
 
-    /* 5. 发送烧录结束标记回车换行 */
-    const char *end_cmd = "\r\n__L_UPLOAD_END__\r\n";
-    WriteFile(h, end_cmd, (DWORD)strlen(end_cmd), &written, NULL);
-
     /* 6. 循环读取板子响应 (等待 __L_UPLOAD_OK__ 或 __L_UPLOAD_ERR__) */
-    char rx_buf[2048];
-    size_t rx_total = 0;
+    rx_total = 0;
     int ok = 0;
-    for (int tick = 0; tick < 100; tick++) { /* 最多等待约 2 秒 */
+    for (int tick = 0; tick < 150; tick++) { /* 最多等待约 3 秒 */
         DWORD r = 0;
         if (ReadFile(h, rx_buf + rx_total, (DWORD)(sizeof(rx_buf) - 1 - rx_total), &r, NULL) && r > 0) {
             rx_total += (size_t)r;

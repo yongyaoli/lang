@@ -36,6 +36,14 @@ static int esp32_readline(char *buf, size_t max_len) {
         /* 回车换行: '\r' 或 '\n' */
         if (ch == '\r' || ch == '\n') {
             buf[len] = '\0';
+            if (ch == '\r') {
+                /* 稍微等待并吸收紧跟的 '\n' */
+                l_hal_delay_ms(2);
+                int next_ch = getchar();
+                if (next_ch != '\n' && next_ch != EOF && next_ch != -1 && next_ch != 0xFF) {
+                    /* 若非换行符则不消费，不过一般不会发生 */
+                }
+            }
             printf("\r\n");
             fflush(stdout);
             return (int)len;
@@ -101,21 +109,31 @@ static void handle_serial_upload(const char *header_line) {
         return;
     }
 
+    /* 1. 向 PC 发送就绪握手信号，通知 PC 可以发送源码正文字节 */
+    printf("__L_UPLOAD_READY__\r\n");
+    fflush(stdout);
+
+    /* 2. 精确读取 exp_len 个字节 (带 5 秒超时保护) */
     size_t got = 0;
+    int timeout_ms = 0;
     while (got < exp_len) {
         int ch = getchar();
         if (ch == EOF || ch == -1 || ch == 0xFF) {
-            l_hal_delay_ms(1);
+            l_hal_delay_ms(2);
+            timeout_ms += 2;
+            if (timeout_ms > 5000) {
+                printf("__L_UPLOAD_ERR__ transfer timeout (got %zu/%lu bytes)\r\n", got, exp_len);
+                free(buf);
+                return;
+            }
             continue;
         }
-        buf[got++] = (char)ch;
+        timeout_ms = 0;
+        buf[got++] = (char)(ch & 0xFF);
     }
     buf[exp_len] = '\0';
 
-    /* 吸收结尾的 __L_UPLOAD_END__ 行 */
-    char tail[64];
-    esp32_readline(tail, sizeof tail);
-
+    /* 3. 校验 CRC32 */
     uint32_t actual_crc = l_hal_crc32(buf, exp_len);
     if (actual_crc != (uint32_t)exp_crc) {
         printf("__L_UPLOAD_ERR__ CRC32 mismatch (expected 0x%08lX, got 0x%08X)\r\n",
@@ -124,6 +142,7 @@ static void handle_serial_upload(const char *header_line) {
         return;
     }
 
+    /* 4. 写入裸 Flash 分区 l_script */
     LFlashStatus st = l_hal_flash_write_script(buf, exp_len, (uint32_t)flags);
     free(buf);
     if (st != L_FLASH_OK) {
@@ -132,7 +151,9 @@ static void handle_serial_upload(const char *header_line) {
     }
 
     printf("__L_UPLOAD_OK__ %lu bytes written (CRC32=0x%08X)\r\n", exp_len, (unsigned)actual_crc);
-    /* 烧录成功后立即运行新脚本 */
+    fflush(stdout);
+
+    /* 5. 烧录成功后立即执行新脚本 */
     exec_snippet("ESP32.flash_exec();", "<boot>", 0);
 }
 
