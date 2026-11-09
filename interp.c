@@ -150,7 +150,7 @@ static int env_find_local_idx(Env *e, const char *name) {
     return -1;
 }
 
-static Value *env_find(Env *e, const char *name) {
+Value *env_find(Env *e, const char *name) {
     for (; e; e = e->parent) {
         int idx = env_find_local_idx(e, name);
         if (idx >= 0) return &e->vals[idx];

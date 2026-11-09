@@ -239,6 +239,13 @@ void builtins_install(Interp *in) {
     }
     env_define(in->globals, "PI", val_num(3.14159265358979323846));
     env_define(in->globals, "E", val_num(2.71828182845904523536));
+    /* 注册模块名变量, 允许用户在 REPL 中免引号直接输入 help(sys), help(io), help(math) 等 */
+    for (size_t g = 0; g < GROUP_COUNT; g++) {
+        const char *gname = groups[g]->name;
+        if (!env_find(in->globals, gname)) {
+            env_define(in->globals, gname, val_str(str_new(in, gname, strlen(gname))));
+        }
+    }
 #if L_WITH_STDLIB_HW
     hw_install_globals(in);
 #endif

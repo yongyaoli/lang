@@ -94,6 +94,9 @@ int interp_run(Interp *in, const Node *program, int echo);
 /* 在环境中定义变量(已存在则覆盖) */
 void env_define(Env *e, const char *name, Value v);
 
+/* 在环境中查找变量指针, 不存在返回 NULL */
+Value *env_find(Env *e, const char *name);
+
 /* 报告运行时错误并中止当前执行;内置函数也用它 */
 L_NORETURN void rt_error(Interp *in, const Node *at, const char *fmt, ...);
 
