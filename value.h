@@ -20,6 +20,8 @@ typedef struct Bytes Bytes;
 typedef struct Array Array;
 typedef struct Map Map;
 typedef struct Func Func;
+typedef struct Proto Proto;
+typedef struct Upvalue Upvalue;
 typedef struct Native Native;
 typedef struct NativeObj NativeObj;
 typedef struct ObjClass ObjClass;
@@ -68,11 +70,14 @@ struct Map {
     int count, cap;
 };
 
-/* 用户函数 = 函数声明节点 + 定义时所在的环境(闭包) */
+/* 用户函数 = 函数声明节点 (AST模式) 或编译字节码原型 (VM模式) + 闭包捕获 */
 struct Func {
     GcObj gc;
-    const Node *decl;
-    Env *closure;
+    const Node *decl;       /* AST 声明节点 (AST 模式) */
+    Proto *proto;           /* 编译字节码原型 (VM 模式) */
+    Env *closure;           /* 作用域环境指针 (兼容) */
+    Upvalue **upvalues;     /* 运行时捕获的 Upvalue 数组 (VM 模式) */
+    int upvalue_count;
 };
 
 /* 内置函数 */
@@ -122,10 +127,13 @@ int val_is_number(Value v);         /* int 或 float */
 Value val_whole(double d);          /* 整数值且在 int32 内 → int, 否则 float */
 double val_to_double(Value v);      /* int/float 统一转 double (调用前需确认 val_is_number) */
 Value val_str(Str *s);
+Str *str_new(Interp *in, const char *chars, size_t len);
 Value val_bytes(Bytes *b);
 Value val_array(Array *a);
 Value val_map(Map *m);
 Value val_obj(NativeObj *o);
+Value val_fn(Func *f);
+void  val_print(Value v);
 
 /* 获取字符串底层 C 字符串指针 */
 const char *val_get_cstr(Value v);
@@ -136,6 +144,7 @@ Bytes *bytes_new(Interp *in, size_t len, const uint8_t *init);
 Array *array_new(Interp *in);
 Map *map_new(Interp *in);
 Func *func_new(Interp *in, const Node *decl, Env *closure);
+Func *func_proto_new(Interp *in, Proto *proto);
 NativeObj *obj_new(Interp *in, const ObjClass *cls);
 
 void array_push(Array *a, Value v);

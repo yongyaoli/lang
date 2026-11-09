@@ -11,7 +11,9 @@ typedef enum {
     OBJ_FN,
     OBJ_ENV,
     OBJ_NATIVE,
-    OBJ_BYTES
+    OBJ_BYTES,
+    OBJ_PROTO,
+    OBJ_UPVALUE
 } ObjType;
 
 /* 所有堆对象的公共头部 */

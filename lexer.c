@@ -9,6 +9,13 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->cur = src;
     lx->line = 1;
     lx->col = 1;
+
+    /* 兼容跳过 UTF-8 BOM (0xEF, 0xBB, 0xBF) */
+    if (src && (unsigned char)src[0] == 0xEF &&
+               (unsigned char)src[1] == 0xBB &&
+               (unsigned char)src[2] == 0xBF) {
+        lx->cur += 3;
+    }
 }
 
 /* ---------- 字符辅助 ---------- */

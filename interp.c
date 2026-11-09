@@ -1,5 +1,7 @@
 /* 树遍历解释器:递归遍历 AST,按节点类型求值/执行 */
 #include "interp.h"
+#include "compiler.h"
+#include "vm.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -517,10 +519,76 @@ static int is_array_method(const char *m) {
     return 0;
 }
 
+Value interp_invoke_method(Interp *in, const Node *n, Value obj, const char *mname, int argc, Value *argv) {
+    Value argv_buf[16];
+    Value *full_argv = (argc + 2 <= 16) ? argv_buf : malloc(sizeof(Value) * (size_t)(argc + 2));
+    full_argv[0] = obj;
+    for (int i = 0; i < argc; i++) full_argv[i + 1] = argv[i];
+
+    Value r = val_nil();
+    if (obj.type == V_OBJ || obj.type == V_BYTES) {
+        const ObjClass *cls = (obj.type == V_BYTES) ? &bytes_class
+                            : (obj.as.obj ? obj.as.obj->cls : NULL);
+        const ObjMethod *found = NULL;
+        if (cls) {
+            for (size_t i = 0; i < cls->method_count; i++) {
+                if (strcmp(cls->methods[i].name, mname) == 0) {
+                    found = &cls->methods[i];
+                    break;
+                }
+            }
+        }
+        if (!found) {
+            if (full_argv != argv_buf) free(full_argv);
+            rt_error(in, n, "%s 对象没有方法 '%s'", type_name(obj), mname);
+        }
+        if (argc < found->min_args || (found->max_args >= 0 && argc > found->max_args)) {
+            if (full_argv != argv_buf) free(full_argv);
+            rt_error(in, n, "方法 %s.%s() 参数数量错误(传入 %d 个)", cls ? cls->name : "Object", mname, argc);
+        }
+        r = found->fn(in, n, obj, argc, full_argv + 1);
+    } else if (obj.type == V_MAP) {
+        Value *slot = map_get(obj.as.map, mname);
+        if (slot) {
+            r = call_value_ext(in, n, *slot, 1, obj, argc, full_argv + 1);
+        } else if (strcmp(mname, "len") == 0 && argc == 0) {
+            r = val_int(obj.as.map->count);
+        } else if (strcmp(mname, "keys") == 0 && argc == 0) {
+            const Native *nt = builtins_find_native("keys");
+            r = nt->fn(in, n, 1, full_argv);
+        } else if (strcmp(mname, "has") == 0 && argc == 1) {
+            need_arg(in, n, "map.has", full_argv + 1, 0, V_STR, "string");
+            r = val_bool(map_get(obj.as.map, val_get_cstr(full_argv[1])) != NULL);
+        } else if (strcmp(mname, "remove") == 0 && argc == 1) {
+            need_arg(in, n, "map.remove", full_argv + 1, 0, V_STR, "string");
+            r = val_bool(map_remove(obj.as.map, val_get_cstr(full_argv[1])));
+        } else {
+            if (full_argv != argv_buf) free(full_argv);
+            rt_error(in, n, "map 中不存在键或方法 '%s'", mname);
+        }
+    } else if ((obj.type == V_STR && is_str_method(mname)) ||
+               (obj.type == V_ARRAY && is_array_method(mname))) {
+        const Native *nt = builtins_find_native(mname);
+        if (!nt) {
+            if (full_argv != argv_buf) free(full_argv);
+            rt_error(in, n, "%s 类型没有方法 '%s'", type_name(obj), mname);
+        }
+        Value nv = val_nil();
+        nv.type = V_NATIVE;
+        nv.as.native = nt;
+        r = call_value(in, n, nv, argc + 1, full_argv);
+    } else {
+        if (full_argv != argv_buf) free(full_argv);
+        rt_error(in, n, "%s 类型没有方法 '%s'", type_name(obj), mname);
+    }
+
+    if (full_argv != argv_buf) free(full_argv);
+    return r;
+}
+
 static Value eval_call(Interp *in, const Node *n) {
     int argc = n->as.call.args.count;
     Value argv_buf[16];
-    /* 预留 argv[0] 放接收者 obj, 显式实参放在 argv[1..argc], 免二次拷贝与常规 malloc */
     Value *argv = (argc + 2 <= 16) ? argv_buf : malloc(sizeof(Value) * (size_t)(argc + 2));
 
     /* 方法调用形式: obj.method(args...) */
@@ -528,70 +596,12 @@ static Value eval_call(Interp *in, const Node *n) {
         const Node *mem = n->as.call.callee;
         const char *mname = mem->as.member.name;
         Value obj = eval(in, mem->as.member.obj);
-        argv[0] = obj;
         gc_push_root(in, obj);
         for (int i = 0; i < argc; i++) {
-            argv[i + 1] = eval(in, n->as.call.args.items[i]);
-            gc_push_root(in, argv[i + 1]);
+            argv[i] = eval(in, n->as.call.args.items[i]);
+            gc_push_root(in, argv[i]);
         }
-
-        Value r = val_nil();
-        if (obj.type == V_OBJ || obj.type == V_BYTES) {
-            const ObjClass *cls = (obj.type == V_BYTES) ? &bytes_class
-                                : (obj.as.obj ? obj.as.obj->cls : NULL);
-            const ObjMethod *found = NULL;
-            if (cls) {
-                for (size_t i = 0; i < cls->method_count; i++) {
-                    if (strcmp(cls->methods[i].name, mname) == 0) {
-                        found = &cls->methods[i];
-                        break;
-                    }
-                }
-            }
-            if (!found) {
-                if (argv != argv_buf) free(argv);
-                rt_error(in, n, "%s 对象没有方法 '%s'", type_name(obj), mname);
-            }
-            if (argc < found->min_args || (found->max_args >= 0 && argc > found->max_args)) {
-                if (argv != argv_buf) free(argv);
-                rt_error(in, n, "方法 %s.%s() 参数数量错误(传入 %d 个)", cls->name, mname, argc);
-            }
-            r = found->fn(in, n, obj, argc, argv + 1);
-        } else if (obj.type == V_MAP) {
-            Value *slot = map_get(obj.as.map, mname);
-            if (slot) {
-                r = call_value_ext(in, n, *slot, 1, obj, argc, argv + 1);
-            } else if (strcmp(mname, "len") == 0 && argc == 0) {
-                r = val_int(obj.as.map->count);
-            } else if (strcmp(mname, "keys") == 0 && argc == 0) {
-                const Native *nt = builtins_find_native("keys");
-                r = nt->fn(in, n, 1, argv);
-            } else if (strcmp(mname, "has") == 0 && argc == 1) {
-                need_arg(in, n, "map.has", argv + 1, 0, V_STR, "string");
-                r = val_bool(map_get(obj.as.map, val_get_cstr(argv[1])) != NULL);
-            } else if (strcmp(mname, "remove") == 0 && argc == 1) {
-                need_arg(in, n, "map.remove", argv + 1, 0, V_STR, "string");
-                r = val_bool(map_remove(obj.as.map, val_get_cstr(argv[1])));
-            } else {
-                if (argv != argv_buf) free(argv);
-                rt_error(in, n, "map 中不存在键或方法 '%s'", mname);
-            }
-        } else if ((obj.type == V_STR && is_str_method(mname)) ||
-                   (obj.type == V_ARRAY && is_array_method(mname))) {
-            const Native *nt = builtins_find_native(mname);
-            if (!nt) {
-                if (argv != argv_buf) free(argv);
-                rt_error(in, n, "%s 类型没有方法 '%s'", type_name(obj), mname);
-            }
-            Value nv = val_nil();
-            nv.type = V_NATIVE;
-            nv.as.native = nt;
-            r = call_value(in, n, nv, argc + 1, argv);
-        } else {
-            if (argv != argv_buf) free(argv);
-            rt_error(in, n, "%s 类型没有方法 '%s'", type_name(obj), mname);
-        }
-
+        Value r = interp_invoke_method(in, n, obj, mname, argc, argv);
         gc_pop_roots(in, argc + 1);
         if (argv != argv_buf) free(argv);
         return r;
@@ -1099,4 +1109,14 @@ int interp_run(Interp *in, const Node *program, int echo) {
             rt_error(in, stmt, "break / continue 只能出现在循环中");
     }
     return 0;
+}
+
+int interp_run_vm(Interp *in, const Node *program, int echo) {
+    in->env = in->globals;
+    Proto *proto = compile_to_proto(in, program, in->current_file, echo);
+    VM vm;
+    vm_init(&vm, in);
+    int res = vm_run_proto(&vm, proto, echo);
+    vm_free(&vm);
+    return res;
 }

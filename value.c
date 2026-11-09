@@ -1,4 +1,5 @@
 #include "value.h"
+#include "bytecode.h"
 #include "interp.h"
 
 #include <stdio.h>
@@ -74,7 +75,23 @@ Map *map_new(Interp *in) {
 Func *func_new(Interp *in, const Node *decl, Env *closure) {
     Func *f = (Func *)gc_alloc(in, sizeof(Func), OBJ_FN);
     f->decl = decl;
+    f->proto = NULL;
     f->closure = closure;
+    f->upvalues = NULL;
+    f->upvalue_count = 0;
+    return f;
+}
+
+Func *func_proto_new(Interp *in, Proto *proto) {
+    Func *f = (Func *)gc_alloc(in, sizeof(Func), OBJ_FN);
+    f->decl = NULL;
+    f->proto = proto;
+    f->closure = NULL;
+    f->upvalues = NULL;
+    f->upvalue_count = proto ? proto->upvalue_count : 0;
+    if (f->upvalue_count > 0) {
+        f->upvalues = calloc(f->upvalue_count, sizeof(Upvalue *));
+    }
     return f;
 }
 
@@ -133,6 +150,19 @@ int map_remove(Map *m, const char *key) {
         }
     }
     return 0;
+}
+
+Value val_fn(Func *f) {
+    Value v;
+    v.type = V_FN;
+    v.as.fn = f;
+    return v;
+}
+
+void val_print(Value v) {
+    char *s = value_to_string(v, 1);
+    fputs(s, stdout);
+    free(s);
 }
 
 /* ---------- 语义 ---------- */
@@ -257,7 +287,13 @@ static void write_value(SB *sb, Value v, int quoted, int depth) {
         break;
     case V_FN:
         sb_add(sb, "<fn ");
-        sb_add(sb, v.as.fn->decl->as.fn.name ? v.as.fn->decl->as.fn.name : "anonymous");
+        if (v.as.fn->decl && v.as.fn->decl->as.fn.name) {
+            sb_add(sb, v.as.fn->decl->as.fn.name);
+        } else if (v.as.fn->proto && v.as.fn->proto->name) {
+            sb_add(sb, v.as.fn->proto->name);
+        } else {
+            sb_add(sb, "anonymous");
+        }
         sb_add(sb, ">");
         break;
     case V_NATIVE:

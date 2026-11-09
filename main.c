@@ -12,9 +12,60 @@ __declspec(dllimport) int __stdcall SetConsoleOutputCP(unsigned int cp);
 #include "l_hal.h"
 #include "parser.h"
 #include "version.h"
+#include "compiler.h"
+#include "vm.h"
+
+static int ends_with(const char *str, const char *suffix) {
+    if (!str || !suffix) return 0;
+    size_t l1 = strlen(str);
+    size_t l2 = strlen(suffix);
+    if (l1 < l2) return 0;
+    return strcmp(str + l1 - l2, suffix) == 0;
+}
+
+static int run_bytecode_file(const char *path) {
+    Interp in;
+    interp_init(&in);
+    in.current_file = path;
+    Proto *proto = vm_load_proto_from_file(&in, path);
+    if (!proto) {
+        fprintf(stderr, "错误: 无法解析或读取字节码文件 '%s' (魔数或格式无效)\n", path);
+        interp_destroy(&in);
+        return 74;
+    }
+    VM vm;
+    vm_init(&vm, &in);
+    int res = vm_run_proto(&vm, proto, 0) ? 70 : 0;
+    vm_free(&vm);
+    interp_destroy(&in);
+    return res;
+}
+
+static int run_file_vm(const char *path) {
+    char *src = read_file_text(path);
+    if (!src) return 74;
+
+    int had_error = 0;
+    Node *prog = parse_program_file(src, path, &had_error);
+    if (had_error) {
+        free(src);
+        return 65;
+    }
+
+    Interp in;
+    interp_init(&in);
+    in.current_file = path;
+    int res = interp_run_vm(&in, prog, 0) ? 70 : 0;
+    interp_destroy(&in);
+    free(src);
+    return res;
+}
 
 /* 运行脚本文件。退出码:0 成功,65 语法错误,70 运行时错误 */
 static int run_file(const char *path) {
+    if (ends_with(path, ".lc")) {
+        return run_bytecode_file(path);
+    }
     char *src = read_file_text(path);
     if (!src) return 74;
 
@@ -172,6 +223,10 @@ static void print_usage(const char *prog) {
     printf("L 语言 %s\n\n用法:\n", L_VERSION);
     printf("  %s                          进入交互模式(REPL)\n", prog);
     printf("  %s 脚本.l [参数...]          运行脚本文件(参数可用 sys_args() 读取)\n", prog);
+    printf("  %s 脚本.lc [参数...]         直接加载并运行预编译致密字节码文件\n", prog);
+    printf("  %s --vm 脚本.l              强制启用栈式虚拟机(VM)执行脚本\n", prog);
+    printf("  %s -c 脚本.l [-o 产物.lc]    编译源码为紧凑二进制字节码文件(.lc)\n", prog);
+    printf("  %s -d, --disasm 脚本.l       反汇编并查看编译生成的单字节操作码序列\n", prog);
     printf("  %s -p, --ports              扫描并列出本机可用串口(如 COM3)\n", prog);
     printf("  %s -u, --upload 串口 脚本.l  将脚本通过串口烧录到 ESP32 裸分区并运行\n", prog);
     printf("  %s -s, --serial 串口 [波特率] 连接 ESP32 串口交互终端(默认 115200)\n", prog);
@@ -191,6 +246,64 @@ int main(int argc, char **argv) {
     if (argc == 2 && (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0)) {
         printf("L %s\n", L_VERSION);
         return 0;
+    }
+    if (argc >= 3 && strcmp(argv[1], "-c") == 0) {
+        const char *src_file = argv[2];
+        char out_buf[256];
+        const char *out_file = NULL;
+        if (argc >= 5 && strcmp(argv[3], "-o") == 0) {
+            out_file = argv[4];
+        } else {
+            snprintf(out_buf, sizeof out_buf, "%s", src_file);
+            char *dot = strrchr(out_buf, '.');
+            if (dot) strcpy(dot, ".lc");
+            else strcat(out_buf, ".lc");
+            out_file = out_buf;
+        }
+
+        char *src = read_file_text(src_file);
+        if (!src) return 74;
+        int had_err = 0;
+        Node *prog = parse_program_file(src, src_file, &had_err);
+        if (had_err) { free(src); return 65; }
+
+        Interp in;
+        interp_init(&in);
+        in.current_file = src_file;
+        Proto *proto = compile_to_proto(&in, prog, src_file, 0);
+        int inst_count = proto->chunk.count;
+        int rc = vm_dump_proto_to_file(proto, out_file);
+        interp_destroy(&in);
+        free(src);
+
+        if (rc != 0) {
+            fprintf(stderr, "错误: 写入字节码产物 '%s' 失败\n", out_file);
+            return 70;
+        }
+        printf("已成功编译为致密字节码: %s (%d 字节指令)\n", out_file, inst_count);
+        return 0;
+    }
+    if (argc >= 3 && (strcmp(argv[1], "-d") == 0 || strcmp(argv[1], "--disasm") == 0)) {
+        const char *src_file = argv[2];
+        char *src = read_file_text(src_file);
+        if (!src) return 74;
+        int had_err = 0;
+        Node *prog = parse_program_file(src, src_file, &had_err);
+        if (had_err) { free(src); return 65; }
+
+        Interp in;
+        interp_init(&in);
+        in.current_file = src_file;
+        Proto *proto = compile_to_proto(&in, prog, src_file, 0);
+        chunk_disassemble(&proto->chunk, src_file);
+        interp_destroy(&in);
+        free(src);
+        return 0;
+    }
+    if (argc >= 3 && strcmp(argv[1], "--vm") == 0) {
+        l_script_argc = argc - 2;
+        l_script_argv = argv + 2;
+        return run_file_vm(argv[2]);
     }
     if (argc == 2 && (strcmp(argv[1], "-p") == 0 || strcmp(argv[1], "--ports") == 0)) {
         char names[32][16];

@@ -90,6 +90,7 @@ Env *env_new(Interp *in, Env *parent);
 /* 执行一个 N_PROGRAM。echo=1(REPL)时,非 nil 的表达式语句会打印结果。
  * 返回 0 表示成功,1 表示发生运行时错误(已打印到 stderr)。 */
 int interp_run(Interp *in, const Node *program, int echo);
+int interp_run_vm(Interp *in, const Node *program, int echo);
 
 /* 在环境中定义变量(已存在则覆盖) */
 void env_define(Env *e, const char *name, Value v);
@@ -102,6 +103,9 @@ L_NORETURN void rt_error(Interp *in, const Node *at, const char *fmt, ...);
 
 /* 在 C 函数中调用语言函数 (用户闭包或内置函数) */
 Value interp_call(Interp *in, const Node *at, Value callee, int argc, Value *argv);
+
+/* 在对象上调用指定方法 */
+Value interp_invoke_method(Interp *in, const Node *at, Value obj, const char *mname, int argc, Value *argv);
 
 /* 直接解析并执行一段内存/Flash 映射中的源码字符串, 返回最后一个表达式的值 */
 Value interp_eval_source(Interp *in, const Node *call_site, const char *src, const char *virtual_file);

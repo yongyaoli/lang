@@ -2,6 +2,7 @@
 #include "gc.h"
 #include "interp.h"
 #include "value.h"
+#include "bytecode.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -120,6 +121,27 @@ static void mark_object(Interp *in, GcObj *obj) {
         if (f->closure) {
             mark_env(in, f->closure);
         }
+        if (f->proto) {
+            mark_object(in, (GcObj *)f->proto);
+        }
+        for (int i = 0; i < f->upvalue_count; i++) {
+            if (f->upvalues[i]) mark_object(in, (GcObj *)f->upvalues[i]);
+        }
+        break;
+    }
+    case OBJ_PROTO: {
+        Proto *p = (Proto *)obj;
+        for (int i = 0; i < p->chunk.const_count; i++) {
+            mark_value(in, p->chunk.constants[i]);
+        }
+        break;
+    }
+    case OBJ_UPVALUE: {
+        Upvalue *up = (Upvalue *)obj;
+        if (up->location) {
+            mark_value(in, *up->location);
+        }
+        mark_value(in, up->closed);
         break;
     }
     case OBJ_ENV:
@@ -176,8 +198,23 @@ static void free_object(Interp *in, GcObj *obj) {
         in->bytes_allocated -= sizeof(Map);
         break;
     }
-    case OBJ_FN:
+    case OBJ_FN: {
+        Func *f = (Func *)obj;
+        free(f->upvalues);
         in->bytes_allocated -= sizeof(Func);
+        break;
+    }
+    case OBJ_PROTO: {
+        Proto *p = (Proto *)obj;
+        free((void *)p->name);
+        free((void *)p->source_file);
+        chunk_free(&p->chunk);
+        free(p->upvalues);
+        in->bytes_allocated -= sizeof(Proto);
+        break;
+    }
+    case OBJ_UPVALUE:
+        in->bytes_allocated -= sizeof(Upvalue);
         break;
     case OBJ_ENV: {
         Env *e = (Env *)obj;

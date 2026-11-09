@@ -24,7 +24,7 @@ if (-not (Test-Path $distPath)) {
 Write-Host "`n[1/3] 正在编译 L 语言独立解释器核心 (l.exe)..." -ForegroundColor Yellow
 Push-Location $rootDir
 try {
-    & gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c stdlib/*.c main.c -lwininet -lws2_32 -static -o "$rootDir\l.exe"
+    & gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -lwininet -lws2_32 -static -o "$rootDir\l.exe"
     if ($LASTEXITCODE -ne 0) { throw "Windows 二进制编译失败！" }
 } finally {
     Pop-Location
@@ -93,6 +93,8 @@ $sourceFiles = @(
     "lexer.h", "lexer.c", "ast.h", "ast.c",
     "parser.h", "parser.c", "value.h", "value.c",
     "gc.h", "gc.c", "interp.h", "interp.c",
+    "bytecode.h", "bytecode.c", "compiler.h", "compiler.c",
+    "vm.h", "vm.c",
     "builtins.c", "main.c", "version.h",
     "l_config.h", "l_hal.h",
     "README.md", "INSTALL.md"
