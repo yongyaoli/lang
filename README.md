@@ -285,6 +285,20 @@ import "./utils/math_ext.l" as m;
 | **`UART([port=1], [baud=115200], [tx], [rx])`** | 方法：`.write(data)`、`.any()`、`.read([len])`、`.read_str()`、`.sim_input(data)` |
 | **`bytes(len \| array \| str)`** | 方法：`.len()`、`.hex([sep])`、`.to_str()`、`.to_array()`、`.fill(b)`、`.slice(s, [e])`、`.u16_be(off)`、`.u16_le(off)`、`.set_u16_be(off, v)`、`.set_u16_le(off, v)` |
 
+#### 3.3 无线网络与物联网 IoT (`WiFi` / `HTTP` / `SNTP`)
+| 函数 / API | 语法说明 | 返回与效果 |
+| :--- | :--- | :--- |
+| **`wifi_connect(ssid, [pwd], [timeout])`** | 连接 WiFi 热点（如 `wifi_connect("Home", "12345678")`） | 连网成功返回 `true`，失败返回 `false` |
+| **`wifi_disconnect()`** | 主动断开当前 WiFi 网络连接 | 返回 `true` |
+| **`wifi_is_connected()`** | 查询网卡是否处于连网且获取到 IP 状态 | 返回布尔值 `true` / `false` |
+| **`wifi_ip()`** | 获取当前局域网分配到的 IPv4 地址字符串 | 返回形如 `"192.168.1.105"`，未连接返回 `nil` |
+| **`wifi_mac()`** | 获取网卡物理硬件 MAC 地址 | 返回形如 `"24:0A:C4:B8:31:AA"` |
+| **`wifi_ap(ssid, [pwd])`** | 开启自身 SoftAP 热点模式（默认 IP `192.168.4.1`） | 成功返回 `true`，方便手机点对点免路由器配网 |
+| **`wifi_scan()`** | 扫描环境周围可用 WiFi 热点列表 | 返回数组：`[{ssid: "Home", rssi: -55, auth: "WPA2"}, ...]` |
+| **`http_get(url, [timeout_ms])`** | 发起 HTTP/HTTPS GET 网络请求 | 返回字典：`{status: 200, body: "...", ok: true}` |
+| **`http_post(url, [body], [hdr], [to])`** | 发起 HTTP/HTTPS POST 数据上报（物联网上云） | 返回字典：`{status: 200, body: "...", ok: true}` |
+| **`sntp_sync([ntp_server], [timeout])`** | 联网同步现实时间（全球高精度授时） | 成功返回 `true`，`time()` 与 `datetime()` 即可获取真实日期 |
+
 ---
 
 ## ESP32 固件编译与刷机详细步骤
@@ -364,11 +378,12 @@ lang/
 ├── stdlib/
 │   ├── hal.c                # HAL 实现 (ESP-IDF 真机驱动 + PC 硬件/裸Flash模拟 + 原生串口烧录)
 │   ├── hw.c                 # ESP32 基础功能类与 Pin/PWM/ADC/I2C/SPI/UART/bytes 实现
-│   ├── string.c             # 字符串与数组高阶方法标准库
+│   ├── str.c                # 字符串与数组高阶方法标准库
 │   ├── math.c               # 数学标准库
 │   ├── time.c               # 时间与日期标准库
 │   ├── io.c                 # 文件系统与路径标准库 (裸机可裁剪)
-│   └── sys.c                # 系统与进程标准库 (裸机可裁剪)
+│   ├── sys.c                # 系统与进程标准库 (裸机可裁剪)
+│   └── net.c                # 无线网络通信与 IoT (WiFi/HTTP/SNTP)
 ├── esp32/                   # ESP-IDF 固件工程与网页免安装工具箱
 │   ├── CMakeLists.txt
 │   ├── partitions.csv       # 含 64KB l_script 无文件系统裸脚本分区 (0x99)
@@ -377,7 +392,7 @@ lang/
 │   └── ESP32_GUIDE.md       # 《ESP32 固件编译与刷机指南》
 ├── .github/workflows/
 │   └── esp32-firmware.yml   # GitHub Actions 云端自动编译 ESP32/C3/S3 固件工作流
-├── tests/                   # 17 组自动化回归测试 (01_basic.l ~ 17_hal_flash_m4.l)
+├── tests/                   # 18 组自动化回归测试 (01_basic.l ~ 18_net_wifi_http.l)
 └── run_tests.ps1            # 回归测试运行脚本
 ```
 

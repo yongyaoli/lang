@@ -19,6 +19,7 @@ idf_component_register(
         "${LANG_ROOT}/stdlib/time.c"
         "${LANG_ROOT}/stdlib/io.c"
         "${LANG_ROOT}/stdlib/sys.c"
+        "${LANG_ROOT}/stdlib/net.c"
     INCLUDE_DIRS
         "${LANG_ROOT}"
 )

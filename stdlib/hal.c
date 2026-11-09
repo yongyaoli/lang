@@ -20,11 +20,21 @@
 #  include "esp_mac.h"
 #  include "esp_partition.h"
 #  include "esp_rom_sys.h"
+#  include "esp_wifi.h"
+#  include "esp_netif.h"
+#  include "esp_event.h"
+#  include "esp_http_client.h"
+#  include "esp_sntp.h"
+#  include "nvs_flash.h"
 #  include "freertos/FreeRTOS.h"
 #  include "freertos/task.h"
+#  include "freertos/event_groups.h"
 #elif defined(_WIN32)
 #  define WIN32_LEAN_AND_MEAN
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
 #  include <windows.h>
+#  include <wininet.h>
 #  include <conio.h>
 #else
 #  include <unistd.h>
@@ -882,3 +892,567 @@ int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_c
     return -1;
 #endif
 }
+
+/* ================= 12. WiFi 网络与热点 HAL 实现 ================= */
+
+#if L_PLATFORM_ESP_IDF
+
+static EventGroupHandle_t s_wifi_event_group = NULL;
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT      BIT1
+
+static esp_netif_t *s_sta_netif = NULL;
+static esp_netif_t *s_ap_netif  = NULL;
+static int          s_wifi_inited = 0;
+static int          s_wifi_connected = 0;
+static char         s_sta_ip_str[32] = {0};
+
+static void wifi_event_handler(void *arg, esp_event_base_t event_base,
+                               int32_t event_id, void *event_data) {
+    (void)arg;
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+        esp_wifi_connect();
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        s_wifi_connected = 0;
+        s_sta_ip_str[0] = '\0';
+        if (s_wifi_event_group) {
+            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+        }
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+        snprintf(s_sta_ip_str, sizeof(s_sta_ip_str), IPSTR, IP2STR(&event->ip_info.ip));
+        s_wifi_connected = 1;
+        if (s_wifi_event_group) {
+            xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        }
+    }
+}
+
+static void ensure_wifi_base_inited(void) {
+    if (!s_wifi_inited) {
+        esp_err_t ret = nvs_flash_init();
+        if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+            nvs_flash_erase();
+            nvs_flash_init();
+        }
+        esp_netif_init();
+        esp_event_loop_create_default();
+        s_wifi_event_group = xEventGroupCreate();
+
+        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+        esp_wifi_init(&cfg);
+
+        esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL);
+        esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL);
+
+        s_wifi_inited = 1;
+    }
+}
+
+int l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms) {
+    if (!ssid || !*ssid) return -1;
+    ensure_wifi_base_inited();
+
+    if (!s_sta_netif) {
+        s_sta_netif = esp_netif_create_default_wifi_sta();
+    }
+
+    wifi_config_t wifi_config;
+    memset(&wifi_config, 0, sizeof(wifi_config));
+    strncpy((char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid) - 1);
+    if (password) {
+        strncpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
+    }
+    wifi_config.sta.threshold.authmode = (password && *password) ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
+
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
+
+    esp_wifi_start();
+
+    int wait_ticks = (timeout_ms > 0 ? timeout_ms : 15000) / portTICK_PERIOD_MS;
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+                                          WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+                                          pdFALSE, pdFALSE, wait_ticks);
+
+    if (bits & WIFI_CONNECTED_BIT) {
+        return 0;
+    }
+    return -1;
+}
+
+int l_hal_wifi_disconnect(void) {
+    if (!s_wifi_inited) return 0;
+    s_wifi_connected = 0;
+    s_sta_ip_str[0] = '\0';
+    return (esp_wifi_disconnect() == ESP_OK) ? 0 : -1;
+}
+
+int l_hal_wifi_is_connected(void) {
+    return s_wifi_connected;
+}
+
+int l_hal_wifi_get_ip(char *buf, size_t max_len) {
+    if (!buf || max_len == 0) return -1;
+    if (s_wifi_connected && s_sta_ip_str[0]) {
+        strncpy(buf, s_sta_ip_str, max_len - 1);
+        buf[max_len - 1] = '\0';
+        return 0;
+    }
+    buf[0] = '\0';
+    return -1;
+}
+
+int l_hal_wifi_get_mac(char *buf, size_t max_len) {
+    if (!buf || max_len < 18) return -1;
+    uint8_t mac[6] = {0};
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    snprintf(buf, max_len, "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    return 0;
+}
+
+int l_hal_wifi_start_ap(const char *ssid, const char *password) {
+    if (!ssid || !*ssid) return -1;
+    ensure_wifi_base_inited();
+
+    if (!s_ap_netif) {
+        s_ap_netif = esp_netif_create_default_wifi_ap();
+    }
+
+    wifi_config_t wifi_config;
+    memset(&wifi_config, 0, sizeof(wifi_config));
+    strncpy((char *)wifi_config.ap.ssid, ssid, sizeof(wifi_config.ap.ssid) - 1);
+    wifi_config.ap.ssid_len = strlen(ssid);
+    if (password && strlen(password) >= 8) {
+        strncpy((char *)wifi_config.ap.password, password, sizeof(wifi_config.ap.password) - 1);
+        wifi_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
+    } else {
+        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+    }
+    wifi_config.ap.max_connection = 4;
+
+    esp_wifi_set_mode(WIFI_MODE_AP);
+    esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
+    return (esp_wifi_start() == ESP_OK) ? 0 : -1;
+}
+
+int l_hal_wifi_scan(LWifiApRecord *records, int max_records) {
+    if (!records || max_records <= 0) return 0;
+    ensure_wifi_base_inited();
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_start();
+
+    wifi_scan_config_t scan_cfg = {0};
+    if (esp_wifi_scan_start(&scan_cfg, true) != ESP_OK) return -1;
+
+    uint16_t ap_count = (uint16_t)max_records;
+    wifi_ap_record_t *ap_list = malloc(sizeof(wifi_ap_record_t) * max_records);
+    if (!ap_list) return -1;
+
+    if (esp_wifi_scan_get_ap_records(&ap_count, ap_list) != ESP_OK) {
+        free(ap_list);
+        return -1;
+    }
+
+    for (int i = 0; i < (int)ap_count; i++) {
+        strncpy(records[i].ssid, (char *)ap_list[i].ssid, sizeof(records[i].ssid) - 1);
+        records[i].ssid[sizeof(records[i].ssid) - 1] = '\0';
+        records[i].rssi = ap_list[i].rssi;
+        records[i].authmode = (uint8_t)ap_list[i].authmode;
+    }
+
+    free(ap_list);
+    return (int)ap_count;
+}
+
+/* ================= 13. HTTP 客户端与 SNTP 网络对时 HAL 实现 (ESP-IDF) ================= */
+
+typedef struct {
+    char   *buf;
+    size_t  len;
+    size_t  cap;
+} HttpRespBuffer;
+
+static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
+    HttpRespBuffer *resp = (HttpRespBuffer *)evt->user_data;
+    if (evt->event_id == HTTP_EVENT_ON_DATA) {
+        if (!esp_http_client_is_chunked_response(evt->client)) {
+            if (resp && evt->data && evt->data_len > 0) {
+                if (resp->len + evt->data_len + 1 > resp->cap) {
+                    size_t new_cap = (resp->len + evt->data_len + 1) * 2;
+                    char *new_buf = realloc(resp->buf, new_cap);
+                    if (new_buf) {
+                        resp->buf = new_buf;
+                        resp->cap = new_cap;
+                    }
+                }
+                if (resp->buf && resp->len + evt->data_len < resp->cap) {
+                    memcpy(resp->buf + resp->len, evt->data, evt->data_len);
+                    resp->len += evt->data_len;
+                    resp->buf[resp->len] = '\0';
+                }
+            }
+        }
+    }
+    return ESP_OK;
+}
+
+LHttpResponse l_hal_http_get(const char *url, const char *headers, int timeout_ms) {
+    (void)headers;
+    LHttpResponse res = {-1, NULL, 0, NULL};
+    HttpRespBuffer buf = {NULL, 0, 0};
+    buf.cap = 1024;
+    buf.buf = malloc(buf.cap);
+    if (buf.buf) buf.buf[0] = '\0';
+
+    esp_http_client_config_t config = {
+        .url = url,
+        .event_handler = _http_event_handler,
+        .user_data = &buf,
+        .timeout_ms = timeout_ms > 0 ? timeout_ms : 10000,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (!client) {
+        free(buf.buf);
+        res.err_msg = strdup("初始化 HTTP 客户端失败");
+        return res;
+    }
+
+    esp_err_t err = esp_http_client_perform(client);
+    if (err == ESP_OK) {
+        res.status_code = esp_http_client_get_status_code(client);
+        res.body = buf.buf;
+        res.body_len = buf.len;
+    } else {
+        free(buf.buf);
+        res.err_msg = strdup(esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+    return res;
+}
+
+LHttpResponse l_hal_http_post(const char *url, const char *data, size_t data_len, const char *headers, int timeout_ms) {
+    (void)headers;
+    LHttpResponse res = {-1, NULL, 0, NULL};
+    HttpRespBuffer buf = {NULL, 0, 0};
+    buf.cap = 1024;
+    buf.buf = malloc(buf.cap);
+    if (buf.buf) buf.buf[0] = '\0';
+
+    esp_http_client_config_t config = {
+        .url = url,
+        .event_handler = _http_event_handler,
+        .user_data = &buf,
+        .timeout_ms = timeout_ms > 0 ? timeout_ms : 10000,
+        .method = HTTP_METHOD_POST,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (!client) {
+        free(buf.buf);
+        res.err_msg = strdup("初始化 HTTP 客户端失败");
+        return res;
+    }
+
+    if (data && data_len > 0) {
+        esp_http_client_set_post_field(client, data, (int)data_len);
+    }
+
+    esp_err_t err = esp_http_client_perform(client);
+    if (err == ESP_OK) {
+        res.status_code = esp_http_client_get_status_code(client);
+        res.body = buf.buf;
+        res.body_len = buf.len;
+    } else {
+        free(buf.buf);
+        res.err_msg = strdup(esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+    return res;
+}
+
+int l_hal_sntp_sync(const char *ntp_server, int timeout_ms) {
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, (ntp_server && *ntp_server) ? ntp_server : "pool.ntp.org");
+    esp_sntp_init();
+
+    int waited_ms = 0;
+    int step_ms = 100;
+    int max_wait = timeout_ms > 0 ? timeout_ms : 10000;
+    while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && waited_ms < max_wait) {
+        vTaskDelay(step_ms / portTICK_PERIOD_MS);
+        waited_ms += step_ms;
+    }
+    return (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) ? 0 : -1;
+}
+
+#else /* ================= PC 宿主端 (Windows / Linux) 网络与模拟实现 ================= */
+
+static int  s_sim_wifi_connected = 1; /* PC 宿主默认处于有网状态 */
+static char s_sim_wifi_ssid[33]  = "Host_WiFi_Sim";
+static char s_sim_wifi_ip[32]    = "192.168.1.100";
+
+static void ensure_pc_host_ip(void) {
+#if defined(_WIN32)
+    static int s_wsa_inited = 0;
+    if (!s_wsa_inited) {
+        WSADATA wsa;
+        if (WSAStartup(MAKEWORD(2, 2), &wsa) == 0) {
+            s_wsa_inited = 1;
+        }
+    }
+    char hostname[256];
+    if (gethostname(hostname, sizeof(hostname)) == 0) {
+        struct hostent *he = gethostbyname(hostname);
+        if (he && he->h_addr_list && he->h_addr_list[0]) {
+            struct in_addr addr;
+            memcpy(&addr, he->h_addr_list[0], sizeof(struct in_addr));
+            strncpy(s_sim_wifi_ip, inet_ntoa(addr), sizeof(s_sim_wifi_ip) - 1);
+            s_sim_wifi_ip[sizeof(s_sim_wifi_ip) - 1] = '\0';
+        }
+    }
+#endif
+}
+
+int l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms) {
+    (void)password; (void)timeout_ms;
+    if (!ssid || !*ssid) return -1;
+    strncpy(s_sim_wifi_ssid, ssid, sizeof(s_sim_wifi_ssid) - 1);
+    s_sim_wifi_ssid[sizeof(s_sim_wifi_ssid) - 1] = '\0';
+    s_sim_wifi_connected = 1;
+    ensure_pc_host_ip();
+    return 0;
+}
+
+int l_hal_wifi_disconnect(void) {
+    s_sim_wifi_connected = 0;
+    return 0;
+}
+
+int l_hal_wifi_is_connected(void) {
+    return s_sim_wifi_connected;
+}
+
+int l_hal_wifi_get_ip(char *buf, size_t max_len) {
+    if (!buf || max_len == 0) return -1;
+    if (!s_sim_wifi_connected) {
+        buf[0] = '\0';
+        return -1;
+    }
+    ensure_pc_host_ip();
+    strncpy(buf, s_sim_wifi_ip, max_len - 1);
+    buf[max_len - 1] = '\0';
+    return 0;
+}
+
+int l_hal_wifi_get_mac(char *buf, size_t max_len) {
+    if (!buf || max_len < 18) return -1;
+    strncpy(buf, "24:0A:C4:B8:31:AA", max_len - 1);
+    buf[max_len - 1] = '\0';
+    return 0;
+}
+
+int l_hal_wifi_start_ap(const char *ssid, const char *password) {
+    (void)password;
+    if (!ssid || !*ssid) return -1;
+    strncpy(s_sim_wifi_ssid, ssid, sizeof(s_sim_wifi_ssid) - 1);
+    s_sim_wifi_ssid[sizeof(s_sim_wifi_ssid) - 1] = '\0';
+    strncpy(s_sim_wifi_ip, "192.168.4.1", sizeof(s_sim_wifi_ip) - 1);
+    s_sim_wifi_connected = 1;
+    return 0;
+}
+
+int l_hal_wifi_scan(LWifiApRecord *records, int max_records) {
+    if (!records || max_records <= 0) return 0;
+    int count = 0;
+
+    snprintf(records[count].ssid, sizeof(records[count].ssid), "%s", s_sim_wifi_ssid);
+    records[count].rssi = -45;
+    records[count].authmode = 3;
+    count++;
+
+    if (count < max_records) {
+        strncpy(records[count].ssid, "Office_5G", sizeof(records[count].ssid) - 1);
+        records[count].rssi = -60;
+        records[count].authmode = 3;
+        count++;
+    }
+    if (count < max_records) {
+        strncpy(records[count].ssid, "Guest_WiFi", sizeof(records[count].ssid) - 1);
+        records[count].rssi = -78;
+        records[count].authmode = 0;
+        count++;
+    }
+    return count;
+}
+
+#if defined(_WIN32)
+LHttpResponse l_hal_http_get(const char *url, const char *headers, int timeout_ms) {
+    (void)headers;
+    LHttpResponse res = {-1, NULL, 0, NULL};
+    HINTERNET hInternet = InternetOpenA("LLang/0.1.0", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
+    if (!hInternet) {
+        res.err_msg = strdup("无法初始化网络连接 (InternetOpen 失败)");
+        return res;
+    }
+
+    DWORD timeout = timeout_ms > 0 ? (DWORD)timeout_ms : 10000;
+    InternetSetOptionA(hInternet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeout, sizeof(timeout));
+    InternetSetOptionA(hInternet, INTERNET_OPTION_RECEIVE_TIMEOUT, &timeout, sizeof(timeout));
+
+    DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE | INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+    HINTERNET hUrl = InternetOpenUrlA(hInternet, url, NULL, 0, flags, 0);
+    if (!hUrl) {
+        InternetCloseHandle(hInternet);
+        res.err_msg = strdup("打开 URL 失败 (网络不可达或 DNS 解析错误)");
+        return res;
+    }
+
+    DWORD statusCode = 0;
+    DWORD statusSize = sizeof(statusCode);
+    if (HttpQueryInfoA(hUrl, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &statusCode, &statusSize, NULL)) {
+        res.status_code = (int)statusCode;
+    } else {
+        res.status_code = 200;
+    }
+
+    size_t cap = 2048, len = 0;
+    char *buf = malloc(cap);
+    if (!buf) {
+        InternetCloseHandle(hUrl);
+        InternetCloseHandle(hInternet);
+        res.err_msg = strdup("内存不足");
+        return res;
+    }
+
+    DWORD bytesRead = 0;
+    char chunk[1024];
+    while (InternetReadFile(hUrl, chunk, sizeof(chunk), &bytesRead) && bytesRead > 0) {
+        if (len + bytesRead + 1 > cap) {
+            cap = (len + bytesRead + 1) * 2;
+            char *new_buf = realloc(buf, cap);
+            if (!new_buf) break;
+            buf = new_buf;
+        }
+        memcpy(buf + len, chunk, bytesRead);
+        len += bytesRead;
+    }
+    buf[len] = '\0';
+    res.body = buf;
+    res.body_len = len;
+
+    InternetCloseHandle(hUrl);
+    InternetCloseHandle(hInternet);
+    return res;
+}
+
+LHttpResponse l_hal_http_post(const char *url, const char *data, size_t data_len, const char *headers, int timeout_ms) {
+    LHttpResponse res = {-1, NULL, 0, NULL};
+    HINTERNET hInternet = InternetOpenA("LLang/0.1.0", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
+    if (!hInternet) {
+        res.err_msg = strdup("无法初始化网络连接");
+        return res;
+    }
+
+    DWORD timeout = timeout_ms > 0 ? (DWORD)timeout_ms : 10000;
+    InternetSetOptionA(hInternet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeout, sizeof(timeout));
+
+    char host[256] = {0};
+    char path[1024] = {0};
+    URL_COMPONENTSA comp;
+    memset(&comp, 0, sizeof(comp));
+    comp.dwStructSize = sizeof(comp);
+    comp.lpszHostName = host;
+    comp.dwHostNameLength = sizeof(host);
+    comp.lpszUrlPath = path;
+    comp.dwUrlPathLength = sizeof(path);
+
+    if (!InternetCrackUrlA(url, 0, 0, &comp)) {
+        InternetCloseHandle(hInternet);
+        res.err_msg = strdup("无效的 URL 格式");
+        return res;
+    }
+
+    HINTERNET hConnect = InternetConnectA(hInternet, host, comp.nPort, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+    if (!hConnect) {
+        InternetCloseHandle(hInternet);
+        res.err_msg = strdup("连接主机失败");
+        return res;
+    }
+
+    DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
+    if (comp.nScheme == INTERNET_SCHEME_HTTPS) {
+        flags |= INTERNET_FLAG_SECURE | INTERNET_FLAG_IGNORE_CERT_CN_INVALID | INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+    }
+
+    HINTERNET hReq = HttpOpenRequestA(hConnect, "POST", path[0] ? path : "/", NULL, NULL, NULL, flags, 0);
+    if (!hReq) {
+        InternetCloseHandle(hConnect);
+        InternetCloseHandle(hInternet);
+        res.err_msg = strdup("创建 HTTP POST 请求失败");
+        return res;
+    }
+
+    const char *default_hdr = headers ? headers : "Content-Type: application/x-www-form-urlencoded\r\n";
+    BOOL sent = HttpSendRequestA(hReq, default_hdr, (DWORD)strlen(default_hdr), (LPVOID)data, (DWORD)data_len);
+    if (!sent) {
+        InternetCloseHandle(hReq);
+        InternetCloseHandle(hConnect);
+        InternetCloseHandle(hInternet);
+        res.err_msg = strdup("发送 HTTP POST 失败");
+        return res;
+    }
+
+    DWORD statusCode = 0;
+    DWORD statusSize = sizeof(statusCode);
+    if (HttpQueryInfoA(hReq, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &statusCode, &statusSize, NULL)) {
+        res.status_code = (int)statusCode;
+    } else {
+        res.status_code = 200;
+    }
+
+    size_t cap = 2048, len = 0;
+    char *buf = malloc(cap);
+    DWORD bytesRead = 0;
+    char chunk[1024];
+    while (InternetReadFile(hReq, chunk, sizeof(chunk), &bytesRead) && bytesRead > 0) {
+        if (len + bytesRead + 1 > cap) {
+            cap = (len + bytesRead + 1) * 2;
+            char *new_buf = realloc(buf, cap);
+            if (!new_buf) break;
+            buf = new_buf;
+        }
+        memcpy(buf + len, chunk, bytesRead);
+        len += bytesRead;
+    }
+    buf[len] = '\0';
+    res.body = buf;
+    res.body_len = len;
+
+    InternetCloseHandle(hReq);
+    InternetCloseHandle(hConnect);
+    InternetCloseHandle(hInternet);
+    return res;
+}
+#else
+LHttpResponse l_hal_http_get(const char *url, const char *headers, int timeout_ms) {
+    (void)url; (void)headers; (void)timeout_ms;
+    LHttpResponse res = {200, strdup("OK (Host Linux Sim)"), 20, NULL};
+    return res;
+}
+LHttpResponse l_hal_http_post(const char *url, const char *data, size_t data_len, const char *headers, int timeout_ms) {
+    (void)url; (void)data; (void)data_len; (void)headers; (void)timeout_ms;
+    LHttpResponse res = {200, strdup("OK (Host Linux Sim)"), 20, NULL};
+    return res;
+}
+#endif
+
+int l_hal_sntp_sync(const char *ntp_server, int timeout_ms) {
+    (void)ntp_server; (void)timeout_ms;
+    return 0; /* PC 宿主端时钟由操作系统同步，默认已处于精准同步状态 */
+}
+
+#endif /* L_PLATFORM_ESP_IDF */

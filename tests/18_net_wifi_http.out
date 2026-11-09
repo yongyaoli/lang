@@ -1,0 +1,15 @@
+--- 测试 1. WiFi 状态与网络属性 ---
+获取到当前局域网 IP 状态: true
+获取到 MAC 地址格式有效: true
+--- 测试 2. WiFi 热点扫描 ---
+扫描到热点有效: true
+--- 测试 3. SoftAP 热点模式开启 ---
+开启 SoftAP 成功: true
+--- 测试 4. WiFi 断开与重连 ---
+断开 WiFi 成功: true
+重新连接 WiFi 成功: true
+--- 测试 5. SNTP 网络对时 ---
+SNTP 对时成功: true
+--- 测试 6. HTTP 客户端基础交互 ---
+HTTP 客户端响应结构正常: true
+M5 网络测试全部通过！

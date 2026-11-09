@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Windows 一键自动安装脚本 (自动安装 l.exe 并配置用户 PATH 环境变量)
 #>
@@ -32,7 +32,7 @@ if ($ForceRebuild -or -not (Test-Path $localExe)) {
     }
     Push-Location $srcDir
     try {
-        & gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c stdlib/*.c main.c -static -o l.exe
+        & gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c stdlib/*.c main.c -lwininet -lws2_32 -static -o l.exe
         if ($LASTEXITCODE -ne 0) {
             throw "编译失败，错误代码: $LASTEXITCODE"
         }
@@ -108,3 +108,4 @@ Write-Host "----------------------------------------"
 & $targetExe --version
 Write-Host "----------------------------------------"
 Write-Host "你可以直接在当前终端或新打开的终端中输入 'l' 运行交互式命令行，或者输入 'l 脚本.l' 执行脚本！`n" -ForegroundColor Cyan
+

@@ -124,6 +124,7 @@ extern const NativeGroup group_time;    /* stdlib/time.c 日期时间 */
 extern const NativeGroup group_io;      /* stdlib/io.c   文件与输入输出 */
 extern const NativeGroup group_sys;     /* stdlib/sys.c  系统与运行时 */
 extern const NativeGroup group_hw;      /* stdlib/hw.c   ESP32 硬件外设(Pin 等) */
+extern const NativeGroup group_net;     /* stdlib/net.c  网络通信与 IoT (WiFi/HTTP) */
 extern const ObjClass bytes_class;      /* stdlib/hw.c   bytes 方法表 */
 void hw_install_globals(Interp *in);    /* 注册 ESP32/esp32 基础功能单例对象 */
 Value hw_build_module(Interp *in);      /* 构造内置 esp32/gpio/hw/machine 模块字典 */

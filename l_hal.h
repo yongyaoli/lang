@@ -104,4 +104,31 @@ int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
 /* 进入 ESP32 串口交互终端 (按 Ctrl+] 或输入 .exit 退出), 成功返回 0, 失败返回负数 */
 int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_cap);
 
+/* ================= 12. WiFi 网络与热点 HAL ================= */
+typedef struct {
+    char    ssid[33];
+    int8_t  rssi;
+    uint8_t authmode;
+} LWifiApRecord;
+
+int  l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms);
+int  l_hal_wifi_disconnect(void);
+int  l_hal_wifi_is_connected(void);
+int  l_hal_wifi_get_ip(char *buf, size_t max_len);
+int  l_hal_wifi_get_mac(char *buf, size_t max_len);
+int  l_hal_wifi_start_ap(const char *ssid, const char *password);
+int  l_hal_wifi_scan(LWifiApRecord *records, int max_records);
+
+/* ================= 13. HTTP 客户端与 SNTP 网络对时 HAL ================= */
+typedef struct {
+    int    status_code;
+    char  *body;
+    size_t body_len;
+    char  *err_msg;
+} LHttpResponse;
+
+LHttpResponse l_hal_http_get(const char *url, const char *headers, int timeout_ms);
+LHttpResponse l_hal_http_post(const char *url, const char *data, size_t data_len, const char *headers, int timeout_ms);
+int           l_hal_sntp_sync(const char *ntp_server, int timeout_ms);
+
 #endif /* L_HAL_H */

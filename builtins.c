@@ -208,6 +208,9 @@ static const NativeGroup *const groups[] = {
 #if L_WITH_STDLIB_HW
     &group_hw,
 #endif
+#if L_WITH_STDLIB_NET
+    &group_net,
+#endif
 };
 #define GROUP_COUNT (sizeof groups / sizeof groups[0])
 

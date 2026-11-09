@@ -31,6 +31,10 @@
 #  define L_WITH_STDLIB_HW     1
 #endif
 
+#ifndef L_WITH_STDLIB_NET
+#  define L_WITH_STDLIB_NET    1
+#endif
+
 #ifndef L_WITH_LITTLEFS
 #  define L_WITH_LITTLEFS      0
 #endif
