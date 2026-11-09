@@ -852,8 +852,8 @@ int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_c
     DWORD w = 0;
     WriteFile(h, "\r\n", 2, &w, NULL);
 
-    char line_buf[512];
-    int  line_len = 0;
+    char exit_buf[16];
+    int  exit_len = 0;
     char rx[256];
 
     for (;;) {
@@ -870,29 +870,32 @@ int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_c
                 CloseHandle(h);
                 return 0;
             } else if (ch == '\r' || ch == '\n') {
-                putchar('\n');
-                line_buf[line_len] = '\0';
-                if (strcmp(line_buf, ".exit") == 0 || strcmp(line_buf, ".quit") == 0) {
-                    printf("[已断开串口连接 %s]\n", port);
+                char cr = '\r';
+                WriteFile(h, &cr, 1, &w, NULL);
+                exit_buf[exit_len] = '\0';
+                if (strcmp(exit_buf, ".exit") == 0 || strcmp(exit_buf, ".quit") == 0) {
+                    printf("\n[已断开串口连接 %s]\n", port);
                     CloseHandle(h);
                     return 0;
                 }
-                line_buf[line_len]     = '\r';
-                line_buf[line_len + 1] = '\n';
-                WriteFile(h, line_buf, (DWORD)(line_len + 2), &w, NULL);
-                line_len = 0;
+                exit_len = 0;
             } else if (ch == '\b' || ch == 127) {
-                if (line_len > 0) {
-                    line_len--;
-                    printf("\b \b");
-                    fflush(stdout);
+                char bs = '\b';
+                WriteFile(h, &bs, 1, &w, NULL);
+                if (exit_len > 0) exit_len--;
+            } else if (ch == 3) { /* Ctrl+C 信号 */
+                char c = 3;
+                WriteFile(h, &c, 1, &w, NULL);
+                exit_len = 0;
+            } else {
+                char c = (char)ch;
+                WriteFile(h, &c, 1, &w, NULL);
+                if (exit_len < (int)sizeof(exit_buf) - 2) {
+                    exit_buf[exit_len++] = c;
                 }
-            } else if (line_len < (int)sizeof(line_buf) - 4) {
-                line_buf[line_len++] = (char)ch;
-                putchar(ch);
-                fflush(stdout);
             }
         }
+        Sleep(2);
     }
 #else
     (void)baud;
