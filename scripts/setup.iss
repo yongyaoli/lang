@@ -1,9 +1,9 @@
-; L 语言 Windows 安装包 Inno Setup 脚本
+﻿; L 语言 Windows 安装包 Inno Setup 脚本
 ; 用于生成免依赖、可直接双击安装且自动配置 PATH 的独立 exe 安装程序
 
 #define MyAppName "L 语言"
 #define MyAppEnglishName "L-Language"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.1.3.202611092011"
 #define MyAppPublisher "L Language Project"
 #define MyAppExeName "l.exe"
 

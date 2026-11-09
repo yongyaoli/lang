@@ -20,8 +20,11 @@ if (-not (Test-Path $distPath)) {
     New-Item -ItemType Directory -Path $distPath -Force | Out-Null
 }
 
+# 0. 自动递增累加小版本号与时间戳
+$currentVersion = & "$PSScriptRoot\bump_version.ps1"
+
 # 1. 编译最新的根目录 l.exe
-Write-Host "`n[1/3] 正在编译 L 语言独立解释器核心 (l.exe)..." -ForegroundColor Yellow
+Write-Host "`n[1/3] 正在编译 L 语言独立解释器核心 (l.exe) 版本 $currentVersion..." -ForegroundColor Yellow
 Push-Location $rootDir
 try {
     & gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -lwininet -lws2_32 -static -o "$rootDir\l.exe"
