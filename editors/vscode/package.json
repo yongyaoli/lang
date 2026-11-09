@@ -1,12 +1,16 @@
 {
   "name": "l-language-support",
   "displayName": "L Language Support",
-  "description": "L 语言语法高亮与代码提示扩展 (.l 文件)",
+  "description": "L 语言语法高亮、鼠标悬停提示 (Hover) 与定义跳转 (Ctrl+Click)",
   "version": "0.2.0",
   "publisher": "yongyaoli",
   "engines": {
     "vscode": "^1.60.0"
   },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:l"
+  ],
   "categories": [
     "Programming Languages"
   ],
