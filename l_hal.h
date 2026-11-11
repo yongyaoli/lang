@@ -136,4 +136,47 @@ LHttpResponse l_hal_http_get(const char *url, const char *headers, int timeout_m
 LHttpResponse l_hal_http_post(const char *url, const char *data, size_t data_len, const char *headers, int timeout_ms);
 int           l_hal_sntp_sync(const char *ntp_server, int timeout_ms);
 
+/* ================= 14. M7: GPIO 中断 / 软硬件定时器 / 看门狗 / 深度睡眠 HAL ================= */
+/* 统一事件模型: 硬件中断(真机 ISR)或模拟事件(PC)不直接回调脚本, 而是入队,
+ * 由 l_hal_poll_events() 在脚本安全上下文(如 delay_ms/ticks_ms)中排队派发回调,
+ * 避免在 ISR 栈上执行解释器代码。 */
+typedef enum {
+    L_IRQ_RISE   = 1,   /* 上升沿 0->1 */
+    L_IRQ_FALL   = 2,   /* 下降沿 1->0 */
+    L_IRQ_CHANGE = 3    /* 任意跳变 */
+} LIrqMode;
+
+typedef void (*LIrqFn)(void *user, int pin, int level);
+typedef void (*LTimerFn)(void *user, int timer_id);
+
+#define L_MAX_SW_TIMERS 8
+
+/* 注册引脚中断回调, mode 为 LIrqMode; 成功返回 0, 失败返回负数 */
+int  l_hal_gpio_irq_attach(int pin, int mode, LIrqFn cb, void *user);
+/* 注销引脚中断回调 */
+int  l_hal_gpio_irq_detach(int pin);
+/* PC 模拟: 注入一次外部电平跳变并按已注册模式触发中断; 真机: 直接写电平 */
+void l_hal_gpio_sim_write(int pin, int level);
+
+/* 启动软件定时器(真机映射 esp_timer): repeating=0 表示单次触发 */
+int  l_hal_timer_start(int id, int period_ms, int repeating, LTimerFn cb, void *user);
+void l_hal_timer_stop(int id);
+int  l_hal_timer_running(int id);
+
+/* 派发排队的事件(定时器到期、中断、看门狗超时检测), 在脚本安全点调用 */
+void l_hal_poll_events(void);
+
+/* 看门狗: enable 后若超过 timeout_ms 未 feed, l_hal_wdt_expired() 置位
+ * (真机直接触发系统复位, PC 模拟为可被 try/catch 捕获的超时错误) */
+int  l_hal_wdt_enable(int timeout_ms);
+void l_hal_wdt_feed(void);
+void l_hal_wdt_disable(void);
+int  l_hal_wdt_expired(void);
+
+/* 深度睡眠(真机 esp_deep_sleep 不返回, 重启后由 wake_reason 查询唤醒源;
+ * PC 模拟仅记录唤醒原因并立即返回, 便于离线测试业务逻辑) */
+void l_hal_deepsleep(int ms);
+/* 唤醒原因: 0=上电 1=定时器唤醒 2=外部引脚唤醒 */
+int  l_hal_wake_reason(void);
+
 #endif /* L_HAL_H */

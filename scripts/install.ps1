@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Windows 一键自动安装脚本 (自动安装 l.exe 并配置用户 PATH 环境变量)
 #>
@@ -25,7 +25,7 @@ if (-not (Test-Path $localExe)) {
 
 # 1. 检查或编译可执行文件
 if ($ForceRebuild -or -not (Test-Path $localExe)) {
-    Write-Host "[1/3] 正在编译 l.exe..." -ForegroundColor Yellow
+    Write-Host "[1/4] 正在编译 l.exe..." -ForegroundColor Yellow
     $gcc = Get-Command gcc -ErrorAction SilentlyContinue
     if (-not $gcc) {
         throw "未找到 gcc 编译器，请先安装 MinGW/GCC 或直接使用预打包的二进制包。"
@@ -41,11 +41,11 @@ if ($ForceRebuild -or -not (Test-Path $localExe)) {
         Pop-Location
     }
 } else {
-    Write-Host "[1/3] 找到现有的 l.exe 可执行文件。" -ForegroundColor Green
+    Write-Host "[1/4] 找到现有的 l.exe 可执行文件。" -ForegroundColor Green
 }
 
 # 2. 创建安装目录并复制文件
-Write-Host "[2/3] 正在复制程序到: $InstallDir" -ForegroundColor Yellow
+Write-Host "[2/4] 正在复制程序到: $InstallDir" -ForegroundColor Yellow
 if (-not (Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 }
@@ -53,7 +53,7 @@ if (-not (Test-Path $InstallDir)) {
 Copy-Item -Path $localExe -Destination $targetExe -Force
 
 # 3. 添加到用户 PATH 环境变量 (若尚未添加)
-Write-Host "[3/3] 正在配置系统 PATH 环境变量..." -ForegroundColor Yellow
+Write-Host "[3/4] 正在配置系统 PATH 环境变量..." -ForegroundColor Yellow
 
 # 读取用户级 PATH
 $regPath = "Registry::HKEY_CURRENT_USER\Environment"
@@ -102,6 +102,14 @@ public class EnvNotifier {
     $result = [UIntPtr]::Zero
     [EnvNotifier]::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, "Environment", 2, 2000, [ref]$result) | Out-Null
 } catch {}
+
+# 4. 安装 VS Code 语法高亮扩展 (可选, 失败不影响主程序安装)
+Write-Host "[4/4] 正在安装 VS Code 语法高亮扩展..." -ForegroundColor Yellow
+try {
+    & (Join-Path $PSScriptRoot "install_vscode_ext.ps1")
+} catch {
+    Write-Warning "VS Code 扩展安装已跳过: $_"
+}
 
 Write-Host "`n安装成功！" -ForegroundColor Green
 Write-Host "----------------------------------------"

@@ -2,6 +2,6 @@ exists1: true
 lines count: 3 first: line1 last: line3
 exists2: false
 platform: true
-version: 0.1.0
+version: 0.1.3.202611092011
 cwd: true
 gc works: true

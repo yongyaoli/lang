@@ -133,6 +133,10 @@ extern const ObjClass bytes_class;      /* stdlib/hw.c   bytes 方法表 */
 void hw_install_globals(Interp *in);    /* 注册 ESP32/esp32 基础功能单例对象 */
 Value hw_build_module(Interp *in);      /* 构造内置 esp32/gpio/hw/machine 模块字典 */
 
+/* 事件派发(M7): 派发队列中的 GPIO 中断/定时器事件并检查看门狗,
+ * 供 delay_ms/ticks_ms/sleep 等阻塞点调用, 形成协作式事件循环 */
+void hw_poll_events(Interp *in);
+
 /* 按名称查找内置函数(builtins.c 实现, 供方法派发与 help 共用) */
 const Native * builtins_find_native(const char *name);
 

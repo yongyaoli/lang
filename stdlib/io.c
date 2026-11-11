@@ -6,9 +6,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(_MSC_VER)
+/* MSVC 无 POSIX dirent.h, 使用极简兼容层 */
+#include "../dirent_msvc.h"
+#else
 #include <dirent.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#if defined(_MSC_VER)
+#define mkdir _mkdir
+#define rmdir _rmdir
+#endif
 
 #include "../interp.h"
 

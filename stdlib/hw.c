@@ -10,6 +10,19 @@
 
 #if L_WITH_STDLIB_HW
 
+/* 事件派发(M7): 把队列中的中断/定时器事件派发到脚本回调, 定义于本文件第 11 节 */
+void hw_poll_events(Interp *in);
+
+/* M7 新增方法的前置声明(实现见本文件第 11 节) */
+static Value m_pin_irq(Interp *in, const Node *at, Value self, int argc, Value *argv);
+static Value m_pin_write_sim(Interp *in, const Node *at, Value self, int argc, Value *argv);
+static Value m_esp_deepsleep(Interp *in, const Node *at, Value self, int argc, Value *argv);
+static Value m_esp_wake_reason(Interp *in, const Node *at, Value self, int argc, Value *argv);
+static Value m_esp_wdt_enable(Interp *in, const Node *at, Value self, int argc, Value *argv);
+static Value m_esp_wdt_feed(Interp *in, const Node *at, Value self, int argc, Value *argv);
+static Value m_esp_wdt_disable(Interp *in, const Node *at, Value self, int argc, Value *argv);
+static Value f_timer(Interp *in, const Node *at, int argc, Value *argv);
+
 /* ================= 1. ESP32 芯片规格与引脚数据库 ================= */
 
 typedef enum {
@@ -253,7 +266,8 @@ static Value m_esp_mac(Interp *in, const Node *at, Value self, int argc, Value *
 }
 
 static Value m_esp_ticks_ms(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)in; (void)at; (void)self; (void)argc; (void)argv;
+    (void)at; (void)self; (void)argc; (void)argv;
+    hw_poll_events(in);   /* ticks_ms 是事件循环的天然心跳点 */
     return val_int((int32_t)l_hal_ticks_ms());
 }
 
@@ -261,7 +275,15 @@ static Value m_esp_delay_ms(Interp *in, const Node *at, Value self, int argc, Va
     (void)argc;
     int ms = int_arg(in, at, "ESP32.delay_ms", argv, 0);
     if (ms < 0) rt_error(in, at, "delay_ms() 时间不能为负数");
-    l_hal_delay_ms((uint32_t)ms);
+    /* 分片睡眠 + 分片派发: 延时期间定时器/中断事件也能得到响应(协作式事件循环) */
+    int32_t left = ms;
+    while (left > 0) {
+        int32_t step = (left > 20) ? 20 : left;
+        l_hal_delay_ms((uint32_t)step);
+        left -= step;
+        hw_poll_events(in);
+    }
+    if (ms == 0) hw_poll_events(in);
     return self;
 }
 
@@ -686,6 +708,11 @@ static const ObjMethod esp32_methods[] = {
     {"ports",       0, 0, m_esp_ports,       "ESP32.ports()",                  "扫描并列出本机可用串口(如 [\"COM3\"])"},
     {"upload",      2, 3, m_esp_upload,      "ESP32.upload(串口,脚本,[波特率])","通过串口(或 \"sim\")将脚本文件烧录到 ESP32 的 l_script 分区"},
     {"connect",     1, 3, m_esp_connect,     "ESP32.connect(串口,[代码或波特率],[代码])", "进入 ESP32 串口交互终端，或直接远程发送执行代码"},
+    {"deepsleep",   0, 1, m_esp_deepsleep,  "ESP32.deepsleep([毫秒])",        "进入深度睡眠, 定时唤醒(真机复位重启, PC 模拟立即返回)"},
+    {"wake_reason", 0, 0, m_esp_wake_reason,"ESP32.wake_reason()",            "返回唤醒原因字典 {code, reason}"},
+    {"watchdog_enable", 1, 1, m_esp_wdt_enable,  "ESP32.watchdog_enable(超时毫秒)", "启用看门狗, 超时未喂狗触发错误(真机为复位)"},
+    {"watchdog_feed",   0, 0, m_esp_wdt_feed,    "ESP32.watchdog_feed()",           "喂狗, 重置看门狗计时"},
+    {"watchdog_disable",0, 0, m_esp_wdt_disable, "ESP32.watchdog_disable()",        "关闭看门狗"},
 };
 
 static void esp32_format(const NativeObj *obj, char *buf, size_t size) {
@@ -788,6 +815,8 @@ static const ObjMethod pin_methods[] = {
     {"mode",   0, 1, m_pin_mode,   "pin.mode([模式])",  "无参读取模式; 有参设置模式(\"out\"/\"in\"/\"in_pullup\"/\"in_pulldown\"/\"open_drain\")"},
     {"pin",    0, 0, m_pin_num,    "pin.pin()",         "返回引脚编号"},
     {"info",   0, 0, m_pin_info,   "pin.info()",        "返回 {pin, mode, value} 字典"},
+    {"irq",    0, 2, m_pin_irq,    "pin.irq(回调, [触发=\"change\"])", "注册电平中断回调(可传 nil 注销), 触发可选 \"rise\"/\"fall\"/\"change\""},
+    {"write_sim", 1, 1, m_pin_write_sim, "pin.write_sim(电平)", "PC 模拟: 注入外部电平跳变并触发已注册中断(离线调试用)"},
 };
 
 static void pin_format(const NativeObj *obj, char *buf, size_t size) {
@@ -1420,6 +1449,283 @@ static Value f_uart(Interp *in, const Node *at, int argc, Value *argv) {
     return val_obj(o);
 }
 
+/* ================= 11. M7: 事件派发 / Pin.irq / Timer / 看门狗 / 深度睡眠 ================= */
+
+/* 回调注册表: 以隐藏全局 Map 保存(键为引脚号或定时器 id 字符串)。
+ * 全局环境是 GC 根, 因此事件在排队/等待期间回调闭包不会被回收。 */
+static const char IRQ_REG_NAME[]   = "__l_irq_handlers";
+static const char TIMER_REG_NAME[] = "__l_timer_handlers";
+
+static Map *hw_handler_map(Interp *in, const char *name) {
+    Value *v = env_find(in->globals, name);
+    if (v && v->type == V_MAP) return v->as.map;
+    Map *m = map_new(in);
+    env_define(in->globals, name, val_map(m));
+    return m;
+}
+
+/* 待派发事件缓存: HAL 层 trampoline 只负责入缓存,
+ * 由 hw_poll_events() 在脚本安全上下文(delay_ms/ticks_ms)统一调用脚本回调 */
+#define L_MAX_PEND 32
+typedef struct { int used, pin, level; } PendIrq;
+typedef struct { int used, id; }          PendTimer;
+static PendIrq   s_pend_irq[L_MAX_PEND];
+static PendTimer s_pend_timer[L_MAX_PEND];
+static uint32_t  s_timer_fires[L_MAX_SW_TIMERS];
+static uint8_t   s_timer_alloc_mask = 0;   /* 定时器 id 位图(一次分配不复用) */
+
+static void irq_trampoline(void *user, int pin, int level) {
+    (void)user;
+    for (int i = 0; i < L_MAX_PEND; i++) {
+        if (!s_pend_irq[i].used) {
+            s_pend_irq[i].used  = 1;
+            s_pend_irq[i].pin   = pin;
+            s_pend_irq[i].level = level;
+            return;
+        }
+    }
+}
+
+static void timer_trampoline(void *user, int id) {
+    (void)user;
+    if (id < 0 || id >= L_MAX_SW_TIMERS) return;
+    s_timer_fires[id]++;
+    for (int i = 0; i < L_MAX_PEND; i++) {
+        if (!s_pend_timer[i].used) {
+            s_pend_timer[i].used = 1;
+            s_pend_timer[i].id   = id;
+            return;
+        }
+    }
+}
+
+static void dispatch_pending(Interp *in) {
+    /* 1. 引脚中断事件: 回调签名 fn(level) */
+    for (int i = 0; i < L_MAX_PEND; i++) {
+        if (!s_pend_irq[i].used) continue;
+        int pin = s_pend_irq[i].pin, level = s_pend_irq[i].level;
+        s_pend_irq[i].used = 0;
+        char key[16];
+        snprintf(key, sizeof key, "%d", pin);
+        Value *fn = map_get(hw_handler_map(in, IRQ_REG_NAME), key);
+        if (!fn || (fn->type != V_FN && fn->type != V_NATIVE)) continue;
+        Value cb = *fn;
+        Value arg = val_int(level);
+        gc_push_root(in, cb);
+        gc_push_root(in, arg);
+        interp_call(in, NULL, cb, 1, &arg);
+        gc_pop_roots(in, 2);
+    }
+    /* 2. 定时器事件: 回调无参(闭包自行捕获上下文) */
+    for (int i = 0; i < L_MAX_PEND; i++) {
+        if (!s_pend_timer[i].used) continue;
+        int id = s_pend_timer[i].id;
+        s_pend_timer[i].used = 0;
+        char key[16];
+        snprintf(key, sizeof key, "t%d", id);
+        Value *fn = map_get(hw_handler_map(in, TIMER_REG_NAME), key);
+        if (!fn || (fn->type != V_FN && fn->type != V_NATIVE)) continue;
+        Value cb = *fn;
+        gc_push_root(in, cb);
+        interp_call(in, NULL, cb, 0, NULL);
+        gc_pop_roots(in, 1);
+    }
+}
+
+void hw_poll_events(Interp *in) {
+    l_hal_poll_events();
+    dispatch_pending(in);
+    if (l_hal_wdt_expired()) {
+        l_hal_wdt_disable();
+        rt_error(in, NULL, "看门狗超时 (Watchdog): 超过时限未调用 ESP32.watchdog_feed()");
+    }
+}
+
+/* ---------- Pin 中断与模拟电平注入 ---------- */
+
+static Value m_pin_irq(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    int pin = self.as.obj->fields[0];
+    Map *reg = hw_handler_map(in, IRQ_REG_NAME);
+    char key[16];
+    snprintf(key, sizeof key, "%d", pin);
+
+    if (argc == 0 || argv[0].type == V_NIL) {
+        l_hal_gpio_irq_detach(pin);
+        map_remove(reg, key);
+        return self;
+    }
+    if (argv[0].type != V_FN) {
+        rt_error(in, at, "Pin.irq() 回调必须是函数, 实际是 %s", type_name(argv[0]));
+    }
+    int mode = L_IRQ_CHANGE;
+    if (argc >= 2) {
+        need_arg(in, at, "Pin.irq", argv, 1, V_STR, "string");
+        const char *m = val_get_cstr(argv[1]);
+        if (strcmp(m, "rise") == 0)        mode = L_IRQ_RISE;
+        else if (strcmp(m, "fall") == 0)   mode = L_IRQ_FALL;
+        else if (strcmp(m, "change") == 0) mode = L_IRQ_CHANGE;
+        else rt_error(in, at, "Pin.irq() 不支持的触发方式 \"%s\" (可选: \"rise\", \"fall\", \"change\")", m);
+    }
+    check_pin_usable(in, at, "Pin.irq", pin, 0, 0);
+    if (l_hal_gpio_irq_attach(pin, mode, irq_trampoline, NULL) != 0) {
+        rt_error(in, at, "Pin.irq() 注册中断失败");
+    }
+    map_set(reg, str_new(in, key, strlen(key)), argv[0]);
+    return self;
+}
+
+static Value m_pin_write_sim(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)argc;
+    int pin = self.as.obj->fields[0];
+    int v = int_arg(in, at, "Pin.write_sim", argv, 0);
+    check_pin_usable(in, at, "Pin.write_sim", pin, 0, 0);
+    l_hal_gpio_sim_write(pin, v);
+    return self;
+}
+
+/* ---------- Timer 软件定时器类 ---------- */
+
+static Value m_timer_start(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)argc; (void)argv;
+    NativeObj *o = self.as.obj;
+    if (l_hal_timer_start(o->fields[0], o->fields[1], o->fields[2], timer_trampoline, NULL) != 0) {
+        rt_error(in, at, "Timer.start() 启动失败");
+    }
+    return self;
+}
+
+static Value m_timer_stop(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)argc; (void)argv;
+    l_hal_timer_stop(self.as.obj->fields[0]);
+    return self;
+}
+
+static Value m_timer_running(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)argc; (void)argv;
+    return val_bool(l_hal_timer_running(self.as.obj->fields[0]));
+}
+
+static Value m_timer_period(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    NativeObj *o = self.as.obj;
+    if (argc >= 1) {
+        int ms = int_arg(in, at, "Timer.period", argv, 0);
+        if (ms <= 0) rt_error(in, at, "Timer 周期必须大于 0 毫秒");
+        o->fields[1] = ms;
+        if (l_hal_timer_running(o->fields[0])) {
+            l_hal_timer_start(o->fields[0], ms, o->fields[2], timer_trampoline, NULL);
+        }
+    }
+    return val_int(o->fields[1]);
+}
+
+static Value m_timer_count(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)argc; (void)argv;
+    return val_int((int32_t)s_timer_fires[self.as.obj->fields[0]]);
+}
+
+static void timer_destroy(NativeObj *obj) {
+    l_hal_timer_stop(obj->fields[0]);
+}
+
+static void timer_format(const NativeObj *obj, char *buf, size_t size) {
+    int id = obj->fields[0];
+    if (id < 0 || id >= L_MAX_SW_TIMERS) id = 0;
+    snprintf(buf, size, "<Timer(%dms, %s, fires=%u)>",
+             (int)obj->fields[1],
+             obj->fields[2] ? "periodic" : "oneshot",
+             (unsigned)s_timer_fires[id]);
+}
+
+static const ObjMethod timer_methods[] = {
+    {"start",   0, 0, m_timer_start,   "timer.start()",           "启动(或重启)定时器, 返回自身"},
+    {"stop",    0, 0, m_timer_stop,    "timer.stop()",            "停止定时器, 返回自身"},
+    {"running", 0, 0, m_timer_running, "timer.running()",         "返回定时器是否运行中"},
+    {"period",  0, 1, m_timer_period,  "timer.period([毫秒])",    "无参读取周期; 有参修改并重启运行中的定时器"},
+    {"count",   0, 0, m_timer_count,   "timer.count()",           "返回已触发次数"},
+};
+
+const ObjClass timer_class = {
+    "Timer", timer_methods, sizeof timer_methods / sizeof timer_methods[0],
+    timer_format, timer_destroy
+};
+
+static Value f_timer(Interp *in, const Node *at, int argc, Value *argv) {
+    int ms = int_arg(in, at, "Timer", argv, 0);
+    if (ms <= 0) rt_error(in, at, "Timer 周期必须大于 0 毫秒");
+    if (argv[1].type != V_FN) {
+        rt_error(in, at, "Timer 回调必须是函数, 实际是 %s", type_name(argv[1]));
+    }
+    int repeating = 1;
+    if (argc >= 3) {
+        if (argv[2].type == V_BOOL) repeating = argv[2].as.boolean ? 1 : 0;
+        else repeating = (int_arg(in, at, "Timer", argv, 2) != 0);
+    }
+    int id = -1;
+    for (int i = 0; i < L_MAX_SW_TIMERS; i++) {
+        if (!(s_timer_alloc_mask & (1u << i))) { id = i; break; }
+    }
+    if (id < 0) rt_error(in, at, "软件定时器数量已达上限 (%d)", L_MAX_SW_TIMERS);
+    s_timer_alloc_mask |= (uint8_t)(1u << id);
+    s_timer_fires[id] = 0;
+
+    NativeObj *o = obj_new(in, &timer_class);
+    o->fields[0] = id;
+    o->fields[1] = ms;
+    o->fields[2] = repeating;
+    o->fields[3] = 0;
+    char key[16];
+    snprintf(key, sizeof key, "t%d", id);
+    Value fv = argv[1];
+    gc_push_root(in, fv);
+    map_set(hw_handler_map(in, TIMER_REG_NAME), str_new(in, key, strlen(key)), fv);
+    gc_pop_roots(in, 1);
+    l_hal_timer_start(id, ms, repeating, timer_trampoline, NULL);
+    return val_obj(o);
+}
+
+/* ---------- ESP32 深度睡眠与看门狗 ---------- */
+
+static Value m_esp_deepsleep(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)self;
+    int ms = (argc >= 1) ? int_arg(in, at, "ESP32.deepsleep", argv, 0) : 0;
+    if (ms < 0) rt_error(in, at, "deepsleep() 时间不能为负数");
+    /* 真机: 睡眠后芯片复位重启不会返回; PC 模拟: 记录唤醒原因后立即返回 */
+    l_hal_deepsleep(ms);
+    return self;
+}
+
+static Value m_esp_wake_reason(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)at; (void)self; (void)argc; (void)argv;
+    int code = l_hal_wake_reason();
+    Map *m = map_new(in);
+    Value mv = val_map(m);
+    gc_push_root(in, mv);
+    map_put_int(in, m, "code", code);
+    map_put_cstr(in, m, "reason", code == 1 ? "timer" : code == 2 ? "pin" : "power_on");
+    gc_pop_roots(in, 1);
+    return mv;
+}
+
+static Value m_esp_wdt_enable(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)self; (void)argc;
+    int ms = int_arg(in, at, "ESP32.watchdog_enable", argv, 0);
+    if (ms <= 0) rt_error(in, at, "看门狗超时时间必须大于 0 毫秒");
+    if (l_hal_wdt_enable(ms) != 0) rt_error(in, at, "看门狗启动失败");
+    return self;
+}
+
+static Value m_esp_wdt_feed(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)self; (void)argc; (void)argv;
+    l_hal_wdt_feed();
+    return self;
+}
+
+static Value m_esp_wdt_disable(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)self; (void)argc; (void)argv;
+    l_hal_wdt_disable();
+    return self;
+}
+
 /* ================= 10. 注册与内置模块导出 ================= */
 
 static const Native hw_natives[] = {
@@ -1431,6 +1737,7 @@ static const Native hw_natives[] = {
     {"I2C",     0, 4, f_i2c,     "I2C([bus=0], [sda], [scl], [freq])",            "创建 I2C 总线对象, 支持 .scan() .write() .read() .write_reg() .read_reg()"},
     {"SPI",     0, 5, f_spi,     "SPI([bus=1], [sck], [mosi], [miso], [freq])",   "创建 SPI 总线对象, 支持 .transfer() .write() .read()"},
     {"UART",    0, 4, f_uart,    "UART([port=1], [baud=115200], [tx], [rx])",     "创建 UART 串口对象, 支持 .write() .read() .read_str() .any()"},
+    {"Timer",   2, 3, f_timer,   "Timer(周期毫秒, 回调, [周期模式=true])",        "创建软件定时器并自动启动, 支持 .stop() .start() .count()"},
     {"ports",   0, 0, f_ports,   "ports()",                                       "扫描本机可用串口(如 [\"COM3\"])"},
     {"upload",  2, 3, f_upload,  "upload(串口, 脚本文件或代码, [波特率=115200])", "通过串口(或 \"sim\")将脚本烧录到 ESP32 的 l_script 分区"},
     {"connect", 1, 3, f_connect, "connect(串口, [代码或波特率], [代码])",            "连接 ESP32 串口交互终端，或直接远程发送执行代码"},

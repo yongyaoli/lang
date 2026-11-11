@@ -6,11 +6,11 @@
 
 **一门用纯 C99 从零实现的超轻量级嵌入式（ESP32）与通用脚本语言**
 
-[![Version](https://img.shields.io/badge/version-0.1.0-38bdf8.svg)](version.h)
+[![Version](https://img.shields.io/badge/version-0.1.3-38bdf8.svg)](version.h)
 [![Standard](https://img.shields.io/badge/C-C99%20Zero%20Deps-2563eb.svg)](main.c)
 [![Platform](https://img.shields.io/badge/platform-ESP32%20%7C%20Windows%20%7C%20Linux%20%7C%20macOS-22c55e.svg)](l_hal.h)
 [![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.x%20Ready-f97316.svg)](esp32/)
-[![Tests](https://img.shields.io/badge/tests-17%2F17%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-20%2F20%20passing-brightgreen.svg)](tests/)
 
 [设计理念与命名](#命名由来为什么叫-l-lang) ·
 [核心能力](#这是什么能做什么) ·
@@ -50,8 +50,9 @@
 | **2. 芯片级引脚安全护栏** | 内置 `ESP32` 基础功能类，自动识别芯片型号、主频、内存与引脚限制。当误将内部 SPI Flash 引脚（如 GPIO 6~11）或仅输入引脚（GPIO 34~39）设为输出时，主动拦截并精确定位报错，防止板子死机变砖。 |
 | **3. 免文件系统裸 Flash 存储** | 独创 `l_script` 裸 Flash 分区方案（16B 头部 + IEEE 802.3 CRC32 校验 + `esp_partition_mmap`），**无需挂载 FAT/SPIFFS 文件系统、零 SRAM 源码拷贝**即可在无文件系统的 ESP32 上持久化保存与自启动脚本。 |
 | **4. 串口 0.2 秒极速烧录与远程终端** | 底包固件只需刷一次。日常在电脑 REPL 中执行 `upload("COM3", "main.l")`（或命令行 `l -u COM3 main.l`），0.2 秒即可通过串口将脚本刷入 ESP32 并立即运行；执行 `connect("COM3")` 即可进入板端实时 REPL。 |
-| **5. PC 端全功能硬件离线仿真** | 手头没插开发板时，直接在电脑上运行 `l main.l` 或 `upload("sim", "main.l")`，即可切换模拟不同芯片（`ESP32.set_chip("ESP32-C3")`）、注入虚拟 I2C 从机/ADC/UART 数据，提前跑通全部硬件逻辑。 |
+| **5. PC 端全功能硬件离线仿真** | 手头没插开发板时，直接在电脑上运行 `l main.l` 或 `upload("sim", "main.l")`，即可切换模拟不同芯片（`ESP32.set_chip("ESP32-C3")`）、注入虚拟 I2C 从机/ADC/UART/引脚电平数据，提前跑通全部硬件逻辑。 |
 | **6. 精确错误定位与异常自恢复** | 支持 `try { ... } catch (e) { ... }` 与 `throw`。任何语法或运行时错误均精确输出 **`[文件:行:列]` + 源码行内容 + `^` 指示符 + 完整调用栈回溯**，告别嵌入式盲猜调试。 |
+| **7. 事件驱动：中断 / 定时器 / 看门狗 / 深度睡眠** | `pin.irq(回调, "rise"/"fall"/"change")` 注册 GPIO 电平中断，`Timer(毫秒, 回调)` 软件定时器，`ESP32.watchdog_enable/feed()` 看门狗，`ESP32.deepsleep()` 深度睡眠。`delay_ms()` / `ticks_ms()` / `sleep()` 即事件循环心跳点，事件在脚本安全上下文统一派发（ISR 只入队），PC 端可用 `pin.write_sim()` 离线演练全部中断逻辑。 |
 
 ```mermaid
 flowchart TB
@@ -60,7 +61,7 @@ flowchart TB
         Sim --> Upload["2. 原生串口 0.2s 极速烧录<br/>REPL: upload('COM3', 'main.l')<br/>CLI: l -u COM3 main.l"]
     end
     subgraph MCU["ESP32 端运行 (ESP32 / S3 / C3 / C6)"]
-        Upload --> FlashPart["l_script 裸 Flash 分区 (64KB)<br/>16B Header + CRC32 校验"]
+        Upload --> FlashPart["l_script 裸 Flash 分区 (128KB)<br/>16B Header + CRC32 校验"]
         FlashPart --> MMap["esp_partition_mmap 零 RAM 拷贝执行<br/>上电自启动 + 异常捕获保护"]
         MMap --> HW["硬件驱动层 (ESP-IDF HAL)<br/>GPIO / PWM / ADC / I2C / SPI / UART"]
     end
@@ -91,6 +92,16 @@ try {
 } catch (e) {
     print("成功拦截非法引脚操作:", e.message, "位于第", e.line, "行");
 }
+
+// 5. 事件驱动：中断 + 定时器 + 看门狗 (PC 离线即可完整演练)
+let btn = pin(4, "in");
+let clicks = 0;
+btn.irq(fn(level) { clicks = clicks + 1; }, "rise"); // 上升沿中断
+btn.write_sim(1);                       // PC 注入电平跳变 → 事件入队
+ESP32.delay_ms(1);                      // 心跳点: 派发中断事件, clicks == 1
+let t = Timer(30, fn() { print("tick"); }, false);   // 单次定时器
+ESP32.watchdog_enable(1000);            // 看门狗: 超时未喂狗报可捕获错误
+ESP32.watchdog_feed();
 ```
 
 当代码中出现未捕获错误时，`L` 会给出精确到行列号、源码行与调用栈的诊断输出：
@@ -114,18 +125,28 @@ try {
 #### 方式 A：使用 Windows 安装包（推荐 Windows 用户）
 直接运行发布包中的 `dist/lang-setup-windows-x86_64.exe`（或运行 `powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1` 自动生成），安装程序会自动将 `l.exe` 添加到系统 `PATH` 并关联 `.l` 文件。
 
-#### 方式 B：一行命令从源码编译（Windows / Linux / macOS 通用）
+#### 方式 B：一行命令从源码编译
 只需系统中有 `gcc` 或 `clang`：
 ```bash
-gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c stdlib/*.c main.c -o l
+# Windows (需链接 wininet/ws2_32 以支持串口与 HTTP)
+gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -lwininet -lws2_32 -static -o l.exe
+
+# Linux / macOS (去掉最后两个链接库即可)
+gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -o l
 ```
-> 若希望编译针对无文件系统裸机裁剪的最小化版本，可加上 `-DL_WITH_STDLIB_IO=0 -DL_WITH_STDLIB_SYS=0`。
+> - MSVC (cl.exe) 亦可编译，项目内置 [`dirent_msvc.h`](dirent_msvc.h) 兼容层（本机无 MinGW 时可运行 `build_msvc.bat`）；
+> - 若希望编译针对无文件系统裸机裁剪的最小化版本，可加上 `-DL_WITH_STDLIB_IO=0 -DL_WITH_STDLIB_SYS=0`。
 
 ### 2. 命令行用法一览
 
 ```powershell
 l                           # 进入交互模式 (REPL)
 l main.l [参数...]          # 运行脚本文件 (参数可通过 sys_args() 获取)
+l main.lc                   # 直接运行预编译字节码 (免解析, 启动更快)
+l -e "print(1 + 2)"         # 直接执行一条内联代码并输出结果
+l -c main.l -o main.lc      # 将源码编译为致密字节码 (.lc)
+l -d main.l                 # 反汇编输出字节码指令 (调试 VM 用)
+l --vm main.l               # 强制使用栈式 VM (字节码) 模式运行 .l 源码
 l -p, --ports               # 扫描并列出本机可用串口 (如 COM3)
 l -u, --upload COM3 main.l  # 将 main.l 通过串口秒级烧录到 ESP32 的 l_script 分区并运行
 l -s, --serial COM3         # 连接 ESP32 串口交互终端 (远程 REPL)
@@ -144,7 +165,7 @@ l -v, --version             # 查看版本号
 直接运行 `l` 进入交互式环境，末尾的 `;` 可省略，支持自动识别跨行 `{ ... }` 代码块：
 
 ```text
-L 0.1.0 (Nov  9 2026, 00:45:00) [GCC 16.2.0 64 bit] on win32
+L 0.1.3 (Nov 11 2026, 00:45:00) [GCC 16.2.0 64 bit] on win32
 Type "help", "copyright", "license" or "exit" for more information.
 ESP32 快捷命令: ports() | upload("COM3", "main.l") | connect("COM3") | help("esp32")
 >>> help()                  // 查看所有函数分组、常量与 ESP32 快捷操作总览
@@ -272,18 +293,21 @@ import "./utils/math_ext.l" as m;
 | `ESP32.crc32(data)` | 计算字符串或 `bytes` 的 IEEE 802.3 CRC32 校验值（如 `"0xCBF43926"`） |
 | `ESP32.flash_write(code)` / `ESP32.flash_exec()` | 将脚本带 16B 头与 CRC32 写入 `l_script` 裸分区 / 从映射区零拷贝直接执行 |
 | `ESP32.flash_read()` / `ESP32.flash_info()` / `ESP32.flash_erase()` | 读取裸分区源码、查询分区校验状态、擦除裸分区 |
+| `ESP32.watchdog_enable(ms)` / `.watchdog_feed()` / `.watchdog_disable()` | 看门狗：超时未喂狗真机触发复位，PC 模拟抛出可被 `try/catch` 捕获的超时错误 |
+| `ESP32.deepsleep([ms])` / `ESP32.wake_reason()` | 进入深度睡眠（真机复位重启）/ 查询唤醒原因 `{code, reason: "power_on"/"timer"/"pin"}` |
 | `ports()` / `upload(port, file)` / `connect(port)` | 扫描本机串口、通过串口一键烧录 `.l` 脚本到 ESP32、连接远程串口终端 |
 
 #### 3.2 硬件外设类 (`Pin` / `PWM` / `ADC` / `I2C` / `SPI` / `UART` / `bytes`)
 | 外设构造 | 核心方法与示例 |
 | :--- | :--- |
-| **`Pin(pin, [mode="out"], [val])`**<br/>或简写 **`pin(pin)`** | 模式支持 `"out"`、`"in"`、`"in_pullup"`、`"in_pulldown"`、`"open_drain"`。<br/>方法：`.on()` / `.high()`、`.off()` / `.low()`、`.toggle()`、`.value([0/1])`、`.mode([m])`、`.info()` |
+| **`Pin(pin, [mode="out"], [val])`**<br/>或简写 **`pin(pin)`** | 模式支持 `"out"`、`"in"`、`"in_pullup"`、`"in_pulldown"`、`"open_drain"`。<br/>方法：`.on()` / `.high()`、`.off()` / `.low()`、`.toggle()`、`.value([0/1])`、`.mode([m])`、`.info()`、`.irq(回调, ["rise"/"fall"/"change"])`（电平中断，传 `nil` 注销）、`.write_sim(电平)`（PC 注入外部跳变触发中断） |
 | **`PWM(pin, [freq=1000], [duty=0])`** | 10 位分辨率占空比（`0..1023`）。<br/>方法：`.freq([hz])`、`.duty([0..1023])`、`.duty_percent([0..100])`、`.stop()` / `.deinit()` |
 | **`ADC(pin, [atten="11db"])`** | 自动校验引脚是否具备 ADC 通道。<br/>方法：`.read()`（0..4095）、`.read_mv()`（毫伏）、`.read_uv()`（微伏）、`.atten(db)`、`.write_sim(raw)` |
 | **`I2C([bus=0], [sda], [scl], [freq])`** | 方法：`.scan()`、`.write(addr, data)`、`.read(addr, len)`、`.write_reg(addr, reg, data)`、`.read_reg(addr, reg, len)`、`.sim_device(addr)` |
 | **`SPI([bus=1], [sck], [mosi], [miso], [freq])`** | 方法：`.transfer(data)` / `.xfer(data)`（全双工收发并返回 `bytes`）、`.write(data)`、`.read(len, [fill])` |
 | **`UART([port=1], [baud=115200], [tx], [rx])`** | 方法：`.write(data)`、`.any()`、`.read([len])`、`.read_str()`、`.sim_input(data)` |
 | **`bytes(len \| array \| str)`** | 方法：`.len()`、`.hex([sep])`、`.to_str()`、`.to_array()`、`.fill(b)`、`.slice(s, [e])`、`.u16_be(off)`、`.u16_le(off)`、`.set_u16_be(off, v)`、`.set_u16_le(off, v)` |
+| **`Timer(ms, 回调, [周期=true])`** | 软件定时器，创建即自动启动（单次传 `false`）。<br/>方法：`.stop()`、`.start()`、`.running()`、`.period([毫秒])`、`.count()`。事件由 `delay_ms()` / `ticks_ms()` / `sleep()` 心跳点派发 |
 
 #### 3.3 无线网络与物联网 IoT (`WiFi` / `HTTP` / `SNTP`)
 | 函数 / API | 语法说明 | 返回与效果 |
@@ -337,7 +361,7 @@ idf.py set-target esp32
 # 3. 编译固件
 idf.py build
 
-# 4. 将 bootloader、分区表(含 64KB l_script 裸分区)与应用合成为 0x0 起始的单文件固件
+# 4. 将 bootloader、分区表(含 128KB l_script 裸分区)与应用合成为 0x0 起始的单文件固件
 cd build
 esptool.py --chip esp32 merge_bin -o l-esp32-merged.bin --flash_mode dio --flash_size 4MB @flash_args
 ```
@@ -366,15 +390,19 @@ esptool.py --chip esp32 merge_bin -o l-esp32-merged.bin --flash_mode dio --flash
 lang/
 ├── assets/logo.svg          # 项目图标 (L = Li × Language)
 ├── l_config.h               # 平台自动识别与标准库模块裁剪配置
-├── l_hal.h                  # 硬件抽象层接口定义 (GPIO/PWM/ADC/I2C/SPI/UART/裸Flash/串口)
+├── l_hal.h                  # 硬件抽象层接口 (GPIO/PWM/ADC/I2C/SPI/UART/裸Flash/串口/中断/定时器/看门狗/深睡)
 ├── lexer.h / lexer.c        # 词法分析器 (支持 0x/0b 字面量与源码行指针记录)
 ├── ast.h / ast.c            # 抽象语法树节点定义
 ├── parser.h / parser.c      # 递归下降语法分析器
 ├── value.h / value.c        # 动态值系统 (int/float/bool/nil/string/bytes/array/map/fn/obj)
 ├── gc.h / gc.c              # 标记-清除垃圾回收器
 ├── interp.h / interp.c      # 解释器核心、方法派发、try/catch 异常与精确错误定位
+├── compiler.h / compiler.c  # 字节码编译器 (AST → 致密指令序列)
+├── bytecode.h / bytecode.c  # 字节码序列化与加载 (.lc 文件, 魔数 "LBC1")
+├── vm.h / vm.c              # 栈式虚拟机 (单循环执行, 消除 C 递归栈占用)
+├── dirent_msvc.h            # MSVC 平台 dirent 兼容层 (基于 _findfirst)
 ├── builtins.c               # 核心内置函数与交互式 help() 文档系统
-├── main.c                   # CLI 入口 (REPL / 脚本执行 / -p 扫描串口 / -u 烧录 / -s 终端)
+├── main.c                   # CLI 入口 (REPL / 脚本与字节码执行 / -c 编译 / -d 反汇编 / -e 内联 / -p / -u / -s)
 ├── stdlib/
 │   ├── hal.c                # HAL 实现 (ESP-IDF 真机驱动 + PC 硬件/裸Flash模拟 + 原生串口烧录)
 │   ├── hw.c                 # ESP32 基础功能类与 Pin/PWM/ADC/I2C/SPI/UART/bytes 实现
@@ -386,13 +414,13 @@ lang/
 │   └── net.c                # 无线网络通信与 IoT (WiFi/HTTP/SNTP)
 ├── esp32/                   # ESP-IDF 固件工程与网页免安装工具箱
 │   ├── CMakeLists.txt
-│   ├── partitions.csv       # 含 64KB l_script 无文件系统裸脚本分区 (0x99)
+│   ├── partitions.csv       # 含 128KB l_script 无文件系统裸脚本分区 (0x99)
 │   ├── main/app_main.c      # ESP32 上电自启动、串口在线烧录接收与板端 REPL
 │   ├── web_flasher.html     # 浏览器免安装刷机与 Web Serial 脚本烧录工作台
 │   └── ESP32_GUIDE.md       # 《ESP32 固件编译与刷机指南》
 ├── .github/workflows/
 │   └── esp32-firmware.yml   # GitHub Actions 云端自动编译 ESP32/C3/S3 固件工作流
-├── tests/                   # 18 组自动化回归测试 (01_basic.l ~ 18_net_wifi_http.l)
+├── tests/                   # 20 组自动化回归测试 (01_basic.l ~ 20_m7_irq_timer.l, 含预编译 .lc)
 └── run_tests.ps1            # 回归测试运行脚本
 ```
 

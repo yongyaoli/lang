@@ -146,7 +146,14 @@ static Value f_sleep(Interp *in, const Node *at, int argc, Value *argv) {
     double sec = num_arg(in, at, "sleep", argv, 0);
     if (sec < 0) rt_error(in, at, "sleep() 的时间不能为负数");
     fflush(stdout);
-    l_hal_delay_ms((uint32_t)(sec * 1000.0));
+    /* 分片睡眠 + 分片派发: 睡眠期间定时器/中断事件也能得到响应 */
+    int32_t left = (int32_t)(sec * 1000.0);
+    while (left > 0) {
+        int32_t step = (left > 20) ? 20 : left;
+        l_hal_delay_ms((uint32_t)step);
+        left -= step;
+        hw_poll_events(in);
+    }
     return val_nil();
 }
 

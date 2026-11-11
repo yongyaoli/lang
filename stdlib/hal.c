@@ -17,6 +17,8 @@
 #  include "esp_idf_version.h"
 #  include "esp_timer.h"
 #  include "esp_system.h"
+#  include "esp_sleep.h"
+#  include "esp_task_wdt.h"
 #  include "esp_mac.h"
 #  include "esp_partition.h"
 #  include "esp_rom_sys.h"
@@ -28,6 +30,7 @@
 #  include "nvs_flash.h"
 #  include "freertos/FreeRTOS.h"
 #  include "freertos/task.h"
+#  include "freertos/queue.h"
 #  include "freertos/event_groups.h"
 #elif defined(_WIN32)
 #  define WIN32_LEAN_AND_MEAN
@@ -57,6 +60,7 @@ static int      s_cpu_mhz = 240;
 static uint8_t  s_pin_level[L_MAX_GPIO_PIN + 1] = {0};
 static LPinMode s_pin_mode[L_MAX_GPIO_PIN + 1]  = {0};
 static uint16_t s_adc_raw[L_MAX_GPIO_PIN + 1]   = {0};
+static int      s_wake_reason = 0;   /* 深度睡眠唤醒原因: 0=上电 1=定时器 2=外部引脚 */
 
 /* ================= IEEE 802.3 CRC32 计算 (无查表, 节省 Flash/RAM) ================= */
 
@@ -77,16 +81,25 @@ uint32_t l_hal_crc32(const void *data, size_t len) {
 int64_t l_hal_ticks_ms(void) {
 #if L_PLATFORM_ESP_IDF
     return (int64_t)(esp_timer_get_time() / 1000);
-#else
+#elif defined(_WIN32)
+    /* Windows CRT 的 clock() 为墙钟时间 */
     return (int64_t)((double)clock() * 1000.0 / CLOCKS_PER_SEC);
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 #endif
 }
 
 int64_t l_hal_ticks_us(void) {
 #if L_PLATFORM_ESP_IDF
     return (int64_t)esp_timer_get_time();
-#else
+#elif defined(_WIN32)
     return (int64_t)((double)clock() * 1000000.0 / CLOCKS_PER_SEC);
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (int64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
 #endif
 }
 
@@ -1582,6 +1595,338 @@ LHttpResponse l_hal_http_post(const char *url, const char *data, size_t data_len
 int l_hal_sntp_sync(const char *ntp_server, int timeout_ms) {
     (void)ntp_server; (void)timeout_ms;
     return 0; /* PC 宿主端时钟由操作系统同步，默认已处于精准同步状态 */
+}
+
+#endif /* L_PLATFORM_ESP_IDF */
+
+/* ================= 14. M7: GPIO 中断 / 软件定时器 / 看门狗 / 深度睡眠 HAL ================= */
+
+#if L_PLATFORM_ESP_IDF
+
+/* 真机实现: ISR 只做入队(FreeRTOS Queue), 由 l_hal_poll_events() 在任务上下文派发 */
+
+#define L_EVQ_LEN 32
+typedef struct { int kind; int a, b; } LEv;   /* kind: 0=irq(pin=a,level=b) 1=timer(id=a) */
+static QueueHandle_t s_evq = NULL;
+
+static void ensure_evq(void) {
+    if (!s_evq) s_evq = xQueueCreate(L_EVQ_LEN, sizeof(LEv));
+}
+
+static void ev_push_isr(int kind, int a, int b) {
+    ensure_evq();
+    if (!s_evq) return;
+    LEv ev = { kind, a, b };
+    BaseType_t hpw = pdFALSE;
+    xQueueSendFromISR(s_evq, &ev, &hpw);
+}
+
+static void ev_push_task(int kind, int a, int b) {
+    ensure_evq();
+    if (!s_evq) return;
+    LEv ev = { kind, a, b };
+    xQueueSend(s_evq, &ev, 0);
+}
+
+static struct {
+    int      mode;
+    LIrqFn   cb;
+    void    *user;
+} s_irq_tbl[L_MAX_GPIO_PIN + 1];
+
+static void gpio_isr_thunk(void *arg) {
+    int pin = (int)(intptr_t)arg;
+    int level = gpio_get_level((gpio_num_t)pin);
+    ev_push_isr(0, pin, level);
+}
+
+int l_hal_gpio_irq_attach(int pin, int mode, LIrqFn cb, void *user) {
+    if (pin < 0 || pin > L_MAX_GPIO_PIN || !cb) return -1;
+    ensure_evq();
+    gpio_install_isr_service(0); /* 已安装时返回 ESP_ERR_INVALID_STATE, 可忽略 */
+    gpio_set_intr_type((gpio_num_t)pin,
+                       mode == L_IRQ_RISE ? GPIO_INTR_POSEDGE :
+                       mode == L_IRQ_FALL ? GPIO_INTR_NEGEDGE : GPIO_INTR_ANYEDGE);
+    s_irq_tbl[pin].mode = mode;
+    s_irq_tbl[pin].cb   = cb;
+    s_irq_tbl[pin].user = user;
+    gpio_isr_handler_add((gpio_num_t)pin, gpio_isr_thunk, (void *)(intptr_t)pin);
+    return 0;
+}
+
+int l_hal_gpio_irq_detach(int pin) {
+    if (pin < 0 || pin > L_MAX_GPIO_PIN) return -1;
+    gpio_set_intr_type((gpio_num_t)pin, GPIO_INTR_DISABLE);
+    gpio_isr_handler_remove((gpio_num_t)pin);
+    s_irq_tbl[pin].cb = NULL;
+    return 0;
+}
+
+void l_hal_gpio_sim_write(int pin, int level) {
+    l_hal_gpio_write(pin, level); /* 真机直接写电平, 外部信号才走中断 */
+}
+
+static struct {
+    int        running, period_ms, repeating;
+    int64_t    next_fire_ms;
+    LTimerFn   cb;
+    void      *user;
+} s_timers[L_MAX_SW_TIMERS];
+
+static void esp_timer_thunk(void *arg) {
+    int id = (int)(intptr_t)arg;
+    ev_push_task(1, id, 0);
+}
+
+int l_hal_timer_start(int id, int period_ms, int repeating, LTimerFn cb, void *user) {
+    if (id < 0 || id >= L_MAX_SW_TIMERS || period_ms <= 0 || !cb) return -1;
+    l_hal_timer_stop(id);
+    esp_timer_create_args_t args = {
+        .callback = esp_timer_thunk,
+        .arg      = (void *)(intptr_t)id,
+        .name     = "l_timer",
+    };
+    esp_timer_handle_t h = NULL;
+    if (esp_timer_create(&args, &h) != ESP_OK) return -1;
+    s_timers[id].cb   = cb;
+    s_timers[id].user = user;
+    esp_timer_start_periodic(h, (uint64_t)period_ms * 1000ULL);
+    s_timers[id].running    = 1;
+    s_timers[id].period_ms  = period_ms;
+    s_timers[id].repeating  = repeating;
+    s_timers[id].next_fire_ms = l_hal_ticks_ms() + period_ms;
+    return 0;
+}
+
+void l_hal_timer_stop(int id) {
+    if (id < 0 || id >= L_MAX_SW_TIMERS) return;
+    s_timers[id].running = 0;
+    s_timers[id].cb      = NULL;
+    /* esp_timer 句柄由创建时分配, 这里不重复删除以简化句柄管理 */
+}
+
+int l_hal_timer_running(int id) {
+    if (id < 0 || id >= L_MAX_SW_TIMERS) return 0;
+    return s_timers[id].running;
+}
+
+void l_hal_poll_events(void) {
+    ensure_evq();
+    if (!s_evq) return;
+    LEv ev;
+    while (xQueueReceive(s_evq, &ev, 0) == pdTRUE) {
+        if (ev.kind == 0) {
+            if (ev.a >= 0 && ev.a <= L_MAX_GPIO_PIN && s_irq_tbl[ev.a].cb)
+                s_irq_tbl[ev.a].cb(s_irq_tbl[ev.a].user, ev.a, ev.b);
+        } else {
+            if (ev.a >= 0 && ev.a < L_MAX_SW_TIMERS && s_timers[ev.a].cb)
+                s_timers[ev.a].cb(s_timers[ev.a].user, ev.a);
+        }
+    }
+}
+
+static struct {
+    int     enabled, timeout_ms, expired;
+    int64_t last_feed_ms;
+} s_wdt;
+
+int l_hal_wdt_enable(int timeout_ms) {
+    esp_task_wdt_config_t cfg = {
+        .timeout_ms     = (uint32_t)timeout_ms,
+        .idle_core_mask = 0,
+        .trigger_panic  = false,
+    };
+    esp_task_wdt_deinit();          /* 忽略未初始化错误 */
+    if (esp_task_wdt_init(&cfg) != ESP_OK) return -1;
+    esp_task_wdt_add(NULL);         /* 监控当前任务 */
+    s_wdt.enabled      = 1;
+    s_wdt.timeout_ms   = timeout_ms;
+    s_wdt.expired      = 0;
+    s_wdt.last_feed_ms = l_hal_ticks_ms();
+    return 0;
+}
+
+void l_hal_wdt_feed(void) {
+    if (s_wdt.enabled) {
+        esp_task_wdt_reset();
+        s_wdt.last_feed_ms = l_hal_ticks_ms();
+        s_wdt.expired = 0;
+    }
+}
+
+void l_hal_wdt_disable(void) {
+    if (s_wdt.enabled) esp_task_wdt_delete(NULL);
+    s_wdt.enabled = 0;
+    s_wdt.expired = 0;
+}
+
+int l_hal_wdt_expired(void) {
+    return s_wdt.expired;
+}
+
+void l_hal_deepsleep(int ms) {
+    /* 真机: 睡眠后芯片复位重启, 不会执行到这里 */
+    if (ms > 0) {
+        esp_sleep_enable_timer_wakeup((uint64_t)ms * 1000ULL);
+        esp_deep_sleep_start();
+    } else {
+        esp_deep_sleep_start();
+    }
+}
+
+int l_hal_wake_reason(void) {
+    switch (esp_sleep_get_wakeup_cause()) {
+        case ESP_SLEEP_WAKEUP_TIMER:    return 1;
+        case ESP_SLEEP_WAKEUP_EXT0:
+        case ESP_SLEEP_WAKEUP_EXT1:
+        case ESP_SLEEP_WAKEUP_GPIO:     return 2;
+        default:                        return 0;
+    }
+}
+
+#else /* PC 宿主全功能模拟 */
+
+static struct {
+    int      mode;
+    LIrqFn   cb;
+    void    *user;
+    int      last_level;
+} s_irq_tbl[L_MAX_GPIO_PIN + 1];
+
+/* 事件环形队列: 中断/定时器事件先入队, poll 时统一派发(复刻真机 ISR 入队模型) */
+#define L_EV_CAP 64
+typedef struct { int kind; int a, b; } LEv;   /* kind: 0=irq(pin=a,level=b) 1=timer(id=a) */
+static LEv  s_ev[L_EV_CAP];
+static int  s_ev_head = 0, s_ev_cnt = 0;
+
+static struct {
+    int     enabled, timeout_ms, expired;
+    int64_t last_feed_ms;
+} s_wdt;
+
+static void ev_push(int kind, int a, int b) {
+    if (s_ev_cnt >= L_EV_CAP) return;   /* 队满丢弃(与真机 ISR 行为一致) */
+    s_ev[(s_ev_head + s_ev_cnt) % L_EV_CAP] = (LEv){ kind, a, b };
+    s_ev_cnt++;
+}
+
+int l_hal_gpio_irq_attach(int pin, int mode, LIrqFn cb, void *user) {
+    if (pin < 0 || pin > L_MAX_GPIO_PIN || !cb) return -1;
+    s_irq_tbl[pin].mode       = mode;
+    s_irq_tbl[pin].cb         = cb;
+    s_irq_tbl[pin].user       = user;
+    s_irq_tbl[pin].last_level = s_pin_level[pin];
+    return 0;
+}
+
+int l_hal_gpio_irq_detach(int pin) {
+    if (pin < 0 || pin > L_MAX_GPIO_PIN) return -1;
+    s_irq_tbl[pin].cb = NULL;
+    return 0;
+}
+
+void l_hal_gpio_sim_write(int pin, int level) {
+    if (pin < 0 || pin > L_MAX_GPIO_PIN) return;
+    int v = level ? 1 : 0;
+    int old = s_pin_level[pin];
+    s_pin_level[pin] = (uint8_t)v;
+    if (!s_irq_tbl[pin].cb) return;
+    int hit = (s_irq_tbl[pin].mode == L_IRQ_CHANGE && v != old) ||
+              (s_irq_tbl[pin].mode == L_IRQ_RISE   && old == 0 && v == 1) ||
+              (s_irq_tbl[pin].mode == L_IRQ_FALL   && old == 1 && v == 0);
+    if (hit) ev_push(0, pin, v);
+}
+
+static struct {
+    int        running, period_ms, repeating;
+    int64_t    next_fire_ms;
+    LTimerFn   cb;
+    void      *user;
+} s_timers[L_MAX_SW_TIMERS];
+
+int l_hal_timer_start(int id, int period_ms, int repeating, LTimerFn cb, void *user) {
+    if (id < 0 || id >= L_MAX_SW_TIMERS || period_ms <= 0 || !cb) return -1;
+    s_timers[id].running      = 1;
+    s_timers[id].period_ms    = period_ms;
+    s_timers[id].repeating    = repeating;
+    s_timers[id].next_fire_ms = l_hal_ticks_ms() + period_ms;
+    s_timers[id].cb           = cb;
+    s_timers[id].user         = user;
+    return 0;
+}
+
+void l_hal_timer_stop(int id) {
+    if (id < 0 || id >= L_MAX_SW_TIMERS) return;
+    s_timers[id].running = 0;
+    s_timers[id].cb      = NULL;
+}
+
+int l_hal_timer_running(int id) {
+    if (id < 0 || id >= L_MAX_SW_TIMERS) return 0;
+    return s_timers[id].running;
+}
+
+void l_hal_poll_events(void) {
+    /* 1. 软件定时器到期检查 */
+    int64_t now = l_hal_ticks_ms();
+    for (int i = 0; i < L_MAX_SW_TIMERS; i++) {
+        if (!s_timers[i].running) continue;
+        while (now >= s_timers[i].next_fire_ms) {
+            ev_push(1, i, 0);
+            if (s_timers[i].repeating) s_timers[i].next_fire_ms += s_timers[i].period_ms;
+            else { s_timers[i].running = 0; break; }
+        }
+    }
+    /* 2. 看门狗超时检测(PC 模拟为可捕获标志, 真机为系统复位) */
+    if (s_wdt.enabled && !s_wdt.expired &&
+        now - s_wdt.last_feed_ms > s_wdt.timeout_ms) {
+        s_wdt.expired = 1;
+    }
+    /* 3. 派发队列事件 */
+    while (s_ev_cnt > 0) {
+        LEv ev = s_ev[s_ev_head];
+        s_ev_head = (s_ev_head + 1) % L_EV_CAP;
+        s_ev_cnt--;
+        if (ev.kind == 0) {
+            if (s_irq_tbl[ev.a].cb) s_irq_tbl[ev.a].cb(s_irq_tbl[ev.a].user, ev.a, ev.b);
+        } else {
+            if (s_timers[ev.a].cb) s_timers[ev.a].cb(s_timers[ev.a].user, ev.a);
+        }
+    }
+}
+
+int l_hal_wdt_enable(int timeout_ms) {
+    if (timeout_ms <= 0) return -1;
+    s_wdt.enabled      = 1;
+    s_wdt.timeout_ms   = timeout_ms;
+    s_wdt.expired      = 0;
+    s_wdt.last_feed_ms = l_hal_ticks_ms();
+    return 0;
+}
+
+void l_hal_wdt_feed(void) {
+    if (s_wdt.enabled) {
+        s_wdt.last_feed_ms = l_hal_ticks_ms();
+        s_wdt.expired = 0;
+    }
+}
+
+void l_hal_wdt_disable(void) {
+    s_wdt.enabled = 0;
+    s_wdt.expired = 0;
+}
+
+int l_hal_wdt_expired(void) {
+    return s_wdt.expired;
+}
+
+void l_hal_deepsleep(int ms) {
+    /* PC 模拟: 不真正睡眠(保证离线测试秒级完成), 仅记录唤醒原因 */
+    if (ms > 0) s_wake_reason = 1;
+}
+
+int l_hal_wake_reason(void) {
+    return s_wake_reason;
 }
 
 #endif /* L_PLATFORM_ESP_IDF */
