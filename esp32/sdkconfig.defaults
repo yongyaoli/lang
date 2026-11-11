@@ -10,3 +10,13 @@
 
 CONFIG_ESP_TASK_WDT_EN=y
 CONFIG_ESP_TASK_WDT_INIT=n
+
+# 启用仓库自定义分区表 (esp32/partitions.csv):
+# factory 应用分区 2MB + l_script 裸脚本分区 128KB。
+# 不启用时 ESP-IDF 使用默认 "Single factory app" 表 (factory 仅 1MB)，
+# 固件超过 1MB 会导致 ninja 报 "app partition is too small" 溢出错误。
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# 默认 Flash 仅 2MB, 装不下 factory(2MB)+l_script(128KB), 显式按 4MB 处理
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
