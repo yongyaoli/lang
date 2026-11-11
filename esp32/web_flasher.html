@@ -165,7 +165,7 @@ document.getElementById('btnUpload').onclick = async () => {
   const bytes = new TextEncoder().encode(code);
   const crc = crc32Bytes(bytes).toString(16).toUpperCase().padStart(8, '0');
   log(`\n[网页烧录] 正在写入 l_script 分区 (${bytes.length} 字节, CRC32=0x${crc})...\n`);
-  await sendText(`\r\n__L_UPLOAD_BEGIN__ ${bytes.length} 0x${crc} 1\r\n`);
+  await sendText(`\r\n__L_UPLOAD_BEGIN__ ${bytes.length} 0x${crc} 1\n`);
   await new Promise(r => setTimeout(r, 60));
   await writer.write(bytes);
   await sendText(`\r\n__L_UPLOAD_END__\r\n`);

@@ -37,11 +37,17 @@ static int esp32_readline(char *buf, size_t max_len) {
         if (ch == '\r' || ch == '\n') {
             buf[len] = '\0';
             if (ch == '\r') {
-                /* 稍微等待并吸收紧跟的 '\n' */
-                l_hal_delay_ms(2);
-                int next_ch = getchar();
-                if (next_ch != '\n' && next_ch != EOF && next_ch != -1 && next_ch != 0xFF) {
-                    /* 若非换行符则不消费，不过一般不会发生 */
+                /* 短暂等待并吸收紧跟的 '\n'; 若读到其它字符则退回 stdin, 绝不丢弃 */
+                for (int k = 0; k < 5; k++) {
+                    l_hal_delay_ms(2);
+                    int next_ch = getchar();
+                    if (next_ch == '\n') {
+                        break;
+                    }
+                    if (next_ch != EOF && next_ch != -1 && next_ch != 0xFF) {
+                        ungetc(next_ch, stdin);
+                        break;
+                    }
                 }
             }
             printf("\r\n");
@@ -107,6 +113,23 @@ static void handle_serial_upload(const char *header_line) {
     if (!buf) {
         printf("__L_UPLOAD_ERR__ out of memory\r\n");
         return;
+    }
+
+    /* 0. 排干协议头残留的换行字节。
+     * ESP-IDF 串口控制台可能把输入的 '\r' 翻译为 '\n', 导致 PC 端 "\r\n"
+     * 结尾的协议头在读行后仍残留一个 '\n' 混入脚本正文首部, 使整段正文
+     * 错位一字节, CRC32 校验必然失败。此刻 PC 端在收到 READY 前不会发送
+     * 正文, 因此 RX 队列中的 '\r'/'\n' 只可能是协议头残留, 可安全丢弃;
+     * 若读到其它字符 (理论不发生) 则退回 stdin, 绝不丢失。 */
+    for (;;) {
+        int ch = getchar();
+        if (ch == '\r' || ch == '\n') {
+            continue;
+        }
+        if (ch != EOF && ch != -1 && ch != 0xFF) {
+            ungetc(ch, stdin);
+        }
+        break;
     }
 
     /* 1. 向 PC 发送就绪握手信号，通知 PC 可以发送源码正文字节 */

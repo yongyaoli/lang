@@ -818,10 +818,11 @@ int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
     Sleep(80);
     PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR);
 
-    /* 3. 发送烧录帧起始命令 */
+    /* 3. 发送烧录帧起始命令 (仅以 '\n' 结尾: ESP-IDF 串口控制台会把 '\r'
+     *    翻译为 '\n', "\r\n" 结尾会在设备端残留一个 '\n' 混入正文致 CRC 失配) */
     char hdr_cmd[128];
     int hdr_len = snprintf(hdr_cmd, sizeof hdr_cmd,
-                           "__L_UPLOAD_BEGIN__ %zu 0x%08X 1\r\n", clean_len, (unsigned)crc);
+                           "__L_UPLOAD_BEGIN__ %zu 0x%08X 1\n", clean_len, (unsigned)crc);
     WriteFile(h, hdr_cmd, (DWORD)hdr_len, &written, NULL);
 
     /* 4. 等待 ESP32 就绪握手 __L_UPLOAD_READY__ (最多等待 2 秒) */
