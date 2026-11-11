@@ -1025,21 +1025,38 @@ static int          s_wifi_inited = 0;
 static int          s_wifi_connected = 0;
 static char         s_sta_ip_str[32] = {0};
 
+/* 断线自动重连计数 (在 wifi_connect 显式发起连接时清零) */
+#define WIFI_RETRY_MAX 10
+static int s_wifi_retry = 0;
+
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
     (void)arg;
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
+        printf("[WiFi] STA 已断开 (reason=%d)%s\r\n", (int)disc->reason,
+               (s_wifi_retry < WIFI_RETRY_MAX) ? ", 正在自动重连..." : "");
+        fflush(stdout);
         s_wifi_connected = 0;
         s_sta_ip_str[0] = '\0';
         if (s_wifi_event_group) {
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
         }
+        /* 有限次自动重连: reason=2/15 (认证失败/密码错) 等不可恢复错误不重试,
+         * 避免在路由器后台表现为无限连接/断开循环 */
+        if (s_wifi_retry < WIFI_RETRY_MAX &&
+            disc->reason != WIFI_REASON_AUTH_FAIL && disc->reason != WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT) {
+            s_wifi_retry++;
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            esp_wifi_connect();
+        }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         snprintf(s_sta_ip_str, sizeof(s_sta_ip_str), IPSTR, IP2STR(&event->ip_info.ip));
         s_wifi_connected = 1;
+        s_wifi_retry = 0;
         if (s_wifi_event_group) {
             xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         }
@@ -1082,12 +1099,19 @@ int l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms) {
         strncpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
     }
     wifi_config.sta.threshold.authmode = (password && *password) ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
+    /* 声明支持 PMF(802.11w): WPA2/WPA3 混合模式路由器(常见于运营商网关)会拒绝
+     * 不支持 PMF 的客户端, 导致设备反复认证/被踢, 路由器后台表现为连接-断开循环 */
+    wifi_config.sta.pmf_cfg.capable = true;
+    wifi_config.sta.pmf_cfg.required = false;
 
+    s_wifi_retry = 0;
     esp_wifi_set_mode(WIFI_MODE_STA);
     esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
 
     esp_wifi_start();
+    /* 关闭默认的 modem sleep 省电模式: 部分路由器与之不兼容, 会导致周期性掉线 */
+    esp_wifi_set_ps(WIFI_PS_NONE);
 
     int wait_ticks = (timeout_ms > 0 ? timeout_ms : 15000) / portTICK_PERIOD_MS;
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
