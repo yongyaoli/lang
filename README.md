@@ -415,6 +415,7 @@ lang/
 ├── esp32/                   # ESP-IDF 固件工程与网页免安装工具箱
 │   ├── CMakeLists.txt
 │   ├── partitions.csv       # 含 128KB l_script 无文件系统裸脚本分区 (0x99)
+│   ├── sdkconfig.defaults   # 默认开启任务看门狗 (ESP32.watchdog_enable 依赖)
 │   ├── main/app_main.c      # ESP32 上电自启动、串口在线烧录接收与板端 REPL
 │   ├── web_flasher.html     # 浏览器免安装刷机与 Web Serial 脚本烧录工作台
 │   └── ESP32_GUIDE.md       # 《ESP32 固件编译与刷机指南》

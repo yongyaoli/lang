@@ -1,7 +1,12 @@
-# L 语言 ESP32 固件默认配置
-CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
-CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
-CONFIG_FREERTOS_HZ=1000
-CONFIG_ESP_TASK_WDT_EN=n
+# L 语言 ESP32 底包固件默认配置 (ESP-IDF v5.x)
+#
+# ESP32.watchdog_enable() 依赖 esp_task_wdt API。该模块只在
+# CONFIG_ESP_TASK_WDT_EN=y 时才会被编入 libesp_system.a，
+# 否则链接期报 undefined reference to `esp_task_wdt_init' 等错误
+# (GitHub Actions 云端构建曾因此失败)，故这里显式打开。
+#
+# INIT=n: 不在启动阶段自动开启看门狗，只在脚本调用 ESP32.watchdog_enable()
+# 时才初始化，避免监控 idle 任务产生无谓告警。
+
+CONFIG_ESP_TASK_WDT_EN=y
+CONFIG_ESP_TASK_WDT_INIT=n

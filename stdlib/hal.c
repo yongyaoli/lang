@@ -1710,8 +1710,20 @@ int l_hal_timer_running(int id) {
     return s_timers[id].running;
 }
 
+static struct {
+    int     enabled, timeout_ms, expired;
+    int64_t last_feed_ms;
+} s_wdt;
+
 void l_hal_poll_events(void) {
     ensure_evq();
+#if !CONFIG_ESP_TASK_WDT_EN
+    /* 软件看门狗(硬件任务看门狗未编入时): 到期在此置位, 由脚本层抛可捕获错误 */
+    if (s_wdt.enabled && !s_wdt.expired &&
+        l_hal_ticks_ms() - s_wdt.last_feed_ms > s_wdt.timeout_ms) {
+        s_wdt.expired = 1;
+    }
+#endif
     if (!s_evq) return;
     LEv ev;
     while (xQueueReceive(s_evq, &ev, 0) == pdTRUE) {
@@ -1725,20 +1737,29 @@ void l_hal_poll_events(void) {
     }
 }
 
-static struct {
-    int     enabled, timeout_ms, expired;
-    int64_t last_feed_ms;
-} s_wdt;
+/* ---- 看门狗 ----
+ * 关键: esp_task_wdt_* 符号只有在 CONFIG_ESP_TASK_WDT_EN=y 时才会被编入
+ * libesp_system.a, 否则链接期直接 undefined reference (CI 曾因此失败)。
+ * 因此这里按 Kconfig 条件编译:
+ *   启用 -> 使用硬件任务看门狗(超时由 IDF 处理, 同时记录到期标志供脚本感知)
+ *   禁用 -> 退化为软件看门狗(与 PC 模拟一致, 在事件派发点判超时)
+ * esp32/sdkconfig.defaults 已默认置 CONFIG_ESP_TASK_WDT_EN=y。 */
+#if CONFIG_ESP_TASK_WDT_EN
 
 int l_hal_wdt_enable(int timeout_ms) {
+    if (timeout_ms <= 0) return -1;
     esp_task_wdt_config_t cfg = {
         .timeout_ms     = (uint32_t)timeout_ms,
         .idle_core_mask = 0,
-        .trigger_panic  = false,
+        .trigger_panic  = false,   /* 超时只告警不重启, 交给脚本层抛错 */
     };
-    esp_task_wdt_deinit();          /* 忽略未初始化错误 */
-    if (esp_task_wdt_init(&cfg) != ESP_OK) return -1;
-    esp_task_wdt_add(NULL);         /* 监控当前任务 */
+    esp_err_t err = esp_task_wdt_init(&cfg);
+    if (err == ESP_ERR_INVALID_STATE) {
+        /* 已在启动阶段自动初始化(CONFIG_ESP_TASK_WDT_INIT), 改为重配置 */
+        err = esp_task_wdt_reconfigure(&cfg);
+    }
+    if (err != ESP_OK) return -1;
+    esp_task_wdt_add(NULL);        /* 已添加时返回错误码, 忽略即可 */
     s_wdt.enabled      = 1;
     s_wdt.timeout_ms   = timeout_ms;
     s_wdt.expired      = 0;
@@ -1763,6 +1784,35 @@ void l_hal_wdt_disable(void) {
 int l_hal_wdt_expired(void) {
     return s_wdt.expired;
 }
+
+#else /* !CONFIG_ESP_TASK_WDT_EN: 软件看门狗兜底, 保证任何 sdkconfig 下可链接 */
+
+int l_hal_wdt_enable(int timeout_ms) {
+    if (timeout_ms <= 0) return -1;
+    s_wdt.enabled      = 1;
+    s_wdt.timeout_ms   = timeout_ms;
+    s_wdt.expired      = 0;
+    s_wdt.last_feed_ms = l_hal_ticks_ms();
+    return 0;
+}
+
+void l_hal_wdt_feed(void) {
+    if (s_wdt.enabled) {
+        s_wdt.last_feed_ms = l_hal_ticks_ms();
+        s_wdt.expired = 0;
+    }
+}
+
+void l_hal_wdt_disable(void) {
+    s_wdt.enabled = 0;
+    s_wdt.expired = 0;
+}
+
+int l_hal_wdt_expired(void) {
+    return s_wdt.expired;
+}
+
+#endif /* CONFIG_ESP_TASK_WDT_EN */
 
 void l_hal_deepsleep(int ms) {
     /* 真机: 睡眠后芯片复位重启, 不会执行到这里 */
