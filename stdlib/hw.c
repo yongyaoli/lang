@@ -1535,6 +1535,20 @@ static void dispatch_pending(Interp *in) {
 void hw_poll_events(Interp *in) {
     l_hal_poll_events();
     dispatch_pending(in);
+#if L_PLATFORM_ESP_IDF
+    /* 检查串口 Ctrl+C (0x03): 允许用户打断 while true 等死循环脚本,
+     * 否则脚本独占主任务后 REPL 与串口烧录通道将永久失联。
+     * PC 宿主端不做此检查 (stdin 阻塞读会卡死交互终端)。 */
+    {
+        int ch = getchar();
+        while (ch != EOF && ch != -1 && ch != 0xFF) {
+            if (ch == 3) {
+                rt_error(in, NULL, "脚本已被 Ctrl+C 中断, 已返回 REPL");
+            }
+            ch = getchar();
+        }
+    }
+#endif
     if (l_hal_wdt_expired()) {
         l_hal_wdt_disable();
         rt_error(in, NULL, "看门狗超时 (Watchdog): 超过时限未调用 ESP32.watchdog_feed()");

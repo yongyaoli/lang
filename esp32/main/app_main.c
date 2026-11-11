@@ -204,9 +204,27 @@ void app_main(void) {
     size_t part_sz = 0;
     LFlashStatus st = l_hal_flash_info(&hdr, &part_sz);
     if (st == L_FLASH_OK && (hdr.flags & 1u)) {
-        printf("[boot] 检测到 l_script 分区脚本 (%u 字节, CRC32=0x%08X), 正在执行...\r\n",
+        printf("[boot] 检测到 l_script 分区脚本 (%u 字节, CRC32=0x%08X)\r\n",
                (unsigned)hdr.length, (unsigned)hdr.crc32);
-        exec_snippet("ESP32.flash_exec();", "<boot>", 0);
+        /* 1 秒逃生窗口: 上电后立即发送 Ctrl+C (0x03) 可跳过自启脚本,
+         * 防止死循环脚本独占主任务导致 REPL 与串口烧录通道失联 */
+        printf("[boot] 1 秒内发送 Ctrl+C 可跳过自启脚本...\r\n");
+        fflush(stdout);
+        int skip = 0;
+        for (int i = 0; i < 100 && !skip; i++) {
+            int ch = getchar();
+            if (ch == 3) {
+                skip = 1;
+            } else if (ch == EOF || ch == -1 || ch == 0xFF) {
+                l_hal_delay_ms(10);
+            }
+        }
+        if (skip) {
+            printf("[boot] 已跳过自启脚本, 进入 REPL。\r\n");
+        } else {
+            printf("[boot] 正在执行...\r\n");
+            exec_snippet("ESP32.flash_exec();", "<boot>", 0);
+        }
     } else if (st == L_FLASH_ERR_CRC) {
         printf("[boot] 警告: l_script 分区 CRC32 校验失败, 已跳过启动脚本。\r\n");
     }
