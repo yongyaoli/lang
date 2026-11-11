@@ -20,3 +20,9 @@ CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 
 # 默认 Flash 仅 2MB, 装不下 factory(2MB)+l_script(128KB), 显式按 4MB 处理
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+
+# REPL/解释器运行在 main task (app_main) 中, ESP-IDF 默认栈仅 3584 字节,
+# 递归下降解析器与 VM 深层调用会触发
+# "***ERROR*** A stack overflow in task main has been detected"
+# 故大幅加大栈空间 (从内部堆分配, 不影响上电可用堆上限太多)。
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=32768
