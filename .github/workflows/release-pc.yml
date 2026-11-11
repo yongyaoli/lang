@@ -1,0 +1,216 @@
+name: Release PC Packages
+
+# 打 tag（v*）时自动构建 Windows / Linux / macOS 安装包，并附加到同一个 Release。
+# 与 esp32-firmware.yml 并行运行，两边都以幂等方式创建/更新 Release。
+
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "版本号（不含 v，例如 0.2.0）"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows x86_64
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: mingw-w64-x86_64-gcc
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $ver = "${{ inputs.version }}"
+          if (-not $ver) { $ver = "${{ github.ref_name }}" -replace '^v', '' }
+          if ($ver -notmatch '^\d+\.\d+') { $ver = "0.0.0-dev" }
+          "version=$ver" >> $env:GITHUB_OUTPUT
+          Write-Host "build version: $ver"
+
+      - name: Stamp version into version.h and setup.iss
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $enc = New-Object System.Text.UTF8Encoding($true)
+
+          $vh = Get-Content version.h -Raw -Encoding UTF8
+          $vh = [regex]::Replace($vh, '#define\s+L_VERSION\s+"[^"]*"', ('#define L_VERSION "{0}"' -f $ver))
+          [IO.File]::WriteAllText("$PWD\version.h", $vh, $enc)
+
+          $iss = Get-Content scripts/setup.iss -Raw -Encoding UTF8
+          $iss = [regex]::Replace($iss, '(#define\s+MyAppVersion\s+)"[^"]*"', ('$1"{0}"' -f $ver))
+          [IO.File]::WriteAllText("$PWD\scripts\setup.iss", $iss, $enc)
+
+          Select-String -Path version.h,scripts/setup.iss -Pattern 'L_VERSION|MyAppVersion'
+
+      - name: Build l.exe (static, MinGW-w64)
+        shell: msys2 {0}
+        run: |
+          gcc -O2 -Wall -Wextra -I. \
+            lexer.c ast.c parser.c value.c gc.c interp.c builtins.c \
+            bytecode.c compiler.c vm.c stdlib/*.c main.c \
+            -lwininet -lws2_32 -static -o l.exe
+          ./l.exe --version
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found" }
+
+      - name: Build installer and portable zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" scripts\setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+
+          $dir = "dist\lang-windows-x86_64"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Copy-Item -Path l.exe, README.md, INSTALL.md, LICENSE -Destination $dir
+          Copy-Item -Path scripts\install.ps1, scripts\uninstall.ps1 -Destination $dir
+          Compress-Archive -Path "$dir\*" -DestinationPath dist\lang-windows-x86_64.zip -Force
+
+          Get-ChildItem dist | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pc-windows
+          if-no-files-found: error
+          path: |
+            dist/lang-setup-windows-x86_64.exe
+            dist/lang-windows-x86_64.zip
+
+  linux:
+    name: Linux x86_64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          gcc -O2 -Wall -Wextra -I. \
+            lexer.c ast.c parser.c value.c gc.c interp.c builtins.c \
+            bytecode.c compiler.c vm.c stdlib/*.c main.c \
+            -lm -o l
+          ./l --version
+
+      - name: Package tarball
+        run: |
+          mkdir -p dist pkg
+          cp l README.md INSTALL.md LICENSE scripts/install.sh scripts/uninstall.sh pkg/
+          tar -czf dist/lang-linux-x86_64.tar.gz -C pkg .
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pc-linux
+          if-no-files-found: error
+          path: dist/lang-linux-x86_64.tar.gz
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          clang -O2 -Wall -Wextra -I. \
+            lexer.c ast.c parser.c value.c gc.c interp.c builtins.c \
+            bytecode.c compiler.c vm.c stdlib/*.c main.c \
+            -lm -o l
+          ./l --version
+
+      - name: Package tarball
+        run: |
+          mkdir -p dist pkg
+          cp l README.md INSTALL.md LICENSE scripts/install.sh scripts/uninstall.sh pkg/
+          chmod +x pkg/l pkg/install.sh pkg/uninstall.sh
+          tar -czf "dist/lang-macos-${{ matrix.arch }}.tar.gz" -C pkg .
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pc-macos-${{ matrix.arch }}
+          if-no-files-found: error
+          path: dist/lang-macos-${{ matrix.arch }}.tar.gz
+
+  unix-src:
+    name: Source bundle (lang-unix.zip)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble source package
+        run: |
+          mkdir -p dist pkg/stdlib
+          cp lexer.h lexer.c ast.h ast.c parser.h parser.c value.h value.c \
+             gc.h gc.c interp.h interp.c bytecode.h bytecode.c compiler.h compiler.c \
+             vm.h vm.c builtins.c main.c version.h l_config.h l_hal.h \
+             README.md INSTALL.md LICENSE pkg/
+          cp stdlib/*.c pkg/stdlib/
+          cp scripts/install.sh scripts/uninstall.sh pkg/
+          cd pkg && zip -r ../dist/lang-unix.zip . && cd ..
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pc-unix-src
+          if-no-files-found: error
+          path: dist/lang-unix.zip
+
+  publish:
+    name: Attach assets to Release
+    needs: [ windows, linux, macos, unix-src ]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -lh assets
+
+      - name: Create or update Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="${{ github.ref_name }}"
+          EXTRA_FLAGS=""
+          case "$TAG" in *-*) EXTRA_FLAGS="--prerelease" ;; esac
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在（可能由固件工作流创建），仅追加 PC 安装包"
+            gh release upload "$TAG" assets/* --clobber
+          else
+            gh release create "$TAG" assets/* \
+              --title "L $TAG" \
+              $EXTRA_FLAGS \
+              --generate-notes \
+              || gh release upload "$TAG" assets/* --clobber
+          fi
