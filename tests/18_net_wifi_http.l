@@ -66,4 +66,39 @@ assert(bad_resp.status != nil, "响应包含 status 字段");
 assert(bad_resp.body != nil, "响应包含 body 字段");
 print("HTTP 客户端响应结构正常:", type(bad_resp) == "map");
 
+print("--- 测试 7. 失败诊断信息 (明确错误信息) ---");
+// 空 SSID 应抛出带明确原因的可捕获错误
+let caught = false;
+try {
+    wifi_connect("");
+} catch (e) {
+    caught = true;
+    print("捕获连接失败诊断:", e.message);
+    assert(e.message != "", "错误信息应有明确失败原因");
+    assert(e.line > 0, "错误应精确定位到行号");
+}
+assert(caught == true, "空 SSID 应抛出明确错误");
+
+// 短密码应抛出带原因的可捕获错误
+let caught2 = false;
+try {
+    wifi_connect("AnyAP", "123");
+} catch (e) {
+    caught2 = true;
+    print("捕获短密码诊断:", e.message);
+}
+assert(caught2 == true, "密码少于 8 位应抛出明确错误");
+
+// SNTP 未联网应给出明确提示
+wifi_disconnect();
+let caught3 = false;
+try {
+    sntp_sync("pool.ntp.org", 1000);
+} catch (e) {
+    caught3 = true;
+    print("捕获对时失败诊断:", e.message);
+    assert(e.message != "", "对时失败应有明确原因");
+}
+assert(caught3 == true, "未联网对时应抛出明确错误");
+
 print("M5 网络测试全部通过！");

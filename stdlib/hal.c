@@ -1025,6 +1025,32 @@ static int          s_wifi_inited = 0;
 static int          s_wifi_connected = 0;
 static char         s_sta_ip_str[32] = {0};
 
+/* 最近一次 WiFi 操作失败的详细诊断信息 (供 l_hal_wifi_last_error() 查询) */
+static char s_wifi_last_err[192] = "";
+
+static void wifi_clear_last_err(void) {
+    s_wifi_last_err[0] = '\0';
+}
+
+/* 将 ESP-IDF 断开原因码翻译为可读的中文诊断描述 */
+static const char *wifi_reason_str(int reason) {
+    switch (reason) {
+    case WIFI_REASON_AUTH_EXPIRE:           return "认证超时, 密码可能已过期或错误";
+    case WIFI_REASON_AUTH_LEAVE:            return "认证被主动离开";
+    case WIFI_REASON_ASSOC_EXPIRE:          return "关联超时";
+    case WIFI_REASON_AUTH_FAIL:             return "认证失败: 密码错误或加密方式不匹配";
+    case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:return "四次握手超时: WiFi 密码错误 (最常见原因)";
+    case WIFI_REASON_HANDSHAKE_TIMEOUT:     return "握手超时: 信号过弱或路由器无响应";
+    case WIFI_REASON_NO_AP_FOUND:           return "未找到该热点: SSID 拼写错误、路由器关闭或为隐藏网络";
+    case WIFI_REASON_ASSOC_FAIL:            return "关联失败: 信号太弱或路由器拒绝连接";
+    case WIFI_REASON_BEACON_TIMEOUT:        return "信标超时: 信号不稳定, 靠近路由器重试";
+    case WIFI_REASON_ASSOC_TOOMANY:         return "路由器已满: 连接设备数达到上限";
+    case WIFI_REASON_AP_CANNOT_HANDLE_NEW_STA: return "路由器无法接受新设备";
+    case WIFI_REASON_CONNECTION_FAIL:       return "连接失败: 射频干扰或信道拥挤";
+    default:                                return "未知原因";
+    }
+}
+
 /* 断线自动重连计数 (在 wifi_connect 显式发起连接时清零) */
 #define WIFI_RETRY_MAX 10
 static int s_wifi_retry = 0;
@@ -1036,9 +1062,12 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
-        printf("[WiFi] STA 已断开 (reason=%d)%s\r\n", (int)disc->reason,
+        printf("[WiFi] STA 已断开 (reason=%d: %s)%s\r\n", (int)disc->reason,
+               wifi_reason_str((int)disc->reason),
                (s_wifi_retry < WIFI_RETRY_MAX) ? ", 正在自动重连..." : "");
         fflush(stdout);
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                 "STA 断开 (reason=%d: %s)", (int)disc->reason, wifi_reason_str((int)disc->reason));
         s_wifi_connected = 0;
         s_sta_ip_str[0] = '\0';
         if (s_wifi_event_group) {
@@ -1085,7 +1114,17 @@ static void ensure_wifi_base_inited(void) {
 }
 
 int l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms) {
-    if (!ssid || !*ssid) return -1;
+    wifi_clear_last_err();
+    if (!ssid || !*ssid) {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err), "SSID 不能为空, 请传入有效热点名称");
+        return -1;
+    }
+    if (password && strlen(password) > 0 && strlen(password) < 8) {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                 "WiFi 密码长度为 %u 位, WPA/WPA2 加密要求至少 8 位 (开放网络请传空密码)",
+                 (unsigned)strlen(password));
+        return -1;
+    }
     ensure_wifi_base_inited();
 
     if (!s_sta_netif) {
@@ -1121,7 +1160,20 @@ int l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms) {
     if (bits & WIFI_CONNECTED_BIT) {
         return 0;
     }
+    /* 失败: 区分 "等待期间收到断开事件(已带 reason 诊断)" 与 "单纯超时" */
+    if (bits & WIFI_FAIL_BIT && s_wifi_last_err[0] == '\0') {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err), "连接被路由器拒绝");
+    }
+    if (s_wifi_last_err[0] == '\0') {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                 "连接超时: %dms 内未获取到 IP, 请检查信号强度、密码是否正确, 并用 wifi_scan() 确认热点存在",
+                 timeout_ms > 0 ? timeout_ms : 15000);
+    }
     return -1;
+}
+
+const char *l_hal_wifi_last_error(void) {
+    return s_wifi_last_err;
 }
 
 int l_hal_wifi_disconnect(void) {
@@ -1170,7 +1222,17 @@ int l_hal_wifi_get_mac(char *buf, size_t max_len) {
 }
 
 int l_hal_wifi_start_ap(const char *ssid, const char *password) {
-    if (!ssid || !*ssid) return -1;
+    wifi_clear_last_err();
+    if (!ssid || !*ssid) {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err), "热点名称(SSID)不能为空");
+        return -1;
+    }
+    if (password && *password && strlen(password) < 8) {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                 "热点密码长度为 %u 位, WPA2 加密要求至少 8 位 (无加密热点请传 nil 或空串)",
+                 (unsigned)strlen(password));
+        return -1;
+    }
     ensure_wifi_base_inited();
 
     if (!s_ap_netif) {
@@ -1189,9 +1251,25 @@ int l_hal_wifi_start_ap(const char *ssid, const char *password) {
     }
     wifi_config.ap.max_connection = 4;
 
-    esp_wifi_set_mode(WIFI_MODE_AP);
-    esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
-    return (esp_wifi_start() == ESP_OK) ? 0 : -1;
+    esp_err_t err = esp_wifi_set_mode(WIFI_MODE_AP);
+    if (err != ESP_OK) {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                 "设置 AP 模式失败: %s", esp_err_to_name(err));
+        return -1;
+    }
+    err = esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
+    if (err != ESP_OK) {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                 "配置热点参数失败: %s", esp_err_to_name(err));
+        return -1;
+    }
+    err = esp_wifi_start();
+    if (err != ESP_OK) {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                 "启动 SoftAP 失败: %s", esp_err_to_name(err));
+        return -1;
+    }
+    return 0;
 }
 
 int l_hal_wifi_scan(LWifiApRecord *records, int max_records) {
@@ -1350,6 +1428,7 @@ int l_hal_sntp_sync(const char *ntp_server, int timeout_ms) {
 static int  s_sim_wifi_connected = 0; /* 默认未连接 WiFi */
 static char s_sim_wifi_ssid[33]  = "";
 static char s_sim_wifi_ip[32]    = "";
+static char s_sim_wifi_last_err[192] = ""; /* 最近一次 WiFi 操作失败诊断 (PC 模拟) */
 
 static void ensure_pc_host_ip(void) {
 #if defined(_WIN32)
@@ -1375,7 +1454,17 @@ static void ensure_pc_host_ip(void) {
 
 int l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms) {
     (void)password; (void)timeout_ms;
-    if (!ssid || !*ssid) return -1;
+    s_sim_wifi_last_err[0] = '\0';
+    if (!ssid || !*ssid) {
+        snprintf(s_sim_wifi_last_err, sizeof(s_sim_wifi_last_err), "SSID 不能为空, 请传入有效热点名称");
+        return -1;
+    }
+    if (password && *password && strlen(password) < 8) {
+        snprintf(s_sim_wifi_last_err, sizeof(s_sim_wifi_last_err),
+                 "WiFi 密码长度为 %u 位, WPA/WPA2 加密要求至少 8 位",
+                 (unsigned)strlen(password));
+        return -1;
+    }
     strncpy(s_sim_wifi_ssid, ssid, sizeof(s_sim_wifi_ssid) - 1);
     s_sim_wifi_ssid[sizeof(s_sim_wifi_ssid) - 1] = '\0';
     s_sim_wifi_connected = 1;
@@ -1424,12 +1513,26 @@ int l_hal_wifi_get_mac(char *buf, size_t max_len) {
 
 int l_hal_wifi_start_ap(const char *ssid, const char *password) {
     (void)password;
-    if (!ssid || !*ssid) return -1;
+    s_sim_wifi_last_err[0] = '\0';
+    if (!ssid || !*ssid) {
+        snprintf(s_sim_wifi_last_err, sizeof(s_sim_wifi_last_err), "热点名称(SSID)不能为空");
+        return -1;
+    }
+    if (password && *password && strlen(password) < 8) {
+        snprintf(s_sim_wifi_last_err, sizeof(s_sim_wifi_last_err),
+                 "热点密码长度为 %u 位, WPA2 加密要求至少 8 位",
+                 (unsigned)strlen(password));
+        return -1;
+    }
     strncpy(s_sim_wifi_ssid, ssid, sizeof(s_sim_wifi_ssid) - 1);
     s_sim_wifi_ssid[sizeof(s_sim_wifi_ssid) - 1] = '\0';
     strncpy(s_sim_wifi_ip, "192.168.4.1", sizeof(s_sim_wifi_ip) - 1);
     s_sim_wifi_connected = 1;
     return 0;
+}
+
+const char *l_hal_wifi_last_error(void) {
+    return s_sim_wifi_last_err;
 }
 
 int l_hal_wifi_scan(LWifiApRecord *records, int max_records) {

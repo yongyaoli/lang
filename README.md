@@ -312,16 +312,16 @@ import "./utils/math_ext.l" as m;
 #### 3.3 无线网络与物联网 IoT (`WiFi` / `HTTP` / `SNTP`)
 | 函数 / API | 语法说明 | 返回与效果 |
 | :--- | :--- | :--- |
-| **`wifi_connect(ssid, [pwd], [timeout])`** | 连接 WiFi 热点（如 `wifi_connect("Home", "12345678")`） | 连网成功返回 `true`，失败返回 `false` |
+| **`wifi_connect(ssid, [pwd], [timeout])`** | 连接 WiFi 热点（如 `wifi_connect("Home", "12345678")`） | 成功返回 `true`；**失败抛出可被 `try/catch` 捕获的详细错误**（含断开原因码与中文诊断，如 "密码错误"/"未找到热点"/"超时"） |
 | **`wifi_disconnect()`** | 主动断开当前 WiFi 网络连接 | 返回 `true` |
 | **`wifi_is_connected()`** | 查询网卡是否处于连网且获取到 IP 状态 | 返回布尔值 `true` / `false` |
 | **`wifi_ip()`** | 获取当前局域网分配到的 IPv4 地址字符串 | 返回形如 `"192.168.1.105"`，未连接返回 `nil` |
 | **`wifi_mac()`** | 获取网卡物理硬件 MAC 地址 | 返回形如 `"24:0A:C4:B8:31:AA"` |
-| **`wifi_ap(ssid, [pwd])`** | 开启自身 SoftAP 热点模式（默认 IP `192.168.4.1`） | 成功返回 `true`，方便手机点对点免路由器配网 |
+| **`wifi_ap(ssid, [pwd])`** | 开启自身 SoftAP 热点模式（默认 IP `192.168.4.1`） | 成功返回 `true`；失败（如密码不足 8 位）抛出带原因的可捕获错误 |
 | **`wifi_scan()`** | 扫描环境周围可用 WiFi 热点列表 | 返回数组：`[{ssid: "Home", rssi: -55, auth: "WPA2"}, ...]` |
-| **`http_get(url, [timeout_ms])`** | 发起 HTTP/HTTPS GET 网络请求 | 返回字典：`{status: 200, body: "...", ok: true}` |
-| **`http_post(url, [body], [hdr], [to])`** | 发起 HTTP/HTTPS POST 数据上报（物联网上云） | 返回字典：`{status: 200, body: "...", ok: true}` |
-| **`sntp_sync([ntp_server], [timeout])`** | 联网同步现实时间（全球高精度授时） | 成功返回 `true`，`time()` 与 `datetime()` 即可获取真实日期 |
+| **`http_get(url, [timeout_ms])`** | 发起 HTTP/HTTPS GET 网络请求 | 返回字典：`{status: 200, body: "...", ok: true, error: nil}` |
+| **`http_post(url, [body], [hdr], [to])`** | 发起 HTTP/HTTPS POST 数据上报（物联网上云） | 返回字典：`{status: 200, body: "...", ok: true, error: nil}` |
+| **`sntp_sync([ntp_server], [timeout])`** | 联网同步现实时间（全球高精度授时） | 成功返回 `true`；失败（未联网 / 超时）抛出带原因的可捕获错误 |
 
 ---
 
@@ -388,7 +388,25 @@ esptool.py --chip esp32 merge_bin -o l-esp32-merged.bin --flash_mode dio --flash
 
 ```text
 lang/
-├── assets/logo.svg          # 项目图标 (L = Li × Language)
+├── assets/                  # 项目图标 (L = Li × Language)
+├── docs/                    # 开发日志与历史文档 (安装记录 / 官网方案 / 历史版本说明)
+├── editors/                 # VS Code 扩展 (语法高亮 / 悬停提示 / 定义跳转)
+├── examples/
+│   └── main.l               # ESP32 IoT 示例脚本 (WiFi + SNTP + LED)
+├── scripts/                 # 构建与安装脚本 (打包 Inno Setup / 安装卸载 / 版本号)
+├── simulators/              # 在线浏览器仿真器设计方案文档
+├── site/                    # 官网静态站点
+├── esp32/                   # ESP-IDF 固件工程与网页免安装工具箱
+│   ├── CMakeLists.txt
+│   ├── partitions.csv       # 含 128KB l_script 无文件系统裸脚本分区 (0x99)
+│   ├── sdkconfig.defaults   # 默认开启任务看门狗 (ESP32.watchdog_enable 依赖)
+│   ├── main/app_main.c      # ESP32 上电自启动、串口在线烧录接收与板端 REPL
+│   ├── web_flasher.html     # 浏览器免安装刷机与 Web Serial 脚本烧录工作台
+│   └── ESP32_GUIDE.md       # 《ESP32 固件编译与刷机指南》
+├── tests/                   # 20 组自动化回归测试 (01_basic.l ~ 20_m7_irq_timer.l, 含期望输出 .out)
+├── tools/                   # 开发期调试入口 (词法/语法分析器独立测试, 不参与主程序编译)
+│   ├── lexer_main.c
+│   └── parser_main.c
 ├── l_config.h               # 平台自动识别与标准库模块裁剪配置
 ├── l_hal.h                  # 硬件抽象层接口 (GPIO/PWM/ADC/I2C/SPI/UART/裸Flash/串口/中断/定时器/看门狗/深睡)
 ├── lexer.h / lexer.c        # 词法分析器 (支持 0x/0b 字面量与源码行指针记录)
@@ -403,6 +421,7 @@ lang/
 ├── dirent_msvc.h            # MSVC 平台 dirent 兼容层 (基于 _findfirst)
 ├── builtins.c               # 核心内置函数与交互式 help() 文档系统
 ├── main.c                   # CLI 入口 (REPL / 脚本与字节码执行 / -c 编译 / -d 反汇编 / -e 内联 / -p / -u / -s)
+├── build_msvc.bat           # MSVC 一键编译 (vswhere 自动探测 VS 安装位置)
 ├── stdlib/
 │   ├── hal.c                # HAL 实现 (ESP-IDF 真机驱动 + PC 硬件/裸Flash模拟 + 原生串口烧录)
 │   ├── hw.c                 # ESP32 基础功能类与 Pin/PWM/ADC/I2C/SPI/UART/bytes 实现
@@ -412,16 +431,8 @@ lang/
 │   ├── io.c                 # 文件系统与路径标准库 (裸机可裁剪)
 │   ├── sys.c                # 系统与进程标准库 (裸机可裁剪)
 │   └── net.c                # 无线网络通信与 IoT (WiFi/HTTP/SNTP)
-├── esp32/                   # ESP-IDF 固件工程与网页免安装工具箱
-│   ├── CMakeLists.txt
-│   ├── partitions.csv       # 含 128KB l_script 无文件系统裸脚本分区 (0x99)
-│   ├── sdkconfig.defaults   # 默认开启任务看门狗 (ESP32.watchdog_enable 依赖)
-│   ├── main/app_main.c      # ESP32 上电自启动、串口在线烧录接收与板端 REPL
-│   ├── web_flasher.html     # 浏览器免安装刷机与 Web Serial 脚本烧录工作台
-│   └── ESP32_GUIDE.md       # 《ESP32 固件编译与刷机指南》
 ├── .github/workflows/
 │   └── esp32-firmware.yml   # GitHub Actions 云端自动编译 ESP32/C3/S3 固件工作流
-├── tests/                   # 20 组自动化回归测试 (01_basic.l ~ 20_m7_irq_timer.l, 含预编译 .lc)
 └── run_tests.ps1            # 回归测试运行脚本
 ```
 

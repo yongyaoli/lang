@@ -123,6 +123,8 @@ int  l_hal_wifi_get_ip(char *buf, size_t max_len);
 int  l_hal_wifi_get_mac(char *buf, size_t max_len);
 int  l_hal_wifi_start_ap(const char *ssid, const char *password);
 int  l_hal_wifi_scan(LWifiApRecord *records, int max_records);
+/* 返回最近一次 WiFi 操作失败的详细原因描述(中文诊断信息, 供脚本 try/catch 或日志使用), 无错误时返回空串 */
+const char *l_hal_wifi_last_error(void);
 
 /* ================= 13. HTTP 客户端与 SNTP 网络对时 HAL ================= */
 typedef struct {
