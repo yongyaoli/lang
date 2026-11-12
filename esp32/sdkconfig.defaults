@@ -26,3 +26,8 @@ CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 # "***ERROR*** A stack overflow in task main has been detected"
 # 故大幅加大栈空间 (从内部堆分配, 不影响上电可用堆上限太多)。
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=32768
+
+# sys_evt 默认事件循环任务栈仅 2304 字节, WiFi 事件派发 (esp_netif 自带日志 +
+# 本项目事件回调) 极易触发 "***ERROR*** A stack overflow in task sys_evt",
+# 导致联网后无限重启, 故加大到 8KB (事件回调已同步瘦身, 双保险)。
+CONFIG_ESP_EVENT_LOOP_STACK_SIZE=8192

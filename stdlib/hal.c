@@ -1151,6 +1151,18 @@ static const char *wifi_reason_str(int reason) {
 /* 断线自动重连计数 (在 wifi_connect 显式发起连接时清零) */
 #define WIFI_RETRY_MAX 10
 static int s_wifi_retry = 0;
+/* 最近一次断开的 reason 码 (-1 表示无) 与获取到的 IP (网络字节序)。
+ * 事件回调运行在 sys_evt 任务 (默认栈仅 2KB), 回调内严禁 printf/snprintf
+ * 等重栈操作, 只做赋值与事件位标记; 诊断字符串一律由任务上下文格式化 */
+static volatile int      s_wifi_disc_reason = -1;
+static volatile uint32_t s_sta_ip_u32 = 0;
+
+/* 把网络字节序 IPv4 格式化为点分十进制字符串 */
+static void wifi_ip_to_str(uint32_t ip, char *buf, size_t cap) {
+    snprintf(buf, cap, "%u.%u.%u.%u",
+             (unsigned)(ip & 0xFF), (unsigned)((ip >> 8) & 0xFF),
+             (unsigned)((ip >> 16) & 0xFF), (unsigned)((ip >> 24) & 0xFF));
+}
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
@@ -1159,13 +1171,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
-        printf("[WiFi] STA 已断开 (reason=%d: %s)%s\r\n", (int)disc->reason,
-               wifi_reason_str((int)disc->reason),
-               (s_wifi_retry < WIFI_RETRY_MAX) ? ", 正在自动重连..." : "");
-        fflush(stdout);
-        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
-                 "STA 断开 (reason=%d: %s)", (int)disc->reason, wifi_reason_str((int)disc->reason));
+        s_wifi_disc_reason = (int)disc->reason;
         s_wifi_connected = 0;
+        s_sta_ip_u32 = 0;
         s_sta_ip_str[0] = '\0';
         if (s_wifi_event_group) {
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
@@ -1180,8 +1188,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        snprintf(s_sta_ip_str, sizeof(s_sta_ip_str), IPSTR, IP2STR(&event->ip_info.ip));
+        s_sta_ip_u32 = event->ip_info.ip.addr;
         s_wifi_connected = 1;
+        s_wifi_disc_reason = -1;
         s_wifi_retry = 0;
         if (s_wifi_event_group) {
             xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
@@ -1246,6 +1255,7 @@ int l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms) {
     wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
 
     s_wifi_retry = 0;
+    s_wifi_disc_reason = -1;
     esp_err_t em = esp_wifi_set_mode(WIFI_MODE_STA);
     if (em != ESP_OK) {
         snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
@@ -1275,13 +1285,19 @@ int l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms) {
                                           pdFALSE, pdFALSE, wait_ticks);
 
     if (bits & WIFI_CONNECTED_BIT) {
+        /* 成功: 在任务上下文把缓存的 IP 格式化为字符串 (回调内禁止 snprintf) */
+        wifi_ip_to_str(s_sta_ip_u32, s_sta_ip_str, sizeof(s_sta_ip_str));
         return 0;
     }
-    /* 失败: 区分 "等待期间收到断开事件(已带 reason 诊断)" 与 "单纯超时" */
-    if (bits & WIFI_FAIL_BIT && s_wifi_last_err[0] == '\0') {
-        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err), "连接被路由器拒绝");
-    }
-    if (s_wifi_last_err[0] == '\0') {
+    /* 失败: 在任务上下文格式化诊断信息, 区分 "收到断开事件 (带 reason)" 与 "单纯超时" */
+    if (bits & WIFI_FAIL_BIT) {
+        if (s_wifi_disc_reason >= 0) {
+            snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                     "STA 断开 (reason=%d: %s)", s_wifi_disc_reason, wifi_reason_str(s_wifi_disc_reason));
+        } else {
+            snprintf(s_wifi_last_err, sizeof(s_wifi_last_err), "连接被路由器拒绝");
+        }
+    } else if (s_wifi_last_err[0] == '\0') {
         snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
                  "连接超时: %dms 内未获取到 IP, 请检查信号强度、密码是否正确, 并用 wifi_scan() 确认热点存在",
                  timeout_ms > 0 ? timeout_ms : 15000);
@@ -1290,6 +1306,11 @@ int l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms) {
 }
 
 const char *l_hal_wifi_last_error(void) {
+    /* 连接成功返回后若再次断开 (后台自动重连期间), 此处按缓存的 reason 补全诊断 */
+    if (!s_wifi_connected && s_wifi_disc_reason >= 0 && s_wifi_last_err[0] == '\0') {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                 "STA 断开 (reason=%d: %s)", s_wifi_disc_reason, wifi_reason_str(s_wifi_disc_reason));
+    }
     return s_wifi_last_err;
 }
 
@@ -1320,9 +1341,8 @@ int l_hal_wifi_get_ssid(char *buf, size_t max_len) {
 
 int l_hal_wifi_get_ip(char *buf, size_t max_len) {
     if (!buf || max_len == 0) return -1;
-    if (s_wifi_connected && s_sta_ip_str[0]) {
-        strncpy(buf, s_sta_ip_str, max_len - 1);
-        buf[max_len - 1] = '\0';
+    if (s_wifi_connected && s_sta_ip_u32) {
+        wifi_ip_to_str(s_sta_ip_u32, buf, max_len);
         return 0;
     }
     buf[0] = '\0';
