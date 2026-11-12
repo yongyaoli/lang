@@ -27,7 +27,9 @@ CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 # 故大幅加大栈空间 (从内部堆分配, 不影响上电可用堆上限太多)。
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=32768
 
-# sys_evt 默认事件循环任务栈仅 2304 字节, WiFi 事件派发 (esp_netif 自带日志 +
+# sys_evt 事件任务默认栈仅 2304 字节, WiFi 事件派发 (esp_netif 自带日志 +
 # 本项目事件回调) 极易触发 "***ERROR*** A stack overflow in task sys_evt",
-# 导致联网后无限重启, 故加大到 8KB (事件回调已同步瘦身, 双保险)。
-CONFIG_ESP_EVENT_LOOP_STACK_SIZE=8192
+# 导致联网成功拿到 IP 后无限重启, 故加大到 8KB (事件回调已同步瘦身, 双保险)。
+# 注意: IDF v5.3 中该选项名为 ESP_SYSTEM_EVENT_TASK_STACK_SIZE (位于 esp_system
+# 组件), 不存在 ESP_EVENT_LOOP_STACK_SIZE, 写错名称会被静默忽略而不生效。
+CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=8192
