@@ -1,14 +1,16 @@
-/* 垃圾回收器: 标记-清除 (Mark-Sweep) GC */
+/* 垃圾回收器: 标记-清除 (Mark-Sweep) GC + 固定静态堆分配器 (M7) */
 #include "gc.h"
 #include "interp.h"
 #include "value.h"
 #include "bytecode.h"
+#include "l_heap.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define GC_INITIAL_THRESHOLD (1024 * 64)   /* 初始触发阈值: 64KB */
+#define L_HEAP_GC_HEADROOM (4 * 1024)      /* 静态池剩余水位线: 低于此值提前回收 */
 
 /* 前向声明 */
 static void mark_object(Interp *in, GcObj *obj);
@@ -32,14 +34,29 @@ void *gc_alloc(Interp *in, size_t size, ObjType type) {
     if (in->bytes_allocated + size > in->next_gc && !in->gc_disabled) {
         gc_collect(in);
     }
+    /* 静态池模式: 按池实际剩余空间提前触发回收 (内部缓冲扩容不计入
+     * bytes_allocated, 仅靠对象字节阈值会低估池压力导致耗尽/碎片化) */
+    if (!in->gc_disabled && l_heap_capacity() != 0) {
+        size_t headroom = l_heap_capacity() / 16;   /* 6% 水位线, 4KB~16KB */
+        if (headroom < L_HEAP_GC_HEADROOM) headroom = L_HEAP_GC_HEADROOM;
+        if (headroom > 16 * 1024) headroom = 16 * 1024;
+        if (l_heap_free_bytes() < size + headroom) {
+            if (getenv("L_GC_DEBUG")) {
+                fprintf(stderr, "[GC-TRIGGER] size=%zu free=%zu\n",
+                        size, l_heap_free_bytes());
+            }
+            gc_collect(in);
+        }
+    }
 
-    GcObj *obj = (GcObj *)malloc(size);
+    GcObj *obj = (GcObj *)l_heap_alloc(size);
     if (!obj) {
         /* 内存紧张时尝试强制回收一次 */
         gc_collect(in);
-        obj = (GcObj *)malloc(size);
+        obj = (GcObj *)l_heap_alloc(size);
         if (!obj) {
-            fprintf(stderr, "严重错误: 内存分配失败 (Out of memory)\n");
+            fprintf(stderr, "严重错误: 内存分配失败 (Out of memory, 堆模式: %s, 池剩余: %u 字节)\n",
+                    l_heap_mode(), (unsigned)l_heap_free_bytes());
             exit(1);
         }
     }
@@ -51,6 +68,26 @@ void *gc_alloc(Interp *in, size_t size, ObjType type) {
 
     in->bytes_allocated += size;
     return obj;
+}
+
+/* 带回收重试的内部缓冲扩容 (数组/Map/Env 表等) */
+void *gc_realloc(Interp *in, void *p, size_t n) {
+    void *np = l_heap_realloc(p, n);
+    if (np) return np;
+    if (!in) {
+        fprintf(stderr, "严重错误: 内存扩容失败 (Out of memory, 请求 %zu 字节, 池剩余 %u)\n",
+                n, (unsigned)l_heap_free_bytes());
+        l_heap_debug_dump();
+        exit(1);
+    }
+    if (!in->gc_disabled) gc_collect(in);
+    np = l_heap_realloc(p, n);
+    if (!np) {
+        fprintf(stderr, "严重错误: 内存扩容失败 (Out of memory, 堆模式: %s, 池剩余: %u 字节)\n",
+                l_heap_mode(), (unsigned)l_heap_free_bytes());
+        exit(1);
+    }
+    return np;
 }
 
 /* ---------- 标记阶段 (Mark) ---------- */
@@ -173,6 +210,18 @@ static void mark_roots(Interp *in) {
     for (int i = 0; i < in->temp_root_count; i++) {
         mark_value(in, in->temp_roots[i]);
     }
+
+    /* 5. VM 值栈整体扫描 (M7 值栈 GC 根扫描):
+     * 字节码执行期间栈上所有中间值 (操作数 / 调用参数 / 局部槽位) 自动为根,
+     * 修复了 GC 在 VM 执行中触发时误回收栈上临时值的隐患 */
+    if (in->scan_stack && in->scan_stack_top) {
+        Value *top = *in->scan_stack_top;
+        if (top > in->scan_stack) {
+            for (Value *p = in->scan_stack; p < top; p++) {
+                mark_value(in, *p);
+            }
+        }
+    }
 }
 
 /* ---------- 清除阶段 (Sweep) ---------- */
@@ -187,29 +236,29 @@ static void free_object(Interp *in, GcObj *obj) {
         break;
     case OBJ_ARRAY: {
         Array *a = (Array *)obj;
-        free(a->items);
+        l_heap_free(a->items);
         in->bytes_allocated -= sizeof(Array);
         break;
     }
     case OBJ_MAP: {
         Map *m = (Map *)obj;
-        free(m->keys);
-        free(m->vals);
+        l_heap_free(m->keys);
+        l_heap_free(m->vals);
         in->bytes_allocated -= sizeof(Map);
         break;
     }
     case OBJ_FN: {
         Func *f = (Func *)obj;
-        free(f->upvalues);
+        l_heap_free(f->upvalues);
         in->bytes_allocated -= sizeof(Func);
         break;
     }
     case OBJ_PROTO: {
         Proto *p = (Proto *)obj;
-        free((void *)p->name);
-        free((void *)p->source_file);
+        l_heap_free((void *)p->name);
+        l_heap_free((void *)p->source_file);
         chunk_free(&p->chunk);
-        free(p->upvalues);
+        l_heap_free(p->upvalues);
         in->bytes_allocated -= sizeof(Proto);
         break;
     }
@@ -218,9 +267,9 @@ static void free_object(Interp *in, GcObj *obj) {
         break;
     case OBJ_ENV: {
         Env *e = (Env *)obj;
-        free(e->names);
-        free(e->vals);
-        free(e->consts);
+        l_heap_free(e->names);
+        l_heap_free(e->vals);
+        l_heap_free(e->consts);
         in->bytes_allocated -= sizeof(Env);
         break;
     }
@@ -231,10 +280,11 @@ static void free_object(Interp *in, GcObj *obj) {
         break;
     }
     }
-    free(obj);
+    l_heap_free(obj);
 }
 
 void gc_collect(Interp *in) {
+    size_t before = in->bytes_allocated;
     /* 1. 标记所有根 */
     mark_roots(in);
 
@@ -255,5 +305,9 @@ void gc_collect(Interp *in) {
     in->next_gc = in->bytes_allocated * 2;
     if (in->next_gc < GC_INITIAL_THRESHOLD) {
         in->next_gc = GC_INITIAL_THRESHOLD;
+    }
+    if (getenv("L_GC_DEBUG")) {
+        fprintf(stderr, "[GC] tracked %zu -> %zu, pool used=%zu free=%zu, objects live\n",
+                before, in->bytes_allocated, l_heap_used_bytes(), l_heap_free_bytes());
     }
 }

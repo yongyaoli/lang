@@ -1,6 +1,7 @@
 #include "value.h"
 #include "bytecode.h"
 #include "interp.h"
+#include "l_heap.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -90,7 +91,10 @@ Func *func_proto_new(Interp *in, Proto *proto) {
     f->upvalues = NULL;
     f->upvalue_count = proto ? proto->upvalue_count : 0;
     if (f->upvalue_count > 0) {
-        f->upvalues = calloc(f->upvalue_count, sizeof(Upvalue *));
+        f->upvalues = (Upvalue **)l_heap_alloc(f->upvalue_count * sizeof(Upvalue *));
+        if (f->upvalues) {
+            memset(f->upvalues, 0, f->upvalue_count * sizeof(Upvalue *));
+        }
     }
     return f;
 }
@@ -108,7 +112,7 @@ NativeObj *obj_new(Interp *in, const ObjClass *cls) {
 void array_push(Array *a, Value v) {
     if (a->count == a->cap) {
         a->cap = a->cap ? a->cap * 2 : 4;
-        a->items = realloc(a->items, sizeof(Value) * (size_t)a->cap);
+        a->items = (Value *)gc_realloc(NULL, a->items, sizeof(Value) * (size_t)a->cap);
     }
     a->items[a->count++] = v;
 }
@@ -130,8 +134,8 @@ void map_set(Map *m, Str *key, Value v) {
     }
     if (m->count == m->cap) {
         m->cap = m->cap ? m->cap * 2 : 4;
-        m->keys = realloc(m->keys, sizeof(Str *) * (size_t)m->cap);
-        m->vals = realloc(m->vals, sizeof(Value) * (size_t)m->cap);
+        m->keys = (Str **)gc_realloc(NULL, m->keys, sizeof(Str *) * (size_t)m->cap);
+        m->vals = (Value *)gc_realloc(NULL, m->vals, sizeof(Value) * (size_t)m->cap);
     }
     m->keys[m->count] = key;
     m->vals[m->count] = v;

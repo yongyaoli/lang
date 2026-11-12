@@ -13,4 +13,8 @@
 SNTP 对时成功: true
 --- 测试 6. HTTP 客户端基础交互 ---
 HTTP 客户端响应结构正常: true
+--- 测试 7. 失败诊断信息 (明确错误信息) ---
+捕获连接失败诊断: wifi_connect() 连接 WiFi "" 失败: SSID 不能为空, 请传入有效热点名称 (已等待 15000ms)。排查建议: 用 wifi_scan() 确认热点存在; 检查密码是否正确; 靠近路由器重试
+捕获短密码诊断: wifi_connect() 连接 WiFi "AnyAP" 失败: WiFi 密码长度为 3 位, WPA/WPA2 加密要求至少 8 位 (已等待 15000ms)。排查建议: 用 wifi_scan() 确认热点存在; 检查密码是否正确; 靠近路由器重试
+捕获对时失败诊断: sntp_sync() 对时失败: 当前未连接 WiFi。请先调用 wifi_connect(ssid, pwd) 联网后再对时
 M5 网络测试全部通过！

@@ -11,6 +11,9 @@ void vm_init(VM *vm, Interp *in) {
     vm->open_upvalues = NULL;
     vm->try_count = 0;
     vm->echo = 0;
+    /* M7 值栈 GC 根扫描: 把值栈注册为 GC 根集合 */
+    in->scan_stack = vm->stack;
+    in->scan_stack_top = &vm->stack_top;
 }
 
 void vm_free(VM *vm) {
@@ -18,6 +21,11 @@ void vm_free(VM *vm) {
     vm->frame_count = 0;
     vm->open_upvalues = NULL;
     vm->try_count = 0;
+    /* 注销值栈扫描注册 */
+    if (vm->in && vm->in->scan_stack_top == &vm->stack_top) {
+        vm->in->scan_stack = NULL;
+        vm->in->scan_stack_top = NULL;
+    }
 }
 
 static inline void push(VM *vm, Value val) {

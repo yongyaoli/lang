@@ -80,6 +80,17 @@
 #  endif
 #endif
 
+/* ================= 3.1 固定静态堆分配器 (M7) =================
+ * 解释器全部托管内存 (GC 对象 + 内部缓冲) 收敛到一块编译期定长的
+ * 静态池, 消除运行期 malloc 碎片化。0 表示直接透传 libc (PC 宿主默认)。 */
+#ifndef L_STATIC_HEAP_SIZE
+#  if L_PLATFORM_ESP_IDF
+#    define L_STATIC_HEAP_SIZE (64 * 1024)   /* 适配 320KB SRAM */
+#  else
+#    define L_STATIC_HEAP_SIZE 0
+#  endif
+#endif
+
 /* ================= 4. 裸 Flash 脚本分区 (l_script) 参数 ================= */
 
 #ifndef L_FLASH_PART_NAME
