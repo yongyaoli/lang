@@ -2,6 +2,7 @@
 #include "interp.h"
 #include "compiler.h"
 #include "vm.h"
+#include "l_heap.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -10,6 +11,14 @@
 #include <string.h>
 
 #define MAX_DEPTH MAX_CALL_DEPTH      /* 最大调用深度,防止 C 栈溢出 */
+
+/* l_heap 同源 strdup: 结果存入 Env->names 等由 GC 统一释放的位置 */
+static char *l_strdup(const char *s) {
+    size_t n = strlen(s) + 1;
+    char *p = (char *)l_heap_alloc(n);
+    if (p) memcpy(p, s, n);
+    return p;
+}
 
 /* 语句执行结果:用返回值传递 break / continue / return,不用异常 */
 typedef enum { SIG_NORMAL, SIG_BREAK, SIG_CONTINUE, SIG_RETURN } Signal;
@@ -183,9 +192,9 @@ static void env_define_ex(Interp *in, const Node *at, Env *e,
     }
     if (e->count == e->cap) {
         e->cap = e->cap ? e->cap * 2 : 4;
-        e->names = realloc(e->names, sizeof(char *) * (size_t)e->cap);
-        e->vals = realloc(e->vals, sizeof(Value) * (size_t)e->cap);
-        e->consts = realloc(e->consts, sizeof(uint8_t) * (size_t)e->cap);
+        e->names = (const char **)gc_realloc(in, e->names, sizeof(char *) * (size_t)e->cap);
+        e->vals  = (Value *)gc_realloc(in, e->vals, sizeof(Value) * (size_t)e->cap);
+        e->consts = (uint8_t *)gc_realloc(in, e->consts, sizeof(uint8_t) * (size_t)e->cap);
     }
     e->names[e->count] = name;
     e->vals[e->count] = v;
@@ -938,7 +947,7 @@ static Signal exec_import(Interp *in, const Node *n) {
         strcmp(raw_path, "hw") == 0 || strcmp(raw_path, "machine") == 0) {
         Value mod_val = hw_build_module(in);
         const char *bname = n->as.import_stmt.alias ? n->as.import_stmt.alias : raw_path;
-        env_define(in->env, strdup(bname), mod_val);
+        env_define(in->env, l_strdup(bname), mod_val);
         return SIG_NORMAL;
     }
     char *full_path = resolve_module_path(in->current_file, raw_path);
@@ -1014,7 +1023,7 @@ static Signal exec_import(Interp *in, const Node *n) {
     }
 
     /* 必须持久化保存 bind_name，因为 Env 的 names 只存指针 */
-    env_define(in->env, strdup(bind_name), mod_map_val);
+    env_define(in->env, l_strdup(bind_name), mod_map_val);
     free(bind_name);
     free(full_path);
     return SIG_NORMAL;
@@ -1114,7 +1123,9 @@ int interp_run(Interp *in, const Node *program, int echo) {
 int interp_run_vm(Interp *in, const Node *program, int echo) {
     in->env = in->globals;
     Proto *proto = compile_to_proto(in, program, in->current_file, echo);
-    VM vm;
+    /* M7: VM 结构体改用静态存储 (~40KB 值栈+帧栈),
+     * 避免 ESP32 FreeRTOS 小任务栈 (4~16KB) 被压爆 */
+    static VM vm;
     vm_init(&vm, in);
     int res = vm_run_proto(&vm, proto, echo);
     vm_free(&vm);

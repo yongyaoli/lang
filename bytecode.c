@@ -1,8 +1,17 @@
 #include "bytecode.h"
 #include "interp.h"
+#include "l_heap.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* l_heap 同源 strdup: 结果由 gc.c free_object 统一 l_heap_free 释放 */
+static char *l_strdup(const char *s) {
+    size_t n = strlen(s) + 1;
+    char *p = (char *)l_heap_alloc(n);
+    if (p) memcpy(p, s, n);
+    return p;
+}
 
 void chunk_init(Chunk *c) {
     c->code = NULL;
@@ -15,9 +24,9 @@ void chunk_init(Chunk *c) {
 }
 
 void chunk_free(Chunk *c) {
-    free(c->code);
-    free(c->lines);
-    free(c->constants);
+    l_heap_free(c->code);
+    l_heap_free(c->lines);
+    l_heap_free(c->constants);
     chunk_init(c);
 }
 
@@ -25,8 +34,8 @@ void chunk_write(Chunk *c, uint8_t byte, int line, int col) {
     if (c->count + 1 > c->cap) {
         int old_cap = c->cap;
         c->cap = old_cap < 16 ? 16 : old_cap * 2;
-        c->code = realloc(c->code, c->cap * sizeof(uint8_t));
-        c->lines = realloc(c->lines, c->cap * sizeof(LineInfo));
+        c->code = (uint8_t *)gc_realloc(NULL, c->code, c->cap * sizeof(uint8_t));
+        c->lines = (LineInfo *)gc_realloc(NULL, c->lines, c->cap * sizeof(LineInfo));
     }
     c->code[c->count] = byte;
     c->lines[c->count].line = line;
@@ -56,7 +65,7 @@ int chunk_add_constant(Chunk *c, Value val) {
     if (c->const_count + 1 > c->const_cap) {
         int old_cap = c->const_cap;
         c->const_cap = old_cap < 8 ? 8 : old_cap * 2;
-        c->constants = realloc(c->constants, c->const_cap * sizeof(Value));
+        c->constants = (Value *)gc_realloc(NULL, c->constants, c->const_cap * sizeof(Value));
     }
     c->constants[c->const_count] = val;
     return c->const_count++;
@@ -64,8 +73,8 @@ int chunk_add_constant(Chunk *c, Value val) {
 
 Proto *proto_new(Interp *in, const char *name, const char *source_file) {
     Proto *p = (Proto *)gc_alloc(in, sizeof(Proto), OBJ_PROTO);
-    p->name = name ? strdup(name) : NULL;
-    p->source_file = source_file ? strdup(source_file) : NULL;
+    p->name = name ? l_strdup(name) : NULL;
+    p->source_file = source_file ? l_strdup(source_file) : NULL;
     p->arity = 0;
     p->is_vararg = 0;
     chunk_init(&p->chunk);

@@ -5,6 +5,7 @@ get_filename_component(LANG_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 idf_component_register(
     SRCS
         "app_main.c"
+        "${LANG_ROOT}/l_heap.c"
         "${LANG_ROOT}/lexer.c"
         "${LANG_ROOT}/ast.c"
         "${LANG_ROOT}/parser.c"
@@ -23,6 +24,7 @@ idf_component_register(
         "${LANG_ROOT}/stdlib/io.c"
         "${LANG_ROOT}/stdlib/sys.c"
         "${LANG_ROOT}/stdlib/net.c"
+        "${LANG_ROOT}/stdlib/tcp_posix.c"
     INCLUDE_DIRS
         "${LANG_ROOT}"
 )

@@ -32,7 +32,7 @@ if not defined VSROOT (
 echo 使用 Visual Studio: !VSROOT!
 call "!VSROOT!\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
 
-cl /nologo /utf-8 /O2 /W3 /I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib\*.c main.c /Fe:l.exe /link wininet.lib ws2_32.lib
+cl /nologo /utf-8 /O2 /W3 /I. l_heap.c lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib\*.c main.c /Fe:l.exe /link wininet.lib ws2_32.lib
 set RC=%ERRORLEVEL%
 echo CMDEXIT=%RC%
 exit /b %RC%

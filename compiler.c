@@ -1,4 +1,5 @@
 #include "compiler.h"
+#include "l_heap.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -148,7 +149,7 @@ static int add_upvalue(Compiler *c, uint8_t is_local, uint8_t index) {
     if (c->proto->upvalue_count + 1 > c->proto->upvalue_cap) {
         int old_cap = c->proto->upvalue_cap;
         c->proto->upvalue_cap = old_cap < 8 ? 8 : old_cap * 2;
-        c->proto->upvalues = realloc(c->proto->upvalues, c->proto->upvalue_cap * sizeof(UpvalueDesc));
+        c->proto->upvalues = (UpvalueDesc *)gc_realloc(c->in, c->proto->upvalues, c->proto->upvalue_cap * sizeof(UpvalueDesc));
     }
     int idx = c->proto->upvalue_count++;
     c->proto->upvalues[idx].is_local = is_local;

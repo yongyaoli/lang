@@ -129,10 +129,10 @@ ESP32.watchdog_feed();
 只需系统中有 `gcc` 或 `clang`：
 ```bash
 # Windows (需链接 wininet/ws2_32 以支持串口与 HTTP)
-gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -lwininet -lws2_32 -static -o l.exe
+gcc -O2 -Wall -Wextra -I. l_heap.c lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -lwininet -lws2_32 -static -o l.exe
 
 # Linux / macOS (去掉最后两个链接库即可)
-gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -o l
+gcc -O2 -Wall -Wextra -I. l_heap.c lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -o l
 ```
 > - MSVC (cl.exe) 亦可编译，项目内置 [`dirent_msvc.h`](dirent_msvc.h) 兼容层（本机无 MinGW 时可运行 `build_msvc.bat`）；
 > - 若希望编译针对无文件系统裸机裁剪的最小化版本，可加上 `-DL_WITH_STDLIB_IO=0 -DL_WITH_STDLIB_SYS=0`。
@@ -322,6 +322,10 @@ import "./utils/math_ext.l" as m;
 | **`http_get(url, [timeout_ms])`** | 发起 HTTP/HTTPS GET 网络请求 | 返回字典：`{status: 200, body: "...", ok: true, error: nil}` |
 | **`http_post(url, [body], [hdr], [to])`** | 发起 HTTP/HTTPS POST 数据上报（物联网上云） | 返回字典：`{status: 200, body: "...", ok: true, error: nil}` |
 | **`sntp_sync([ntp_server], [timeout])`** | 联网同步现实时间（全球高精度授时） | 成功返回 `true`；失败（未联网 / 超时）抛出带原因的可捕获错误 |
+| **`Tcp(host, port, [timeout=5000])`** | 创建 TCP 客户端并立即连接（IPv4/IPv6） | 返回 `Tcp` 对象；失败（DNS 解析失败 / 连接被拒绝 / 超时）抛出带原因的可捕获错误 |
+| **`tcp.send(数据)`** | 发送字符串或 `bytes`（自动分包直到发完），支持链式 `.send().send()` | 返回自身；连接断开时抛出带原因的可捕获错误 |
+| **`tcp.recv([最大字节], [超时])`** | 接收文本（`recv_bytes` 为二进制安全版本） | 返回字符串；**超时或对方关闭返回 `nil`**（便于轮询），出错抛带原因的错误 |
+| **`tcp.close()` / `tcp.is_connected()` / `tcp.info()`** | 关闭连接 / 查询状态 / 返回 `{host, port, connected}` | 对象被 GC 回收时也会自动关闭套接字 |
 
 ---
 
@@ -404,10 +408,13 @@ lang/
 │   ├── web_flasher.html     # 浏览器免安装刷机与 Web Serial 脚本烧录工作台
 │   └── ESP32_GUIDE.md       # 《ESP32 固件编译与刷机指南》
 ├── tests/                   # 20 组自动化回归测试 (01_basic.l ~ 20_m7_irq_timer.l, 含期望输出 .out)
+│   ├── fib_stress.l         # fib(20) 递归 GC 压力用例 (验证静态堆反复分配/回收)
+│   └── l_heap_unit_test.c   # l_heap 静态堆分配器独立单元测试 (20 万次随机分配/释放/重分配)
 ├── tools/                   # 开发期调试入口 (词法/语法分析器独立测试, 不参与主程序编译)
 │   ├── lexer_main.c
 │   └── parser_main.c
 ├── l_config.h               # 平台自动识别与标准库模块裁剪配置
+├── l_heap.h / l_heap.c      # 固定静态堆分配器 (M7: ESP32 64KB 内存池 + PC libc 直通)
 ├── l_hal.h                  # 硬件抽象层接口 (GPIO/PWM/ADC/I2C/SPI/UART/裸Flash/串口/中断/定时器/看门狗/深睡)
 ├── lexer.h / lexer.c        # 词法分析器 (支持 0x/0b 字面量与源码行指针记录)
 ├── ast.h / ast.c            # 抽象语法树节点定义
@@ -430,7 +437,9 @@ lang/
 │   ├── time.c               # 时间与日期标准库
 │   ├── io.c                 # 文件系统与路径标准库 (裸机可裁剪)
 │   ├── sys.c                # 系统与进程标准库 (裸机可裁剪)
-│   └── net.c                # 无线网络通信与 IoT (WiFi/HTTP/SNTP)
+│   ├── net.c                # 无线网络通信与 IoT (WiFi/HTTP/SNTP/TCP Socket 类)
+│   ├── tcp_win.c            # TCP Windows WinSock2 实现 (独立翻译单元)
+│   └── tcp_posix.c          # TCP POSIX BSD 实现 (Linux/macOS/ESP-IDF lwip)
 ├── .github/workflows/
 │   └── esp32-firmware.yml   # GitHub Actions 云端自动编译 ESP32/C3/S3 固件工作流
 └── run_tests.ps1            # 回归测试运行脚本

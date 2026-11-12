@@ -67,6 +67,12 @@ struct Interp {
     size_t next_gc;         /* 触发下一次 GC 的阈值 */
     int gc_disabled;        /* 暂时禁用 GC 的标志 */
 
+    /* VM 值栈自动扫描 (M7 值栈 GC 根扫描):
+     * 由 vm_init() 注册, GC 标记阶段整体扫描 [scan_stack, *scan_stack_top)
+     * 区间, 字节码执行期间的所有中间值自动成为根, 无需手动 push/pop 保护 */
+    Value *scan_stack;      /* VM 值栈基址 (NULL 表示未注册) */
+    Value **scan_stack_top; /* 指向 VM 当前栈顶指针变量的地址 */
+
     /* 模块导入缓存 (Map: 规范化文件路径 -> 模块导出 Map) */
     Map *modules;
     const char *current_file; /* 当前正在执行的文件绝对/规范路径 */
@@ -83,6 +89,8 @@ void gc_push_root(Interp *in, Value v);
 void gc_pop_roots(Interp *in, int count);
 void gc_collect(Interp *in);
 void *gc_alloc(Interp *in, size_t size, ObjType type);
+/* 内部缓冲扩容: 失败时触发回收重试; in 为 NULL 时退化为普通 realloc (失败即致命) */
+void *gc_realloc(Interp *in, void *p, size_t n);
 
 /* 环境接口 */
 Env *env_new(Interp *in, Env *parent);
