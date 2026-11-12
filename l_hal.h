@@ -102,8 +102,10 @@ int l_hal_serial_list_ports(char names[][16], int max_ports);
 int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
                         char *err_buf, size_t err_cap);
 
-/* 进入 ESP32 串口交互终端 (按 Ctrl+] 或输入 .exit 退出), 成功返回 0, 失败返回负数 */
-int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_cap);
+/* 进入 ESP32 串口交互终端 (按 Ctrl+] 或输入 .exit 退出), 成功返回 0, 失败返回负数。
+ * log_path 非空时把所有收发内容带本地时间戳追加写入该日志文件 (NULL 则不记录) */
+int l_hal_serial_monitor(const char *port, int baud, const char *log_path,
+                         char *err_buf, size_t err_cap);
 
 /* 通过串口向 ESP32 发送单条代码语句并接收回显输出, 成功返回 0, 失败返回负数 */
 int l_hal_serial_exec(const char *port, int baud, const char *code, char *err_buf, size_t err_cap);

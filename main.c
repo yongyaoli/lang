@@ -230,7 +230,8 @@ static void print_usage(const char *prog) {
     printf("  %s -d, --disasm 脚本.l       反汇编并查看编译生成的单字节操作码序列\n", prog);
     printf("  %s -p, --ports              扫描并列出本机可用串口(如 COM3)\n", prog);
     printf("  %s -u, --upload 串口 脚本.l  将脚本通过串口烧录到 ESP32 裸分区并运行\n", prog);
-    printf("  %s -s, --serial 串口 [波特率] 连接 ESP32 串口交互终端(默认 115200)\n", prog);
+    printf("  %s -s, --serial 串口 [波特率] [--log 文件]\n", prog);
+    printf("                                连接 ESP32 串口交互终端(默认 115200), --log 把收发内容带时间戳写入文件\n");
     printf("  %s -h, --help               显示本帮助\n", prog);
     printf("  %s -v, --version            显示版本号\n\n", prog);
     printf("退出码: 0 成功, 65 语法错误, 70 运行时错误, 74 文件无法读取\n");
@@ -350,9 +351,25 @@ int main(int argc, char **argv) {
     }
     if (argc >= 3 && (strcmp(argv[1], "-s") == 0 || strcmp(argv[1], "--serial") == 0)) {
         const char *port = argv[2];
-        int baud = (argc >= 4) ? atoi(argv[3]) : 115200;
+        int baud = 115200;
+        const char *log_path = NULL;
+        int i = 3;
+        /* 可选参数顺序: [波特率] [--log 日志文件] */
+        while (i < argc) {
+            if (strcmp(argv[i], "--log") == 0) {
+                if (i + 1 >= argc) {
+                    fprintf(stderr, "错误: --log 需要指定日志文件路径\n");
+                    return 65;
+                }
+                log_path = argv[i + 1];
+                i += 2;
+            } else {
+                baud = atoi(argv[i]);
+                i++;
+            }
+        }
         char err_buf[256] = {0};
-        if (l_hal_serial_monitor(port, baud, err_buf, sizeof err_buf) < 0) {
+        if (l_hal_serial_monitor(port, baud, log_path, err_buf, sizeof err_buf) < 0) {
             fprintf(stderr, "串口错误: %s\n", err_buf);
             return 70;
         }

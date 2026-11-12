@@ -897,12 +897,73 @@ int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
 #endif
 }
 
-int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_cap) {
+#if defined(_WIN32) && !L_PLATFORM_ESP_IDF
+/* ---- 串口终端日志辅助 (仅 PC 宿主端使用) ---- */
+static FILE *s_mon_log = NULL;        /* 日志文件句柄, NULL 表示未启用 */
+static char  s_log_line[1024];        /* 正在积累的当前行 */
+static size_t s_log_len = 0;
+
+/* 把当前积累行连同本地时间戳写入日志文件 */
+static void mon_log_flush(const char *prefix) {
+    if (!s_mon_log || s_log_len == 0) return;
+    time_t now = time(NULL);
+    struct tm tmv;
+    localtime_s(&tmv, &now);
+    char ts[32];
+    strftime(ts, sizeof ts, "%Y-%m-%d %H:%M:%S", &tmv);
+    fprintf(s_mon_log, "[%s] %s%.*s\n", ts, prefix, (int)s_log_len, s_log_line);
+    fflush(s_log_file); /* 立即落盘, 断电/崩溃也不丢 */
+    s_log_len = 0;
+}
+
+/* 处理一段设备收到的数据: 按 '\n' 分行, 逐行带时间戳记录 */
+static void mon_log_rx(const char *data, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        char c = data[i];
+        if (c == '\n') {
+            mon_log_flush("");
+        } else if (c == '\r') {
+            /* 以 '\n' 为行界, 忽略 '\r' */
+        } else if (s_log_len + 1 < sizeof(s_log_line)) {
+            s_log_line[s_log_len++] = c;
+        }
+    }
+}
+
+/* 记录一条 PC 发往设备的内容 (prefix 形如 "> " 或 "<Ctrl+C>") */
+static void mon_log_tx(const char *prefix, const char *text, size_t len) {
+    if (!s_mon_log) return;
+    s_log_len = 0;
+    size_t n = (len < sizeof(s_log_line) - 1) ? len : sizeof(s_log_line) - 1;
+    memcpy(s_log_line, text, n);
+    s_log_len = n;
+    mon_log_flush(prefix);
+}
+#endif
+
+int l_hal_serial_monitor(const char *port, int baud, const char *log_path,
+                         char *err_buf, size_t err_cap) {
 #if defined(_WIN32) && !L_PLATFORM_ESP_IDF
     HANDLE h = open_win_serial(port, baud, err_buf, err_cap);
     if (h == INVALID_HANDLE_VALUE) return -1;
 
+    /* 打开日志文件 (追加模式, 便于跨会话持续记录) */
+    if (log_path && *log_path) {
+        s_mon_log = fopen(log_path, "ab");
+        if (!s_mon_log) {
+            snprintf(err_buf, err_cap, "无法打开日志文件: %s", log_path);
+            CloseHandle(h);
+            return -1;
+        }
+        {
+            char meta[128];
+            int m = snprintf(meta, sizeof meta, "%s @ %d bps (日志: %s)", port, baud, log_path);
+            mon_log_tx("== 会话开始 ", meta, (size_t)m);
+        }
+    }
+
     printf("=== 已连接 ESP32 串口交互终端 (%s @ %d bps) ===\n", port, baud);
+    if (s_mon_log) printf("=== 日志记录中: %s (Ctrl+] 或 .exit 退出) ===\n", log_path);
     printf("提示: 直接输入 L 语言语句回车即可在 ESP32 上执行; 按 Ctrl+] 或输入 .exit 回车退出终端。\n\n");
 
     DWORD w = 0;
@@ -911,6 +972,8 @@ int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_c
     char exit_buf[16];
     int  exit_len = 0;
     char rx[256];
+    char tx_line[256];   /* 记录用户本次输入的整行 (用于日志) */
+    int  tx_len = 0;
 
     for (;;) {
         DWORD r = 0;
@@ -918,18 +981,26 @@ int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_c
             rx[r] = '\0';
             printf("%s", rx);
             fflush(stdout);
+            mon_log_rx(rx, (size_t)r);
         }
         while (_kbhit()) {
             int ch = _getch();
             if (ch == 0x1D) { /* Ctrl+] 立即退出 */
+                mon_log_rx("\n", 1); /* 把未完结的行先落盘 */
+                mon_log_tx("== 会话结束 ", port, strlen(port));
+                if (s_mon_log) { fclose(s_mon_log); s_mon_log = NULL; }
                 printf("\n[已断开串口连接 %s]\n", port);
                 CloseHandle(h);
                 return 0;
             } else if (ch == '\r' || ch == '\n') {
                 char cr = '\r';
                 WriteFile(h, &cr, 1, &w, NULL);
+                tx_line[tx_len] = '\0';
+                mon_log_tx("> ", tx_line, (size_t)tx_len);
+                tx_len = 0;
                 exit_buf[exit_len] = '\0';
                 if (strcmp(exit_buf, ".exit") == 0 || strcmp(exit_buf, ".quit") == 0) {
+                    if (s_mon_log) { fclose(s_mon_log); s_mon_log = NULL; }
                     printf("\n[已断开串口连接 %s]\n", port);
                     CloseHandle(h);
                     return 0;
@@ -939,13 +1010,19 @@ int l_hal_serial_monitor(const char *port, int baud, char *err_buf, size_t err_c
                 char bs = '\b';
                 WriteFile(h, &bs, 1, &w, NULL);
                 if (exit_len > 0) exit_len--;
+                if (tx_len > 0) tx_len--;
             } else if (ch == 3) { /* Ctrl+C 信号 */
                 char c = 3;
                 WriteFile(h, &c, 1, &w, NULL);
+                mon_log_tx("<Ctrl+C>", "", 0);
+                tx_len = 0;
                 exit_len = 0;
             } else {
                 char c = (char)ch;
                 WriteFile(h, &c, 1, &w, NULL);
+                if (tx_len + 1 < (int)sizeof(tx_line)) {
+                    tx_line[tx_len++] = c;
+                }
                 if (exit_len < (int)sizeof(exit_buf) - 2) {
                     exit_buf[exit_len++] = c;
                 }
