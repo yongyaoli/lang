@@ -44,6 +44,7 @@ void        l_hal_delay_ms(uint32_t ms);
 int32_t     l_hal_free_heap(size_t vm_allocated_bytes, int sram_kb);
 const char *l_hal_idf_version(void);
 int         l_hal_is_hardware(void);
+const char *l_hal_chip_name(void); /* 实际芯片型号 (真机读 esp_chip_info, 模拟器返回 "SIM") */
 void        l_hal_get_mac(uint8_t mac[6], int chip_id);
 int         l_hal_get_cpu_mhz(void);
 void        l_hal_set_cpu_mhz(int mhz);

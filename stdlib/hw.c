@@ -215,7 +215,9 @@ static const uint8_t *extract_byte_buf(Interp *in, const Node *at, const char *f
 
 static Value m_esp_chip(Interp *in, const Node *at, Value self, int argc, Value *argv) {
     (void)at; (void)self; (void)argc; (void)argv;
-    const char *name = chip_specs[cur_chip].name;
+    /* 真机优先返回 esp_chip_info() 读到的实际芯片型号 (不依赖脚本/固件端的 set_chip),
+     * 模拟器仍返回 set_chip() 设置的模拟型号 */
+    const char *name = l_hal_is_hardware() ? l_hal_chip_name() : chip_specs[cur_chip].name;
     return val_str(str_new(in, name, strlen(name)));
 }
 

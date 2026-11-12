@@ -20,6 +20,7 @@
 #  include "esp_sleep.h"
 #  include "esp_task_wdt.h"
 #  include "esp_mac.h"
+#  include "esp_chip_info.h"
 #  include "esp_partition.h"
 #  include "esp_rom_sys.h"
 #  include "esp_wifi.h"
@@ -141,6 +142,23 @@ int l_hal_is_hardware(void) {
     return 1;
 #else
     return 0;
+#endif
+}
+
+const char *l_hal_chip_name(void) {
+#if L_PLATFORM_ESP_IDF
+    esp_chip_info_t info;
+    esp_chip_info(&info);
+    switch (info.model) {
+    case CHIP_ESP32:   return "ESP32";
+    case CHIP_ESP32S2: return "ESP32-S2";
+    case CHIP_ESP32S3: return "ESP32-S3";
+    case CHIP_ESP32C3: return "ESP32-C3";
+    case CHIP_ESP32C6: return "ESP32-C6";
+    default:           return "ESP32-UNKNOWN";
+    }
+#else
+    return "SIM";
 #endif
 }
 
@@ -1221,15 +1239,35 @@ int l_hal_wifi_connect(const char *ssid, const char *password, int timeout_ms) {
      * 不支持 PMF 的客户端, 导致设备反复认证/被踢, 路由器后台表现为连接-断开循环 */
     wifi_config.sta.pmf_cfg.capable = true;
     wifi_config.sta.pmf_cfg.required = false;
+    /* WPA3-SAE 兼容: 运营商网关(如 CMCC)常用 WPA2/WPA3 混合或 WPA3 H2E 模式 */
+    wifi_config.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
+    /* 全信道扫描并按信号强度择优: 单信道快扫在信道拥挤时可能找不到目标 AP */
+    wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
 
     s_wifi_retry = 0;
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    esp_err_t em = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (em != ESP_OK) {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                 "esp_wifi_set_mode(STA) 失败 (%s), WiFi 协议栈初始化异常", esp_err_to_name(em));
+        return -1;
+    }
+    esp_err_t ec = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    if (ec != ESP_OK) {
+        snprintf(s_wifi_last_err, sizeof(s_wifi_last_err),
+                 "esp_wifi_set_config 失败 (%s), 请检查 SSID/密码长度是否超限", esp_err_to_name(ec));
+        return -1;
+    }
     xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
 
     esp_wifi_start();
     /* 关闭默认的 modem sleep 省电模式: 部分路由器与之不兼容, 会导致周期性掉线 */
     esp_wifi_set_ps(WIFI_PS_NONE);
+
+    /* STA_START 事件只在首次 esp_wifi_start() 时触发 (事件回调里会自动 esp_wifi_connect)。
+     * 若 WiFi 已处于启动状态 (如上次连接失败/断开后再次调用本函数), STA_START 不会重发,
+     * 必须在此显式发起连接, 否则 15 秒内不会有任何事件, 表现为无诊断信息的静默超时 */
+    esp_wifi_connect();
 
     int wait_ticks = (timeout_ms > 0 ? timeout_ms : 15000) / portTICK_PERIOD_MS;
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
