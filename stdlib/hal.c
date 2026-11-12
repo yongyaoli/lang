@@ -1122,7 +1122,9 @@ static const char *wifi_reason_str(int reason) {
     case WIFI_REASON_ASSOC_FAIL:            return "关联失败: 信号太弱或路由器拒绝连接";
     case WIFI_REASON_BEACON_TIMEOUT:        return "信标超时: 信号不稳定, 靠近路由器重试";
     case WIFI_REASON_ASSOC_TOOMANY:         return "路由器已满: 连接设备数达到上限";
-    case WIFI_REASON_AP_CANNOT_HANDLE_NEW_STA: return "路由器无法接受新设备";
+#ifdef WIFI_REASON_AP_CANNOT_HANDLE_NEW_STA
+    case WIFI_REASON_AP_CANNOT_HANDLE_NEW_STA: return "路由器无法接受新设备"; /* 旧版 IDF 无此枚举, 值与 ASSOC_TOOMANY 相同 */
+#endif
     case WIFI_REASON_CONNECTION_FAIL:       return "连接失败: 射频干扰或信道拥挤";
     default:                                return "未知原因";
     }
