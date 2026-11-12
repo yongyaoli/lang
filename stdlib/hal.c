@@ -912,7 +912,7 @@ static void mon_log_flush(const char *prefix) {
     char ts[32];
     strftime(ts, sizeof ts, "%Y-%m-%d %H:%M:%S", &tmv);
     fprintf(s_mon_log, "[%s] %s%.*s\n", ts, prefix, (int)s_log_len, s_log_line);
-    fflush(s_log_file); /* 立即落盘, 断电/崩溃也不丢 */
+    fflush(s_mon_log); /* 立即落盘, 断电/崩溃也不丢 */
     s_log_len = 0;
 }
 

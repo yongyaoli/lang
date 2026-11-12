@@ -671,7 +671,7 @@ static Value f_connect(Interp *in, const Node *at, int argc, Value *argv) {
             rt_error(in, at, "connect() 远程执行失败: %s", err_buf);
         }
     } else {
-        if (l_hal_serial_monitor(port, baud, err_buf, sizeof err_buf) < 0) {
+        if (l_hal_serial_monitor(port, baud, NULL, err_buf, sizeof err_buf) < 0) {
             rt_error(in, at, "connect() 连接失败: %s", err_buf);
         }
     }
