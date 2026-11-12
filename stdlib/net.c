@@ -32,7 +32,8 @@ static void map_put_cstr(Interp *in, Map *m, const char *k, const char *s) {
 
 /* ================= 1. WiFi 管理函数 ================= */
 
-/* wifi_connect(ssid, [pwd], [timeout_ms]): 连接 WiFi 热点 */
+/* wifi_connect(ssid, [pwd], [timeout_ms]): 连接 WiFi 热点
+ * 成功返回 true; 失败抛出可被 try/catch 捕获的错误, 携带明确的失败原因诊断 */
 static Value f_wifi_connect(Interp *in, const Node *at, int argc, Value *argv) {
     need_arg(in, at, "wifi_connect", argv, 0, V_STR, "string");
     const char *ssid = val_get_cstr(argv[0]);
@@ -40,7 +41,15 @@ static Value f_wifi_connect(Interp *in, const Node *at, int argc, Value *argv) {
     int timeout_ms   = (argc > 2 && argv[2].type == V_INT) ? (int)argv[2].as.i : 15000;
 
     int ret = l_hal_wifi_connect(ssid, pwd, timeout_ms);
-    return val_bool(ret == 0);
+    if (ret != 0) {
+        const char *err = l_hal_wifi_last_error();
+        if (!err || !*err) err = "未知错误";
+        rt_error(in, at,
+                 "wifi_connect() 连接 WiFi \"%s\" 失败: %s (已等待 %dms)。"
+                 "排查建议: 用 wifi_scan() 确认热点存在; 检查密码是否正确; 靠近路由器重试",
+                 ssid, err, timeout_ms > 0 ? timeout_ms : 15000);
+    }
+    return val_bool(1);
 }
 
 /* wifi_disconnect(): 断开当前 WiFi 连接 */
@@ -85,14 +94,22 @@ static Value f_wifi_mac(Interp *in, const Node *at, int argc, Value *argv) {
     return val_str(str_new(in, "00:00:00:00:00:00", 17));
 }
 
-/* wifi_ap(ssid, [pwd]): 开启 SoftAP 热点模式 */
+/* wifi_ap(ssid, [pwd]): 开启 SoftAP 热点模式
+ * 成功返回 true; 失败抛出带明确原因的可捕获错误 */
 static Value f_wifi_ap(Interp *in, const Node *at, int argc, Value *argv) {
     need_arg(in, at, "wifi_ap", argv, 0, V_STR, "string");
     const char *ssid = val_get_cstr(argv[0]);
     const char *pwd  = (argc > 1 && argv[1].type == V_STR) ? val_get_cstr(argv[1]) : NULL;
 
     int ret = l_hal_wifi_start_ap(ssid, pwd);
-    return val_bool(ret == 0);
+    if (ret != 0) {
+        const char *err = l_hal_wifi_last_error();
+        if (!err || !*err) err = "未知错误";
+        rt_error(in, at, "wifi_ap() 开启热点 \"%s\" 失败: %s。"
+                 "排查建议: 密码(如有)需至少 8 位; 手机端确认能扫描到该热点",
+                 ssid, err);
+    }
+    return val_bool(1);
 }
 
 /* wifi_scan(): 扫描周围热点, 返回热点信息字典数组 */
@@ -206,30 +223,40 @@ static Value f_http_post(Interp *in, const Node *at, int argc, Value *argv) {
     return mv;
 }
 
-/* sntp_sync([ntp_server], [timeout_ms]): 网络对时, 同步现实时间 */
+/* sntp_sync([ntp_server], [timeout_ms]): 网络对时, 同步现实时间
+ * 成功返回 true; 失败抛出带明确原因的可捕获错误 (未联网/超时) */
 static Value f_sntp_sync(Interp *in, const Node *at, int argc, Value *argv) {
-    (void)in; (void)at;
     const char *server = (argc > 0 && argv[0].type == V_STR) ? val_get_cstr(argv[0]) : "pool.ntp.org";
     int timeout_ms     = (argc > 1 && argv[1].type == V_INT) ? (int)argv[1].as.i : 10000;
 
+    if (!l_hal_wifi_is_connected()) {
+        rt_error(in, at, "sntp_sync() 对时失败: 当前未连接 WiFi。"
+                 "请先调用 wifi_connect(ssid, pwd) 联网后再对时");
+    }
     int ret = l_hal_sntp_sync(server, timeout_ms);
-    return val_bool(ret == 0);
+    if (ret != 0) {
+        rt_error(in, at,
+                 "sntp_sync() 对时失败: %dms 内未从 NTP 服务器 \"%s\" 获取到时间。"
+                 "排查建议: 确认网络可访问外网 (可用 http_get 测试); 更换 NTP 服务器如 \"ntp.aliyun.com\"",
+                 timeout_ms > 0 ? timeout_ms : 10000, server);
+    }
+    return val_bool(1);
 }
 
 /* ================= 3. 原生函数表与分组注册 ================= */
 
 static const Native net_natives[] = {
-    {"wifi_connect",      1, 3, f_wifi_connect,      "wifi_connect(ssid, [pwd], [timeout_ms])", "连接 WiFi 热点, 成功返回 true"},
+    {"wifi_connect",      1, 3, f_wifi_connect,      "wifi_connect(ssid, [pwd], [timeout_ms])", "连接 WiFi 热点, 成功返回 true, 失败抛出带原因的可捕获错误"},
     {"wifi_disconnect",   0, 0, f_wifi_disconnect,   "wifi_disconnect()",                      "断开当前 WiFi 连接"},
     {"wifi_is_connected",0, 0, f_wifi_is_connected, "wifi_is_connected()",                   "查询 WiFi 是否已连接并获取 IP"},
     {"wifi_ssid",        0, 0, f_wifi_ssid,         "wifi_ssid()",                            "获取当前连接的 WiFi 名称(SSID), 未连接返回 nil"},
     {"wifi_ip",           0, 0, f_wifi_ip,           "wifi_ip()",                              "获取当前局域网 IP, 未连接返回 nil"},
     {"wifi_mac",          0, 0, f_wifi_mac,          "wifi_mac()",                             "获取 WiFi 硬件物理 MAC 地址"},
-    {"wifi_ap",           1, 2, f_wifi_ap,           "wifi_ap(ssid, [pwd])",                   "开启 SoftAP 热点模式"},
+    {"wifi_ap",           1, 2, f_wifi_ap,           "wifi_ap(ssid, [pwd])",                   "开启 SoftAP 热点模式, 失败抛出带原因的可捕获错误"},
     {"wifi_scan",         0, 0, f_wifi_scan,         "wifi_scan()",                            "扫描周围 WiFi 热点, 返回字典数组"},
-    {"http_get",          1, 2, f_http_get,          "http_get(url, [timeout_ms])",            "发起 HTTP/HTTPS GET 请求, 返回 {status, body, ok}"},
-    {"http_post",         1, 4, f_http_post,         "http_post(url, [body], [hdr], [to])",    "发起 HTTP/HTTPS POST 请求, 返回 {status, body, ok}"},
-    {"sntp_sync",         0, 2, f_sntp_sync,         "sntp_sync([ntp_server], [timeout_ms])",  "网络对时, 同步现实时间, 成功返回 true"},
+    {"http_get",          1, 2, f_http_get,          "http_get(url, [timeout_ms])",            "发起 HTTP/HTTPS GET 请求, 返回 {status, body, ok, error}"},
+    {"http_post",         1, 4, f_http_post,         "http_post(url, [body], [hdr], [to])",    "发起 HTTP/HTTPS POST 请求, 返回 {status, body, ok, error}"},
+    {"sntp_sync",         0, 2, f_sntp_sync,         "sntp_sync([ntp_server], [timeout_ms])",  "网络对时, 成功返回 true, 失败抛出带原因的可捕获错误"},
 };
 
 const NativeGroup group_net = {
