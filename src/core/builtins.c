@@ -252,6 +252,10 @@ void builtins_install(Interp *in) {
     }
 #if L_WITH_STDLIB_HW
     hw_install_globals(in);
+    /* 内置常量 sim: 离线模拟烧录端口名, 允许 REPL 中免引号输入 upload(sim, "main.l")
+     * 并让 help(sim) 可用 */
+    if (!env_find(in->globals, "sim"))
+        env_define(in->globals, "sim", val_str(str_new(in, "sim", 3)));
 #endif
     /* 隐藏内置: 字节码 import 语句通过它执行导入, 不出现在 help 列表中 */
     {
@@ -323,6 +327,16 @@ static const struct { const char *name; const char *title; const char *text; } t
      "    connect(\"COM3\")                进入 ESP32 串口远程交互终端(Ctrl+] 或 .exit 退出)\n"
      "    ESP32.pinout()                 打印当前芯片完整 GPIO 引脚状态与限制速查表\n"
      "  退出:exit()  quit()  或 Ctrl+Z 回车(Windows)/ Ctrl+D(其他系统)。\n"},
+    {"sim", "离线模拟烧录(sim)",
+     "  sim 是内置常量(\"sim\"),用作 upload() 的串口参数,表示本地离线模拟演练。\n"
+     "  无 ESP32 硬件时可用它验证烧录流程:脚本被写入 PC 端模拟的裸 Flash 分区\n"
+     "  (带 CRC32 校验),随后自动执行,语义等同真机\"烧录后上电运行\"。\n"
+     "\n"
+     "  用法:\n"
+     "    upload(sim, \"main.l\")          免引号写法\n"
+     "    upload(\"sim\", \"main.l\")        等价写法(\"SIM\"/\"loopback\" 亦可)\n"
+     "\n"
+     "  注意: sim 只是端口名常量,不是可调用的函数;真正的离线演练由 upload() 完成。\n"},
     {"esp32", "ESP32 固件与串口烧录指南",
      "  1. 扫描串口:\n"
      "     REPL 内输入: ports()               命令行: l -p\n"
@@ -472,12 +486,15 @@ static Value b_help(Interp *in, const Node *at, int argc, Value *argv) {
 
 static Value b_copyright(Interp *in, const Node *at, int argc, Value *argv) {
     (void)in; (void)at; (void)argc; (void)argv;
-    printf("Copyright (c) %s L 语言项目作者。保留所有权利。\n", L_COPYRIGHT_YEAR);
+    printf("L %s\n", L_VERSION);
+    printf("Copyright (c) %s Yongyao Li (L 语言项目)。保留所有权利。\n", L_COPYRIGHT_YEAR);
+    printf("输入 license() 查看开源许可证信息。\n");
     return val_nil();
 }
 
 static Value b_license(Interp *in, const Node *at, int argc, Value *argv) {
     (void)in; (void)at; (void)argc; (void)argv;
-    printf("L 语言是一个学习用途的项目,目前尚未指定开源许可证。\n");
+    printf("L 语言采用 MIT 许可证开源发布。\n");
+    printf("完整许可证文本见项目根目录的 LICENSE 文件。\n");
     return val_nil();
 }

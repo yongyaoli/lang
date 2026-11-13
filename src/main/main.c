@@ -162,6 +162,10 @@ static int handle_bare_word(Interp *in, const char *src) {
         printf("用法: connect(\"COM3\") 进入 ESP32 串口交互终端(按 Ctrl+] 或输入 .exit 退出)。\n");
         return 1;
     }
+    if (is_bare_word(src, "sim")) {
+        printf("sim 是离线模拟烧录端口名。用法: upload(sim, \"main.l\") 或 upload(\"sim\", \"main.l\")。\n");
+        return 1;
+    }
     if (is_bare_word(src, "exit") || is_bare_word(src, "quit")) {
 #ifdef _WIN32
         printf("Use exit() or Ctrl-Z plus Return to exit\n");

@@ -755,9 +755,23 @@ static HANDLE open_win_serial(const char *port, int baud, char *err_buf, size_t 
                            OPEN_EXISTING, 0, NULL);
     if (h == INVALID_HANDLE_VALUE) {
         DWORD code = GetLastError();
-        if (code == ERROR_FILE_NOT_FOUND)
-            snprintf(err_buf, err_cap, "未找到串口 %s (请调用 ports() 查看可用串口, 或用 \"sim\" 进行离线模拟烧录)", port);
-        else if (code == ERROR_ACCESS_DENIED)
+        if (code == ERROR_FILE_NOT_FOUND) {
+            /* 顺带列出真实存在的串口, 帮助用户发现拼写错误(如 silm -> COM3) */
+            char names[32][16];
+            int n = l_hal_serial_list_ports(names, 32);
+            if (n > 0) {
+                char avail[192];
+                size_t used = 0;
+                avail[0] = '\0';
+                for (int i = 0; i < n && used + 20 < sizeof avail; i++)
+                    used += (size_t)snprintf(avail + used, sizeof avail - used, i ? ", %s" : "%s", names[i]);
+                snprintf(err_buf, err_cap,
+                         "未找到串口 %s (可用串口: %s; 或用 \"sim\" 进行离线模拟烧录)", port, avail);
+            } else {
+                snprintf(err_buf, err_cap,
+                         "未找到串口 %s (未扫描到任何串口, 可用 \"sim\" 进行离线模拟烧录)", port);
+            }
+        } else if (code == ERROR_ACCESS_DENIED)
             snprintf(err_buf, err_cap, "串口 %s 被其他程序占用, 请先关闭串口助手或监视器", port);
         else
             snprintf(err_buf, err_cap, "无法打开串口 %s (错误码 %lu)", port, (unsigned long)code);
