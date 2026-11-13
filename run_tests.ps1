@@ -1,4 +1,4 @@
-# Regression tests: run tests/*.l and compare stdout with the sibling .out file.
+﻿# Regression tests: run tests/*.l and compare stdout with the sibling .out file.
 # Usage: .\run_tests.ps1            run tests
 #        .\run_tests.ps1 -Update    regenerate .out from current output
 param([switch]$Update)

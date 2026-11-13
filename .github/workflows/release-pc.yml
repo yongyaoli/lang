@@ -127,21 +127,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14
-            arch: arm64
-          - runner: macos-13
-            arch: x86_64
-    runs-on: ${{ matrix.runner }}
+          - arch: arm64
+            clang_arch: "-arch arm64"
+          - arch: x86_64
+            clang_arch: "-arch x86_64"
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
       - name: Build
         run: |
-          clang -O2 -Wall -Wextra -I. \
+          clang -O2 -Wall -Wextra -I. ${{ matrix.clang_arch }} \
             lexer.c ast.c parser.c value.c gc.c interp.c builtins.c \
             bytecode.c compiler.c vm.c stdlib/*.c main.c \
             -lm -o l
-          ./l --version
+          file l
+          if [ "${{ matrix.arch }}" = "arm64" ]; then ./l --version; fi
 
       - name: Package tarball
         run: |

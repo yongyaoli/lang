@@ -565,8 +565,16 @@ static Value m_esp_flash_exec(Interp *in, const Node *at, Value self, int argc, 
     if (st != L_FLASH_OK || !ptr) {
         rt_error(in, at, "ESP32.flash_exec() 读取 l_script 分区失败(状态码 %d)", (int)st);
     }
-    /* 直接在 mmap 映射区或模拟 Flash 区上零拷贝解析并执行 */
-    return interp_eval_source(in, at, ptr, "<flash:l_script>");
+    /* 直接在 mmap 映射区或模拟 Flash 区上零拷贝解析并执行。
+     * 在全局环境的新子环境中运行: 设备端烧录后热重载、REPL 内重复执行
+     * (upload("sim",...) 自动运行 / ESP32.flash_exec()) 时, 上一次运行的
+     * 顶层 const 与全局定义不会残留, 语义等同一次全新上电启动。
+     * 回调注册表 (__l_irq_handlers 等) 与内置对象都在 in->globals, 不受影响 */
+    Env *saved_env = in->env;
+    in->env = env_new(in, in->globals);
+    Value r = interp_eval_source(in, at, ptr, "<flash:l_script>");
+    in->env = saved_env;
+    return r;
 }
 
 static Value m_esp_config(Interp *in, const Node *at, Value self, int argc, Value *argv) {

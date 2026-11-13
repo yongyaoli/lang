@@ -65,8 +65,13 @@ if ($isccPath) {
     Write-Warning "未检测到 Inno Setup 编译器 (ISCC.exe)，跳过 .exe 安装程序生成。可运行 winget install JRSoftware.InnoSetup 安装。"
 }
 
-# 3. 生成 Windows 便携 Zip 与 Linux/macOS 安装包
-Write-Host "`n[3/3] 正在打包便携 Zip 与 Linux/macOS 安装包..." -ForegroundColor Yellow
+# 3. 生成 Windows 便携 Zip 与跨平台源码包
+Write-Host "`n[3/3] 正在打包便携 Zip 与跨平台源码包..." -ForegroundColor Yellow
+Write-Host "说明: 本脚本只能产出本机平台的二进制。" -ForegroundColor DarkGray
+Write-Host "      - lang-windows-*: Windows 预编译安装/便携包 (本机生成)" -ForegroundColor DarkGray
+Write-Host "      - lang-unix.zip : 源码包, Linux / macOS 用户解压后运行 install.sh 自动编译" -ForegroundColor DarkGray
+Write-Host "      - Linux x86_64 与 macOS (arm64/x86_64) 的预编译 tar.gz 无法在 Windows 上交叉编译," -ForegroundColor DarkGray
+Write-Host "        请推送 v* 标签或在 GitHub Actions 手动运行 'Release PC Packages' 产出。" -ForegroundColor DarkGray
 
 # Windows 便携文件夹
 $winPkgDir = Join-Path $distPath "lang-windows-x86_64"
@@ -117,5 +122,6 @@ Copy-Item "$PSScriptRoot\uninstall.sh" "$unixPkgDir\" -Force
 $unixZip = "$distPath\lang-unix.zip"
 Compress-Archive -Path "$unixPkgDir\*" -DestinationPath $unixZip -Force
 
-Write-Host "`n打包全部完成！生成的安装与分发程序如下:" -ForegroundColor Cyan
+Write-Host "`n本地打包全部完成！生成的安装与分发程序如下:" -ForegroundColor Cyan
+Write-Host "(macOS arm64 / x86_64 预编译包由 GitHub Actions 'Release PC Packages' 工作流产出, 推送 v* 标签即自动构建)" -ForegroundColor DarkGray
 Get-ChildItem $distPath | Select-Object Name, @{Name="Size(KB)";Expression={[math]::Round($_.Length/1KB,2)}}, LastWriteTime | Format-Table -AutoSize
