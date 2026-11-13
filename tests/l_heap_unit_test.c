@@ -1,5 +1,5 @@
 /* l_heap 独立单元测试: 随机分配/释放/重分配, 校验数据完整性 */
-#include "../l_heap.h"
+#include "../src/include/l_heap.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

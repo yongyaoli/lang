@@ -26,7 +26,7 @@ $newVersion = "0.1." + $counter + "." + $ts
 Write-Host ">>> 自动累加生成新版本号: L $newVersion" -ForegroundColor Cyan
 
 # 4. 更新 version.h
-$versionHPath = Join-Path $rootDir "version.h"
+$versionHPath = Join-Path $rootDir "src\include\version.h"
 $versionHContent = @"
 #ifndef L_VERSION_H
 #define L_VERSION_H

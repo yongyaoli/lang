@@ -21,7 +21,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # 源码根目录: 发行包里 install.sh 与源码同级, 仓库里则位于 scripts/ 下
 SRC_DIR="$SCRIPT_DIR"
-if [ -f "$ROOT_DIR/main.c" ]; then
+if [ -f "$ROOT_DIR/src/main/main.c" ]; then
     SRC_DIR="$ROOT_DIR"
 fi
 
@@ -36,14 +36,12 @@ elif [ -f "$SRC_DIR/l" ]; then
 elif command -v gcc >/dev/null 2>&1; then
     echo -e "${YELLOW}[1/3] 正在使用 gcc 编译 l...${NC}"
     cd "$SRC_DIR"
-    gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c \
-        bytecode.c compiler.c vm.c stdlib/*.c main.c -lm -o l
+    gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c src/main/main.c -lm -o l
     TARGET_BIN="$SRC_DIR/l"
 elif command -v clang >/dev/null 2>&1; then
     echo -e "${YELLOW}[1/3] 正在使用 clang 编译 l...${NC}"
     cd "$SRC_DIR"
-    clang -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c \
-        bytecode.c compiler.c vm.c stdlib/*.c main.c -lm -o l
+    clang -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c src/main/main.c -lm -o l
     TARGET_BIN="$SRC_DIR/l"
 else
     echo "错误: 未检测到 gcc 或 clang 编译器，且未找到预编译二进制文件！"

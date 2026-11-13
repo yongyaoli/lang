@@ -29,10 +29,10 @@
 ```mermaid
 flowchart LR
     subgraph Once["首次准备 (每块板子只需 1 次)"]
-        FW["l-esp32-merged.bin<br/>(L 解释器 + ESP-IDF 驱动)"] -- "网页刷入 0x0 地址" --> Chip["ESP32 Flash<br/>factory 分区 (1MB)"]
+        FW["l-esp32-merged.bin<br/>(L 解释器 + ESP-IDF 驱动)"] -- "网页刷入 0x0 地址" --> Chip["ESP32 Flash<br/>factory 分区 (2MB)"]
     end
     subgraph Daily["日常开发 (0.2 秒极速更新，免重编固件)"]
-        Code["电脑上的 main.l"] -- "upload('COM3', 'main.l')<br/>或 l -u COM3 main.l" --> Part["ESP32 Flash<br/>l_script 裸分区 (64KB)"]
+        Code["电脑上的 main.l"] -- "upload('COM3', 'main.l')<br/>或 l -u COM3 main.l" --> Part["ESP32 Flash<br/>l_script 裸分区 (128KB)"]
         Part -- "上电自动 CRC32 校验<br/>mmap 零 RAM 拷贝执行" --> Run["点亮 GPIO / PWM / I2C..."]
     end
 ```
@@ -193,12 +193,12 @@ l -s COM3
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `nvs` | `data` | `nvs` | `0x9000` | `24 KB` | 硬件校准与配置存储 |
 | `phy_init` | `data` | `phy` | `0xF000` | `4 KB` | 射频初始化数据 |
-| `factory` | `app` | `factory` | `0x10000` | `1 MB` | L 语言解释器底包固件 |
-| **`l_script`** | `data` | `0x99` | 自动紧随其后 | **`64 KB`** | **无文件系统裸脚本分区（含 16B `LScriptHeader` + IEEE 802.3 CRC32）** |
+| `factory` | `app` | `factory` | `0x10000` | `2 MB` | L 语言解释器底包固件 |
+| **`l_script`** | `data` | `0x99` | 自动紧随其后 | **`128 KB`** | **无文件系统裸脚本分区（含 16B `LScriptHeader` + IEEE 802.3 CRC32）** |
 
 ### 5.2 编译期裁剪开关 (`l_config.h`)
 
-在 [`l_config.h`](../l_config.h) 中可以通过宏开关裁剪固件体积与运行参数：
+在 [`l_config.h`](../src/include/l_config.h) 中可以通过宏开关裁剪固件体积与运行参数：
 
 | 宏名称 | ESP32 默认值 | PC 默认值 | 说明 |
 | :--- | :---: | :---: | :--- |

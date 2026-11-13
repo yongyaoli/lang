@@ -27,7 +27,7 @@ $currentVersion = & "$PSScriptRoot\bump_version.ps1"
 Write-Host "`n[1/3] 正在编译 L 语言独立解释器核心 (l.exe) 版本 $currentVersion..." -ForegroundColor Yellow
 Push-Location $rootDir
 try {
-    & gcc -O2 -Wall -Wextra -I. l_heap.c lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -lwininet -lws2_32 -static -o "$rootDir\l.exe"
+    & gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c src/main/main.c -lwininet -lws2_32 -static -o "$rootDir\l.exe"
     if ($LASTEXITCODE -ne 0) { throw "Windows 二进制编译失败！" }
 } finally {
     Pop-Location
@@ -97,25 +97,14 @@ Compress-Archive -Path "$winPkgDir\*" -DestinationPath $winZip -Force
 $unixPkgDir = Join-Path $distPath "lang-unix"
 New-Item -ItemType Directory -Path $unixPkgDir -Force | Out-Null
 
-$sourceFiles = @(
-    "lexer.h", "lexer.c", "ast.h", "ast.c",
-    "parser.h", "parser.c", "value.h", "value.c",
-    "gc.h", "gc.c", "interp.h", "interp.c",
-    "bytecode.h", "bytecode.c", "compiler.h", "compiler.c",
-    "vm.h", "vm.c",
-    "builtins.c", "main.c", "version.h",
-    "l_config.h", "l_hal.h", "l_heap.h", "l_heap.c",
-    "README.md", "INSTALL.md"
-)
+Copy-Item "$rootDir\README.md" "$unixPkgDir\" -Force
+Copy-Item "$rootDir\INSTALL.md" "$unixPkgDir\" -Force
 
-foreach ($f in $sourceFiles) {
-    if (Test-Path "$rootDir\$f") {
-        Copy-Item "$rootDir\$f" "$unixPkgDir\" -Force
-    }
-}
-
-New-Item -ItemType Directory -Path "$unixPkgDir\stdlib" -Force | Out-Null
-Copy-Item "$rootDir\stdlib\*.c" "$unixPkgDir\stdlib\" -Force
+New-Item -ItemType Directory -Path "$unixPkgDir\src\include", "$unixPkgDir\src\core", "$unixPkgDir\src\stdlib", "$unixPkgDir\src\main" -Force | Out-Null
+Copy-Item "$rootDir\src\include\*.h" "$unixPkgDir\src\include\" -Force
+Copy-Item "$rootDir\src\core\*.c" "$unixPkgDir\src\core\" -Force
+Copy-Item "$rootDir\src\stdlib\*.c" "$unixPkgDir\src\stdlib\" -Force
+Copy-Item "$rootDir\src\main\main.c" "$unixPkgDir\src\main\" -Force
 Copy-Item "$PSScriptRoot\install.sh" "$unixPkgDir\" -Force
 Copy-Item "$PSScriptRoot\uninstall.sh" "$unixPkgDir\" -Force
 

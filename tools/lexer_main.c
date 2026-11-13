@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "lexer.h"
+#include "../src/include/lexer.h"
 
 static char *read_file(const char *path) {
     FILE *f = fopen(path, "rb");

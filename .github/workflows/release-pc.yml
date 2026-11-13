@@ -45,23 +45,23 @@ jobs:
           $ver = "${{ steps.ver.outputs.version }}"
           $enc = New-Object System.Text.UTF8Encoding($true)
 
-          $vh = Get-Content version.h -Raw -Encoding UTF8
+          $vh = Get-Content src/include/version.h -Raw -Encoding UTF8
           $vh = [regex]::Replace($vh, '#define\s+L_VERSION\s+"[^"]*"', ('#define L_VERSION "{0}"' -f $ver))
-          [IO.File]::WriteAllText("$PWD\version.h", $vh, $enc)
+          [IO.File]::WriteAllText("$PWD\src\include\version.h", $vh, $enc)
 
           $iss = Get-Content scripts/setup.iss -Raw -Encoding UTF8
           $iss = [regex]::Replace($iss, '(#define\s+MyAppVersion\s+)"[^"]*"', ('$1"{0}"' -f $ver))
           [IO.File]::WriteAllText("$PWD\scripts\setup.iss", $iss, $enc)
 
-          Select-String -Path version.h,scripts/setup.iss -Pattern 'L_VERSION|MyAppVersion'
+          Select-String -Path src/include/version.h,scripts/setup.iss -Pattern 'L_VERSION|MyAppVersion'
 
-      - name: Build l.exe (static, MinGW-w64)
-        shell: msys2 {0}
+      - name: Build l.exe (CMake, static, MinGW-w64)
+        shell: pwsh
         run: |
-          gcc -O2 -Wall -Wextra -I. \
-            lexer.c ast.c parser.c value.c gc.c interp.c builtins.c \
-            bytecode.c compiler.c vm.c stdlib/*.c main.c \
-            -lwininet -lws2_32 -static -o l.exe
+          $env:PATH = "C:\msys64\mingw64\bin;" + $env:PATH
+          gcc --version | Select-Object -First 1
+          cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
           ./l.exe --version
 
       - name: Install Inno Setup
@@ -102,10 +102,8 @@ jobs:
 
       - name: Build
         run: |
-          gcc -O2 -Wall -Wextra -I. \
-            lexer.c ast.c parser.c value.c gc.c interp.c builtins.c \
-            bytecode.c compiler.c vm.c stdlib/*.c main.c \
-            -lm -o l
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
           ./l --version
 
       - name: Package tarball
@@ -137,10 +135,8 @@ jobs:
 
       - name: Build
         run: |
-          clang -O2 -Wall -Wextra -I. ${{ matrix.clang_arch }} \
-            lexer.c ast.c parser.c value.c gc.c interp.c builtins.c \
-            bytecode.c compiler.c vm.c stdlib/*.c main.c \
-            -lm -o l
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
+          cmake --build build
           file l
           if [ "${{ matrix.arch }}" = "arm64" ]; then ./l --version; fi
 
@@ -166,12 +162,9 @@ jobs:
 
       - name: Assemble source package
         run: |
-          mkdir -p dist pkg/stdlib
-          cp lexer.h lexer.c ast.h ast.c parser.h parser.c value.h value.c \
-             gc.h gc.c interp.h interp.c bytecode.h bytecode.c compiler.h compiler.c \
-             vm.h vm.c builtins.c main.c version.h l_config.h l_hal.h \
-             README.md INSTALL.md LICENSE pkg/
-          cp stdlib/*.c pkg/stdlib/
+          mkdir -p dist pkg
+          cp README.md INSTALL.md LICENSE pkg/
+          cp -r src pkg/src
           cp scripts/install.sh scripts/uninstall.sh pkg/
           cd pkg && zip -r ../dist/lang-unix.zip . && cd ..
           ls -lh dist

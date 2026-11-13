@@ -6,11 +6,11 @@
 
 **一门用纯 C99 从零实现的超轻量级嵌入式（ESP32）与通用脚本语言**
 
-[![Version](https://img.shields.io/badge/version-0.1.3-38bdf8.svg)](version.h)
+[![Version](https://img.shields.io/badge/version-0.1.3-38bdf8.svg)](src/include/version.h)
 [![Standard](https://img.shields.io/badge/C-C99%20Zero%20Deps-2563eb.svg)](main.c)
 [![Platform](https://img.shields.io/badge/platform-ESP32%20%7C%20Windows%20%7C%20Linux%20%7C%20macOS-22c55e.svg)](l_hal.h)
 [![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.x%20Ready-f97316.svg)](esp32/)
-[![Tests](https://img.shields.io/badge/tests-20%2F20%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-21%2F21%20passing-brightgreen.svg)](tests/)
 
 [设计理念与命名](#命名由来为什么叫-l-lang) ·
 [核心能力](#这是什么能做什么) ·
@@ -125,16 +125,22 @@ ESP32.watchdog_feed();
 #### 方式 A：使用 Windows 安装包（推荐 Windows 用户）
 直接运行发布包中的 `dist/lang-setup-windows-x86_64.exe`（或运行 `powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1` 自动生成），安装程序会自动将 `l.exe` 添加到系统 `PATH` 并关联 `.l` 文件。
 
-#### 方式 B：一行命令从源码编译
+#### 方式 B：CMake 从源码编译（推荐）
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build        # 产物 l.exe / l 输出到仓库根目录
+```
+
+#### 方式 C：一行命令从源码编译
 只需系统中有 `gcc` 或 `clang`：
 ```bash
 # Windows (需链接 wininet/ws2_32 以支持串口与 HTTP)
-gcc -O2 -Wall -Wextra -I. l_heap.c lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -lwininet -lws2_32 -static -o l.exe
+gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c src/main/main.c -lwininet -lws2_32 -static -o l.exe
 
 # Linux / macOS (去掉最后两个链接库即可)
-gcc -O2 -Wall -Wextra -I. l_heap.c lexer.c ast.c parser.c value.c gc.c interp.c builtins.c bytecode.c compiler.c vm.c stdlib/*.c main.c -o l
+gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c src/main/main.c -o l
 ```
-> - MSVC (cl.exe) 亦可编译，项目内置 [`dirent_msvc.h`](dirent_msvc.h) 兼容层（本机无 MinGW 时可运行 `build_msvc.bat`）；
+> - MSVC (cl.exe) 亦可编译，项目内置 [`dirent_msvc.h`](src/include/dirent_msvc.h) 兼容层（本机无 MinGW 时可运行 `build_msvc.bat`）；
 > - 若希望编译针对无文件系统裸机裁剪的最小化版本，可加上 `-DL_WITH_STDLIB_IO=0 -DL_WITH_STDLIB_SYS=0`。
 
 ### 2. 命令行用法一览
@@ -393,11 +399,11 @@ esptool.py --chip esp32 merge_bin -o l-esp32-merged.bin --flash_mode dio --flash
 ```text
 lang/
 ├── assets/                  # 项目图标 (L = Li × Language)
-├── docs/                    # 开发日志与历史文档 (安装记录 / 官网方案 / 历史版本说明)
+├── docs/                    # 开发日志与历史文档 (架构演进 / 安装记录 / 官网方案 / 历史版本说明)
 ├── editors/                 # VS Code 扩展 (语法高亮 / 悬停提示 / 定义跳转)
 ├── examples/
 │   └── main.l               # ESP32 IoT 示例脚本 (WiFi + SNTP + LED)
-├── scripts/                 # 构建与安装脚本 (打包 Inno Setup / 安装卸载 / 版本号)
+├── scripts/                 # 构建与安装脚本 (打包 Inno Setup / 安装卸载 / 版本号 / 回归测试)
 ├── simulators/              # 在线浏览器仿真器设计方案文档
 ├── site/                    # 官网静态站点
 ├── esp32/                   # ESP-IDF 固件工程与网页免安装工具箱
@@ -407,48 +413,66 @@ lang/
 │   ├── main/app_main.c      # ESP32 上电自启动、串口在线烧录接收与板端 REPL
 │   ├── web_flasher.html     # 浏览器免安装刷机与 Web Serial 脚本烧录工作台
 │   └── ESP32_GUIDE.md       # 《ESP32 固件编译与刷机指南》
-├── tests/                   # 20 组自动化回归测试 (01_basic.l ~ 20_m7_irq_timer.l, 含期望输出 .out)
+├── src/
+│   ├── include/             # 公共头文件 (对所有翻译单元经 -Isrc/include 引用)
+│   │   ├── l_config.h       # 平台自动识别与标准库模块裁剪配置
+│   │   ├── l_heap.h         # 固定静态堆分配器 (M7: ESP32 64KB 内存池 + PC libc 直通)
+│   │   ├── l_hal.h          # 硬件抽象层接口 (GPIO/PWM/ADC/I2C/SPI/UART/裸Flash/串口/中断/定时器/看门狗/深睡)
+│   │   ├── l_tcp.h          # TCP Socket 跨平台接口
+│   │   ├── version.h        # 版本号定义
+│   │   ├── dirent_msvc.h    # MSVC 平台 dirent 兼容层 (基于 _findfirst)
+│   │   ├── lexer.h          # 词法分析器接口
+│   │   ├── ast.h            # 抽象语法树节点定义
+│   │   ├── parser.h         # 递归下降语法分析器接口
+│   │   ├── value.h          # 动态值系统 (int/float/bool/nil/string/bytes/array/map/fn/obj)
+│   │   ├── gc.h             # 标记-清除垃圾回收器接口
+│   │   ├── interp.h         # 解释器核心接口、方法派发、try/catch 异常与精确错误定位
+│   │   ├── compiler.h       # 字节码编译器接口 (AST → 致密指令序列)
+│   │   ├── bytecode.h       # 字节码序列化与加载接口 (.lc 文件, 魔数 "LBC1")
+│   │   └── vm.h             # 栈式虚拟机接口 (单循环执行, 消除 C 递归栈占用)
+│   ├── core/                # 解释器核心实现
+│   │   ├── lexer.c          # 词法分析器 (支持 0x/0b 字面量与源码行指针记录)
+│   │   ├── ast.c
+│   │   ├── parser.c
+│   │   ├── value.c
+│   │   ├── l_heap.c
+│   │   ├── gc.c
+│   │   ├── interp.c
+│   │   ├── builtins.c       # 核心内置函数与交互式 help() 文档系统
+│   │   ├── bytecode.c
+│   │   ├── compiler.c
+│   │   └── vm.c
+│   ├── stdlib/              # 标准库模块 (每个 .c 为独立翻译单元)
+│   │   ├── hal.c            # HAL 实现 (ESP-IDF 真机驱动 + PC 硬件/裸Flash模拟 + 原生串口烧录)
+│   │   ├── hw.c             # ESP32 基础功能类与 Pin/PWM/ADC/I2C/SPI/UART/bytes 实现
+│   │   ├── str.c            # 字符串与数组高阶方法标准库
+│   │   ├── math.c           # 数学标准库
+│   │   ├── time.c           # 时间与日期标准库
+│   │   ├── io.c             # 文件系统与路径标准库 (裸机可裁剪)
+│   │   ├── sys.c            # 系统与进程标准库 (裸机可裁剪)
+│   │   ├── net.c            # 无线网络通信与 IoT (WiFi/HTTP/SNTP/TCP Socket 类)
+│   │   ├── tcp_win.c        # TCP Windows WinSock2 实现 (独立翻译单元)
+│   │   └── tcp_posix.c      # TCP POSIX BSD 实现 (Linux/macOS/ESP-IDF lwip)
+│   └── main/
+│       └── main.c           # CLI 入口 (REPL / 脚本与字节码执行 / -c 编译 / -d 反汇编 / -e 内联 / -p / -u / -s)
+├── tests/                   # 21 组自动化回归测试 (01_basic.l ~ 21_tcp_socket.l, 含期望输出 .out)
+│   ├── manual/              # 开发期手工测试草稿 (GC / 闭包 / help)
 │   ├── fib_stress.l         # fib(20) 递归 GC 压力用例 (验证静态堆反复分配/回收)
 │   └── l_heap_unit_test.c   # l_heap 静态堆分配器独立单元测试 (20 万次随机分配/释放/重分配)
 ├── tools/                   # 开发期调试入口 (词法/语法分析器独立测试, 不参与主程序编译)
 │   ├── lexer_main.c
 │   └── parser_main.c
-├── l_config.h               # 平台自动识别与标准库模块裁剪配置
-├── l_heap.h / l_heap.c      # 固定静态堆分配器 (M7: ESP32 64KB 内存池 + PC libc 直通)
-├── l_hal.h                  # 硬件抽象层接口 (GPIO/PWM/ADC/I2C/SPI/UART/裸Flash/串口/中断/定时器/看门狗/深睡)
-├── lexer.h / lexer.c        # 词法分析器 (支持 0x/0b 字面量与源码行指针记录)
-├── ast.h / ast.c            # 抽象语法树节点定义
-├── parser.h / parser.c      # 递归下降语法分析器
-├── value.h / value.c        # 动态值系统 (int/float/bool/nil/string/bytes/array/map/fn/obj)
-├── gc.h / gc.c              # 标记-清除垃圾回收器
-├── interp.h / interp.c      # 解释器核心、方法派发、try/catch 异常与精确错误定位
-├── compiler.h / compiler.c  # 字节码编译器 (AST → 致密指令序列)
-├── bytecode.h / bytecode.c  # 字节码序列化与加载 (.lc 文件, 魔数 "LBC1")
-├── vm.h / vm.c              # 栈式虚拟机 (单循环执行, 消除 C 递归栈占用)
-├── dirent_msvc.h            # MSVC 平台 dirent 兼容层 (基于 _findfirst)
-├── builtins.c               # 核心内置函数与交互式 help() 文档系统
-├── main.c                   # CLI 入口 (REPL / 脚本与字节码执行 / -c 编译 / -d 反汇编 / -e 内联 / -p / -u / -s)
+├── CMakeLists.txt           # 统一构建入口 (MSVC / GCC / Clang 通用)
 ├── build_msvc.bat           # MSVC 一键编译 (vswhere 自动探测 VS 安装位置)
-├── stdlib/
-│   ├── hal.c                # HAL 实现 (ESP-IDF 真机驱动 + PC 硬件/裸Flash模拟 + 原生串口烧录)
-│   ├── hw.c                 # ESP32 基础功能类与 Pin/PWM/ADC/I2C/SPI/UART/bytes 实现
-│   ├── str.c                # 字符串与数组高阶方法标准库
-│   ├── math.c               # 数学标准库
-│   ├── time.c               # 时间与日期标准库
-│   ├── io.c                 # 文件系统与路径标准库 (裸机可裁剪)
-│   ├── sys.c                # 系统与进程标准库 (裸机可裁剪)
-│   ├── net.c                # 无线网络通信与 IoT (WiFi/HTTP/SNTP/TCP Socket 类)
-│   ├── tcp_win.c            # TCP Windows WinSock2 实现 (独立翻译单元)
-│   └── tcp_posix.c          # TCP POSIX BSD 实现 (Linux/macOS/ESP-IDF lwip)
-├── .github/workflows/
-│   └── esp32-firmware.yml   # GitHub Actions 云端自动编译 ESP32/C3/S3 固件工作流
-└── run_tests.ps1            # 回归测试运行脚本
+└── .github/workflows/
+    ├── release-pc.yml       # GitHub Actions 多平台 PC 安装包发布工作流
+    └── esp32-firmware.yml   # GitHub Actions 云端自动编译 ESP32/C3/S3 固件工作流
 ```
 
 ### 运行回归测试
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\run_tests.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1
 ```
 
 ---
@@ -458,5 +482,5 @@ powershell -ExecutionPolicy Bypass -File .\run_tests.ps1
 - 📘 **[《ESP32 固件编译与刷机指南》(`esp32/ESP32_GUIDE.md`)](esp32/ESP32_GUIDE.md)**
 - 🌐 **[ESP32 网页免安装刷机与串口工作台 (`esp32/web_flasher.html`)](esp32/web_flasher.html)**
 - 📐 **[L 语言完整 EBNF 语法规范 (`L_EBNF.md`)](L_EBNF.md)**
-- 🛠️ **[ESP32 嵌入式架构设计与演进路线 (`改进.md`)](改进.md)**
+- 🛠️ **[ESP32 嵌入式架构设计与演进路线 (`docs/改进.md`)](docs/改进.md)**
 - 📦 **[安装包打包与构建说明 (`INSTALL.md`)](INSTALL.md)**

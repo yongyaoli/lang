@@ -3,7 +3,7 @@
 
 #define MyAppName "L 语言"
 #define MyAppEnglishName "L-Language"
-#define MyAppVersion "0.1.6.202611130917"
+#define MyAppVersion "0.1.7.202611131008"
 #define MyAppPublisher "L Language Project"
 #define MyAppExeName "l.exe"
 
@@ -35,7 +35,7 @@ Name: "addtopath"; Description: "将 L 语言添加到当前用户的 PATH 环�
 
 [Files]
 Source: "..\l.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\stdlib\*"; DestDir: "{app}\stdlib"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\src\stdlib\*"; DestDir: "{app}\stdlib"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\INSTALL.md"; DestDir: "{app}"; Flags: ignoreversion
 

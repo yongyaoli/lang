@@ -32,7 +32,7 @@ if ($ForceRebuild -or -not (Test-Path $localExe)) {
     }
     Push-Location $srcDir
     try {
-        & gcc -O2 -Wall -Wextra -I. lexer.c ast.c parser.c value.c gc.c interp.c builtins.c stdlib/*.c main.c -lwininet -lws2_32 -static -o l.exe
+        & gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c src/main/main.c -lwininet -lws2_32 -static -o l.exe
         if ($LASTEXITCODE -ne 0) {
             throw "编译失败，错误代码: $LASTEXITCODE"
         }
