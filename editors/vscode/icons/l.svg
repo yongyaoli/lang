@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- L 语言文件图标: 圆角渐变底 + 白色几何粗体 L (与 assets/l.ico 同一几何定义) -->
+  <!-- L 语言文件图标: 圆角渐变底 + 白色几何粗体 L (与 scripts/gen-icon.py 同一几何定义) -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#4F8EF7"/>
       <stop offset="1" stop-color="#2456D6"/>
     </linearGradient>
   </defs>
-  <rect x="4" y="4" width="92" height="92" rx="20" ry="20" fill="url(#bg)"/>
-  <path d="M30 18 h16 v64 h-16 z M30 66 h42 v16 h-42 z" fill="#FFFFFF"/>
+  <rect x="2" y="2" width="96" height="96" rx="22" ry="22" fill="url(#bg)"/>
+  <path d="M22 12 h26 v76 h-26 z M22 62 h58 v26 h-58 z" fill="#FFFFFF"/>
 </svg>
