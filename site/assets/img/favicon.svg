@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32" height="32" role="img" aria-label="L lang">
+  <!-- 与项目图标 assets/l.ico 同一几何定义: 圆角渐变底 + 白色几何粗体 L -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4F8EF7"/>
+      <stop offset="1" stop-color="#2456D6"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="96" height="96" rx="22" ry="22" fill="url(#bg)"/>
+  <path d="M22 12 h26 v76 h-26 z M22 62 h58 v26 h-58 z" fill="#FFFFFF"/>
+</svg>

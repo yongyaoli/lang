@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docs — L (lang)</title>
+<meta name="description" content="L documentation: EBNF grammar, ESP32 build and flash guide, project layout, regression tests.">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="../docs.html">
+<link rel="alternate" hreflang="en" href="docs.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docs — L (lang)">
+<meta property="og:description" content="EBNF, ESP32 guide, project layout and tests.">
+<meta property="og:image" content="../assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html" aria-current="page">Docs</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="../docs.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="Open menu"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">Language</a>
+        <a href="install.html">Install</a>
+        <a href="firmware.html">Firmware</a>
+        <a href="usage.html">Usage</a>
+        <a href="docs.html">Docs</a>
+        <a href="../docs.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Documentation</p>
+      <h1>Docs index</h1>
+      <p class="lede">The pages on this site are the tour and the cheat sheet; the Markdown in the repository is the normative reference. Use it for exact grammar and flashing troubleshooting.</p>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> On this site</p>
+      <h2>Start with these</h2>
+      <div class="linklist mt-24">
+        <a href="install.html"><b>Install</b><span>three platforms, three ways</span></a>
+        <a href="language.html"><b>Language reference</b><span>types · operators · closures · exceptions · hardware</span></a>
+        <a href="usage.html"><b>Usage</b><span>REPL · CLI · simulation · FAQ</span></a>
+        <a href="firmware.html"><b>Firmware and flashing</b><span>merged binaries, offset 0x0, daily uploads</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> Repository docs</p>
+      <h2>Specification and guides</h2>
+      <div class="linklist mt-24">
+        <a href="https://github.com/yongyaoli/lang/blob/main/L_EBNF.md" target="_blank" rel="noopener"><b>L EBNF grammar</b><span>L_EBNF.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/esp32/ESP32_GUIDE.md" target="_blank" rel="noopener"><b>ESP32 build &amp; flash guide</b><span>esp32/ESP32_GUIDE.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/INSTALL.md" target="_blank" rel="noopener"><b>Install and packaging notes</b><span>INSTALL.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/README.md" target="_blank" rel="noopener"><b>Project overview</b><span>README.md ↗</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> Source</p>
+      <h2>How the code is organized</h2>
+      <p class="lede">The pipeline is easy to follow: lexer → parser → AST → tree-walking interpreter or bytecode VM, with a value system and mark-sweep GC underneath.</p>
+
+      <div class="two">
+        <div class="term">
+          <div class="bar"><span class="bar-t">lang/</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+          <pre><code>src/
+├─ include/     public headers (l_config.h / l_hal.h ...)
+├─ core/        interpreter core
+│   lexer.c     tokenizer (0x / 0b literals)
+│   ast.c       syntax tree nodes
+│   parser.c    recursive descent parser
+│   value.c     dynamic value system
+│   gc.c        mark-sweep collector
+│   interp.c    evaluator, dispatch, errors
+│   builtins.c  builtins and help()
+│   bytecode.c  bytecode serialization
+│   compiler.c  source to bytecode
+│   vm.c        stack virtual machine
+├─ stdlib/      standard library (io / net / math / hw / time / sys ...)
+└─ main/
+    main.c      CLI entry point
+          </code></pre>
+        </div>
+
+        <div>
+          <h3 class="sub">Regression tests</h3>
+          <p class="prose">Every <code>.l</code> in <code>tests/</code> has a matching <code>.out</code> with expected output, covering syntax, closures, collections, GC, bytecode, hardware objects and networking.</p>
+          <div class="term mt-16">
+            <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">powershell -ExecutionPolicy Bypass -File .\run_tests.ps1</code></pre>
+          </div>
+
+          <h3 class="sub mt-32">Editor support</h3>
+          <p class="prose">A VS Code extension with TextMate grammar for <code>.l</code> ships in <code>editors/vscode</code> and installs locally.</p>
+          <div class="term mt-16">
+            <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">powershell -ExecutionPolicy Bypass -File .\scripts\install_vscode_ext.ps1</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>04</b> Feedback</p>
+      <h2>Issues and ideas</h2>
+      <p class="lede">Check the FAQ first. If that does not help, open an issue with your chip model, OS and the full error output — L's diagnostics already include line, column and stack.</p>
+      <div class="btn-row">
+        <a class="btn btn-p" href="https://github.com/yongyaoli/lang/issues" target="_blank" rel="noopener">Open an issue<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+        <a class="btn btn-g" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">Browse source</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">pure C99 · zero dependencies · ESP32 and PC</p>
+    </div>
+    <nav class="ft-links" aria-label="Footer">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="../docs.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="../assets/js/releases.js"></script>
+<script src="../assets/js/site.js"></script>
+</body>
+</html>

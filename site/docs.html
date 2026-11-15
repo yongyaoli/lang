@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文档索引 — L 语言 (lang)</title>
+<meta name="description" content="L 语言文档：EBNF 文法、ESP32 编译与刷机指南、项目结构、回归测试。">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="docs.html">
+<link rel="alternate" hreflang="en" href="en/docs.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="文档索引 — L 语言 (lang)">
+<meta property="og:description" content="EBNF、ESP32 指南、项目结构与回归测试。">
+<meta property="og:image" content="assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="主导航">
+      <a href="language.html">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html" aria-current="page">文档</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="en/docs.html" hreflang="en" lang="en">EN</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="打开菜单"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">语言</a>
+        <a href="install.html">安装</a>
+        <a href="firmware.html">固件</a>
+        <a href="usage.html">使用</a>
+        <a href="docs.html">文档</a>
+        <a href="en/docs.html" hreflang="en" lang="en">English</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Documentation</p>
+      <h1>文档索引</h1>
+      <p class="lede">站点上的三页是入门与速查，仓库里的 Markdown 才是完整规范。需要精确文法或排查刷机问题时，直接看原始文档。</p>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> 站点内</p>
+      <h2>先读这三页</h2>
+      <div class="linklist mt-24">
+        <a href="install.html"><b>安装</b><span>三个平台，三种方式</span></a>
+        <a href="language.html"><b>语言参考</b><span>类型 · 运算符 · 闭包 · 异常 · 硬件对象</span></a>
+        <a href="usage.html"><b>使用说明</b><span>REPL · 命令行 · 离线仿真 · FAQ</span></a>
+        <a href="firmware.html"><b>固件与刷机</b><span>合并固件、0x0 刷写、日常烧录</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> 仓库文档</p>
+      <h2>完整规范与指南</h2>
+      <div class="linklist mt-24">
+        <a href="https://github.com/yongyaoli/lang/blob/main/L_EBNF.md" target="_blank" rel="noopener"><b>L 语言 EBNF 文法</b><span>L_EBNF.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/esp32/ESP32_GUIDE.md" target="_blank" rel="noopener"><b>ESP32 固件编译与刷机指南</b><span>esp32/ESP32_GUIDE.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/INSTALL.md" target="_blank" rel="noopener"><b>安装与打包说明</b><span>INSTALL.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/改进.md" target="_blank" rel="noopener"><b>架构设计与演进路线</b><span>改进.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/README.md" target="_blank" rel="noopener"><b>项目总览</b><span>README.md ↗</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> 源码</p>
+      <h2>代码怎么组织的</h2>
+      <p class="lede">解释器管线一目了然：词法 → 语法 → AST → 解释执行或字节码 VM，中间是值系统与标记-清除 GC。</p>
+
+      <div class="two">
+        <div class="term">
+          <div class="bar"><span class="bar-t">lang/</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+          <pre><code>src/
+├─ include/     公共头文件 (l_config.h / l_hal.h ...)
+├─ core/        解释器核心
+│   lexer.c     词法分析（0x / 0b 字面量）
+│   ast.c       语法树节点
+│   parser.c    递归下降语法分析
+│   value.c     动态值系统
+│   gc.c        标记-清除垃圾回收
+│   interp.c    解释器、方法派发、异常
+│   builtins.c  内置函数与 help()
+│   bytecode.c  字节码序列化
+│   compiler.c  源码到字节码
+│   vm.c        栈式虚拟机
+├─ stdlib/      标准库 (io / net / math / hw / time / sys ...)
+└─ main/
+    main.c      CLI 入口
+          </code></pre>
+        </div>
+
+        <div>
+          <h3 class="sub">回归测试</h3>
+          <p class="prose"><code>tests/</code> 下每组 <code>.l</code> 都配一份 <code>.out</code> 期望输出，覆盖基础语法、闭包、集合、GC、字节码、硬件对象与网络模块。</p>
+          <div class="term mt-16">
+            <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+            <pre><code class="hl">powershell -ExecutionPolicy Bypass -File .\run_tests.ps1</code></pre>
+          </div>
+
+          <h3 class="sub mt-32">编辑器支持</h3>
+          <p class="prose">仓库内置 VS Code 语法高亮扩展（<code>editors/vscode</code>），包含 <code>.l</code> 的 TextMate 文法与语言配置，可本地安装使用。</p>
+          <div class="term mt-16">
+            <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+            <pre><code class="hl">powershell -ExecutionPolicy Bypass -File .\scripts\install_vscode_ext.ps1</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>04</b> 反馈</p>
+      <h2>问题与建议</h2>
+      <p class="lede">遇到问题先看 FAQ，仍无法解决就到仓库提 Issue，附上芯片型号、系统版本与完整报错（L 的诊断输出已经包含行列与调用栈）。</p>
+      <div class="btn-row">
+        <a class="btn btn-p" href="https://github.com/yongyaoli/lang/issues" target="_blank" rel="noopener">提交 Issue<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+        <a class="btn btn-g" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">浏览源码</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">纯 C99 · 零依赖 · ESP32 与 PC 双栖</p>
+    </div>
+    <nav class="ft-links" aria-label="页脚导航">
+      <a href="language.html">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html">文档</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="en/docs.html" hreflang="en" lang="en">English</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="assets/js/releases.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>

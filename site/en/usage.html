@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Usage — L (lang)</title>
+<meta name="description" content="REPL, command line flags, built-in help, PC simulation and troubleshooting for the L language.">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="../usage.html">
+<link rel="alternate" hreflang="en" href="usage.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Usage — L (lang)">
+<meta property="og:description" content="REPL, CLI flags, simulation and FAQ.">
+<meta property="og:image" content="../assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html" aria-current="page">Usage</a>
+      <a href="docs.html">Docs</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="../usage.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="Open menu"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">Language</a>
+        <a href="install.html">Install</a>
+        <a href="firmware.html">Firmware</a>
+        <a href="usage.html">Usage</a>
+        <a href="docs.html">Docs</a>
+        <a href="../usage.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Usage</p>
+      <h1>REPL, CLI and offline simulation</h1>
+      <p class="lede">Run <code>l</code> with no arguments to enter the REPL: semicolons are optional, multi-line <code>{ ... }</code> blocks are detected, and hardware objects can be poked interactively.</p>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> Interactive</p>
+      <h2>A REPL you can poke</h2>
+
+      <div class="two">
+        <div class="console">
+          <div class="bar"><span class="bar-t">&gt;&gt;&gt;</span></div>
+          <pre><code>L 0.1.9 (Nov  9 2026) [GCC 16.2.0 64 bit] on win32
+Type "help", "copyright", "license" or "exit" for more information.
+ESP32 快捷命令: ports() | upload("COM3", "main.l") | connect("COM3") | help("esp32")
+
+&gt;&gt;&gt; help()
+&gt;&gt;&gt; help("esp32")
+&gt;&gt;&gt; help(ESP32)
+&gt;&gt;&gt; ports()
+["COM3"]
+&gt;&gt;&gt; upload("COM3", "main.l")
+&gt;&gt;&gt; connect("COM3")
+<span class="dim">[press Ctrl+] or type .exit to leave]</span></code></pre>
+        </div>
+        <div>
+          <h3 class="sub">Built-in help is the manual</h3>
+          <p class="prose"><code>help()</code> lists every function group, constant and ESP32 shortcut; <code>help("name")</code> shows one group; <code>help(object)</code> lists all methods.</p>
+          <div class="term mt-16">
+            <div class="bar"><span class="bar-t">simulate.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">&gt;&gt;&gt; upload("sim", "main.l")   // dry-run flash + CRC32
+&gt;&gt;&gt; ESP32.set_chip("ESP32-C3")
+&gt;&gt;&gt; ADC(34).write_sim(2048)
+&gt;&gt;&gt; ADC(34).read_mv()</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> CLI</p>
+      <h2>Flags and modes</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>l</code></td><td>Enter the REPL</td></tr>
+            <tr><td><code>l main.l [args...]</code></td><td>Run a script; arguments via <code>sys_args()</code></td></tr>
+            <tr><td><code>l -e "code"</code></td><td>Evaluate statements from the command line</td></tr>
+            <tr><td><code>l -p, --ports</code></td><td>List serial ports</td></tr>
+            <tr><td><code>l -u, --upload COM3 main.l</code></td><td>Upload a script to the raw partition and run it</td></tr>
+            <tr><td><code>l -s, --serial COM3 [baud]</code></td><td>Attach to the board console, 115200 by default</td></tr>
+            <tr><td><code>l -c main.l [-o main.lc]</code></td><td>Compile to a compact bytecode file</td></tr>
+            <tr><td><code>l main.lc</code></td><td>Run precompiled bytecode</td></tr>
+            <tr><td><code>l --vm main.l</code></td><td>Force execution on the stack VM</td></tr>
+            <tr><td><code>l -d, --disasm main.l</code></td><td>Disassemble to single-byte opcodes</td></tr>
+            <tr><td><code>l -h</code> / <code>l -v</code></td><td>Help / version</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-2 mt-32">
+        <div class="term">
+          <div class="bar"><span class="bar-t">daily.sh</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+          <pre><code class="hl">l -p                    # which port?
+l -u COM3 main.l        # push changes
+l -s COM3               # watch the logs</code></pre>
+        </div>
+        <div class="term">
+          <div class="bar"><span class="bar-t">bytecode.sh</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+          <pre><code class="hl">l -c app.l -o app.lc    # compile
+l app.lc                # run
+l -d app.l              # inspect</code></pre>
+        </div>
+      </div>
+
+      <p class="aside-note mt-24">Exit codes: <code>0</code> success, <code>65</code> syntax error, <code>70</code> runtime error, <code>74</code> unreadable file — handy in CI or watchdog scripts.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> Simulation</p>
+      <h2>Write code without a board</h2>
+      <p class="lede">On PC the HAL switches to host-sim: GPIO records state, I2C accepts virtual slaves, ADC and UART take injected data. Your script stays unchanged.</p>
+
+      <div class="two">
+        <div class="term">
+          <div class="bar"><span class="bar-t">sim.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+          <pre><code class="hl">ESP32.set_chip("ESP32-C3");        // apply C3 pin rules
+print(ESP32.pins());               // usable / input-only / flash
+
+let i2c = I2C(0, 8, 9, 400000);
+i2c.sim_device(0x3C);              // virtual OLED slave
+i2c.write_reg(0x3C, 0x00, bytes([0xAF]));
+
+let uart = UART(1, 115200);
+uart.sim_input("OK\r\n");
+print(uart.read_str());
+
+pin(2).on();
+print("GPIO2 =", pin(2).value());   // 1</code></pre>
+        </div>
+        <div>
+          <p class="prose">The same file, uploaded with <code>l -u COM3 main.l</code>, drives real hardware.</p>
+          <div class="flow" style="flex-direction:column">
+            <div class="flow-i"><b>l sim.l</b><span>simulate: verify logic and pin legality</span></div>
+            <div class="flow-i"><b>l -u COM3 sim.l</b><span>real board: same source, no edits</span></div>
+          </div>
+          <p class="aside-note">Simulation still enforces the pin guard: flash pins (GPIO 6–11) and input-only pins (GPIO 34–39) are rejected the same way.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>04</b> FAQ</p>
+      <h2>Where people get stuck</h2>
+
+      <div class="mt-24">
+        <details class="q">
+          <summary>Command not found after installing</summary>
+          <div class="a">
+            <p>Open a new terminal window first — <code>PATH</code> changes do not reach already-running shells. Check with <code>where l</code> (Windows) or <code>which l</code> (macOS / Linux).</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>The port list is empty</summary>
+          <div class="a">
+            <p>Most boards need a USB-serial driver (CP210x or CH34x). Make sure the cable supports data, not just charging. On macOS the device usually shows up as <code>/dev/cu.usbserial-*</code> or <code>/dev/cu.wchusbserial*</code>.</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>Upload fails with a CRC32 mismatch</summary>
+          <div class="a">
+            <p>Usually an unstable baud rate or dropped bytes. Try a shorter cable, another USB port, or a lower baud rate. Before uploading, the tool sends <code>Ctrl+C</code> to interrupt the running script and normalizes line endings to LF.</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>Why can't GPIO 6–11 be outputs?</summary>
+          <div class="a">
+            <p>They are wired to the internal SPI flash; driving them can brick the chip mid-fetch. L rejects this at <code>Pin()</code> construction instead of letting the board hang. Input-only pins (GPIO 34–39) are read-only for the same reason.</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>How large can a script be, and does it survive power loss?</summary>
+          <div class="a">
+            <p>Scripts live in the <code>l_script</code> partition (128 KB) with a length and CRC32 header, so they persist. Writes erase, program and verify; a failed checksum never runs.</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>Do I need a filesystem?</summary>
+          <div class="a">
+            <p>No. The default is a raw flash partition with MMU mapping and zero SRAM copy. LittleFS is opt-in, only when you need multi-file <code>import</code> or runtime config files.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>05</b> Next</p>
+      <h2>Keep going</h2>
+      <div class="linklist mt-24">
+        <a href="language.html"><b>Language reference</b><span>types · closures · exceptions · hardware</span></a>
+        <a href="firmware.html"><b>Firmware and flashing</b><span>first flash, daily uploads</span></a>
+        <a href="docs.html"><b>Docs index</b><span>EBNF, ESP32 guide, project layout</span></a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">pure C99 · zero dependencies · ESP32 and PC</p>
+    </div>
+    <nav class="ft-links" aria-label="Footer">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="../usage.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="../assets/js/releases.js"></script>
+<script src="../assets/js/site.js"></script>
+</body>
+</html>

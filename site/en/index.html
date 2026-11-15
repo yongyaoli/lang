@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L (lang) — Write a script, light up a chip</title>
+<meta name="description" content="L (lang) is a tiny embedded scripting language written from scratch in pure C99. Zero dependencies: the same .l script runs on ESP32 / S3 / C3 / C6 or offline on Windows, Linux and macOS.">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="../index.html">
+<link rel="alternate" hreflang="en" href="index.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="L (lang) — Write a script, light up a chip">
+<meta property="og:description" content="A pure C99 embedded scripting language with zero dependencies. ESP32 and PC, same script.">
+<meta property="og:image" content="../assets/img/og.svg">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="../index.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="Open menu"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">Language</a>
+        <a href="install.html">Install</a>
+        <a href="firmware.html">Firmware</a>
+        <a href="usage.html">Usage</a>
+        <a href="docs.html">Docs</a>
+        <a href="../index.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero">
+    <div class="wrap">
+      <h1>Write a script.<br>Light up a chip<span class="dot">.</span></h1>
+      <p class="lede">L (<code>lang</code>) is a tiny scripting language implemented from scratch in pure C99 — no third-party dependencies at all. The same <code>.l</code> file drives GPIO, PWM, ADC, I2C, SPI and UART on an ESP32, or runs offline on Windows, Linux and macOS.</p>
+
+      <div class="btn-row">
+        <a class="btn btn-p" href="https://github.com/yongyaoli/lang/releases/latest">Download <span data-version>v0.1.9</span><svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+        <a class="btn btn-g" href="install.html">Install guide</a>
+        <a class="btn btn-g" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">Source</a>
+      </div>
+
+      <ul class="meta-row">
+        <li>pure C99</li>
+        <li>zero dependencies</li>
+        <li>ESP32 · S3 · C3 · C6</li>
+        <li>Windows · Linux · macOS</li>
+      </ul>
+
+      <div class="tabs hero-term" data-tabs>
+        <div class="tab-bar" role="tablist" aria-label="Install method">
+          <button type="button" role="tab">Windows</button>
+          <button type="button" role="tab">Linux / macOS</button>
+          <button type="button" role="tab">Build from source</button>
+        </div>
+        <div class="tab-panels">
+          <div class="panel">
+            <div class="term">
+              <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+              <pre><code class="hl"># 1. Run the installer (writes PATH, associates .l files)
+lang-setup-windows-x86_64.exe
+
+# 2. Verify in a new terminal
+PS&gt; l --version
+L 0.1.9</code></pre>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="term">
+              <div class="bar"><span class="bar-t">bash</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+              <pre><code class="hl"># installs to /usr/local/bin, or ~/.local/bin without sudo
+bash ./scripts/install.sh
+
+# verify
+$ l --version
+L 0.1.9</code></pre>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="term">
+              <div class="bar"><span class="bar-t">gcc</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+              <pre><code class="hl">git clone https://github.com/yongyaoli/lang
+cd lang
+
+gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c \
+    src/main/main.c -o l
+
+./l --version</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> Thirty seconds</p>
+      <h2>No IDE, no project setup</h2>
+      <p class="lede">One interpreter, one <code>.l</code> file, one board. Trailing semicolons are optional and multi-line blocks are detected automatically.</p>
+
+      <div class="two">
+        <div>
+          <div class="term">
+            <div class="bar"><span class="bar-t">blink.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">const LED = 2;
+
+pin(LED).on();                 // light the on-board LED
+PWM(LED, 5000, 512);           // 5 kHz, 50% duty
+
+print(ESP32.chip());           // ESP32 / ESP32-S3 / ESP32-C3 / ESP32-C6
+print(ESP32.free_heap(), "B"); // remaining heap
+
+try {
+    Pin(6, "out");             // GPIO 6 is internal SPI flash
+} catch (e) {
+    print(e.message);          // caught by the pin guard
+}</code></pre>
+          </div>
+        </div>
+
+        <div>
+          <div class="console">
+            <div class="bar"><span class="bar-t">sample output</span></div>
+            <pre><code>$ l blink.l
+ESP32-S3
+198432 B
+[blink.l:9:3] runtime error: GPIO 6 is reserved for internal SPI flash
+    9 |     Pin(6, "out");
+      |     ^</code></pre>
+          </div>
+          <p class="aside-note mt-24">No board at hand? <code>l</code> falls back to <code>host-sim</code>: hardware calls are emulated on the host, and your script does not change.</p>
+          <div class="chips mt-24">
+            <a class="chip" href="install.html">Install l</a>
+            <a class="chip" href="language.html">Language reference</a>
+            <a class="chip" href="usage.html">REPL usage</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> Why L</p>
+      <h2>Keep the complexity in the interpreter,<br>keep the scripting simple</h2>
+      <p class="lede">Most embedded friction comes from toolchains, filesystems, flashing and debugging — not from your logic. L folds all of that into a single base firmware.</p>
+
+      <div class="two">
+        <div class="features">
+          <div class="feature">
+            <span class="f-num">01</span>
+            <div>
+              <h3>Zero dependencies, one-line build</h3>
+              <p>No lex, yacc, LLVM or external libraries. The whole interpreter plus stdlib is a few thousand lines of C99, buildable with GCC, Clang, MSVC or ESP-IDF.</p>
+            </div>
+          </div>
+          <div class="feature">
+            <span class="f-num">02</span>
+            <div>
+              <h3>One script, two runtimes</h3>
+              <p>A single HAL (<code>l_hal.h</code>): ESP-IDF drivers on real hardware, host-sim on your machine. <code>ESP32.set_chip("ESP32-C3")</code> switches pin rules too.</p>
+            </div>
+          </div>
+          <div class="feature">
+            <span class="f-num">03</span>
+            <div>
+              <h3>Scripts in raw flash, no filesystem</h3>
+              <p>A dedicated <code>l_script</code> partition with a 16-byte header and IEEE 802.3 CRC32, executed in place through <code>esp_partition_mmap</code> — zero SRAM copy, auto-start on boot.</p>
+            </div>
+          </div>
+          <div class="feature">
+            <span class="f-num">04</span>
+            <div>
+              <h3>0.2-second edit cycle</h3>
+              <p>Flash the base firmware once. Afterwards <code>upload("COM3", "main.l")</code> pushes over serial, or flash straight from the browser with Web Serial. No rebuild.</p>
+            </div>
+          </div>
+          <div class="feature">
+            <span class="f-num">05</span>
+            <div>
+              <h3>Errors point at a column</h3>
+              <p><code>[file:line:col]</code> plus the source line, a <code>^</code> marker and a full stack trace — together with <code>try / catch</code> for graceful recovery.</p>
+            </div>
+          </div>
+          <div class="feature">
+            <span class="f-num">06</span>
+            <div>
+              <h3>First-class VS Code / CodeBuddy support</h3>
+              <p>The official extension adds syntax highlighting, class &amp; method hover, Ctrl+Click go-to-definition, CodeLens reference counts and a dedicated <code>.l</code> file icon. The Windows installer registers everything for you.</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="console">
+            <div class="bar"><span class="bar-t">[sensor.l:12:16]</span></div>
+            <pre><code><span class="err">[sensor.l:12:16] runtime error: division by zero</span>
+    12 |     return 100 / scale;
+       |                <span class="err">^</span>
+  <span class="dim">stack trace:</span>
+    at read_sensor (sensor.l:12:16)
+    at main_loop (sensor.l:20:14)
+    at &lt;main&gt; (sensor.l:25:1)</code></pre>
+          </div>
+          <p class="aside-note mt-24">Syntax errors, runtime errors and uncaught exceptions all share one diagnostic format, pointing at the exact character.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> Script to silicon</p>
+      <h2>Flash the firmware once, then only your script</h2>
+      <p class="lede">Write the merged firmware once via <code>esptool</code> or the browser. Day to day you push scripts over serial: write, CRC32 verify, hot reload — 0.2 seconds.</p>
+
+      <div class="flow">
+        <div class="flow-i"><b>main.l</b><span>local script</span></div>
+        <span class="flow-a">→</span>
+        <div class="flow-i"><b>l -u COM3</b><span>0.2 s over serial</span></div>
+        <span class="flow-a">→</span>
+        <div class="flow-i"><b>l_script</b><span>raw flash partition</span></div>
+        <span class="flow-a">→</span>
+        <div class="flow-i"><b>GPIO / I2C</b><span>runs on boot</span></div>
+      </div>
+
+      <div class="two">
+        <div>
+          <h3 class="sub">Hardware objects are just objects</h3>
+          <p class="prose">No special syntax: <code>pin(2).on()</code> is a method call. Chain it, store it, put it in an array, capture it in a closure.</p>
+          <div class="table-wrap mt-16">
+            <table>
+              <thead><tr><th>Object</th><th>Typical use</th></tr></thead>
+              <tbody>
+                <tr><td><code>Pin</code></td><td><code>pin(2).on().toggle()</code></td></tr>
+                <tr><td><code>PWM</code></td><td><code>PWM(2, 5000, 512)</code></td></tr>
+                <tr><td><code>ADC</code></td><td><code>ADC(34).read_mv()</code></td></tr>
+                <tr><td><code>I2C</code></td><td><code>i2c.write_reg(0x3C, 0x00, buf)</code></td></tr>
+                <tr><td><code>SPI</code></td><td><code>spi.transfer(bytes(4))</code></td></tr>
+                <tr><td><code>UART</code></td><td><code>uart.read_str()</code></td></tr>
+                <tr><td><code>bytes</code></td><td><code>b.set_u16_be(0, 0x1234)</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <div class="term">
+            <div class="bar"><span class="bar-t">i2c_oled.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">let i2c = I2C(0, 21, 22, 400000);
+i2c.sim_device(0x3C);                    // virtual slave on PC
+
+i2c.write_reg(0x3C, 0x00, bytes([0xAE, 0xD5]));
+print("read:", i2c.read_reg(0x3C, 0x00, 2).hex(" "));
+
+print(ADC(34).read_mv(), "mV");
+UART(1, 115200, 17, 16).write("hello\n");</code></pre>
+          </div>
+          <p class="aside-note mt-24"><code>import "esp32"</code> pulls the built-in hardware module without any filesystem.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>04</b> Install &amp; firmware</p>
+      <h2>Two paths, pick one</h2>
+      <p class="lede">Install the interpreter on your computer, and flash the base firmware on the board. Neither requires a cloud build or a multi-gigabyte toolchain.</p>
+
+      <div class="grid-2">
+        <div>
+          <h3 class="sub">Install <code>l</code> on your computer</h3>
+          <p class="prose">On Windows the installer handles PATH for you. On Linux and macOS the script installs system-wide with sudo, or falls back to <code>~/.local/bin</code>.</p>
+          <div class="dl-grid cols-2 mt-16">
+            <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="winSetup">
+              <span class="dl-t">Windows installer</span>
+              <span class="dl-f" data-file>lang-setup-windows-x86_64.exe</span>
+              <span class="dl-n" data-note>Windows 10/11 · x64</span>
+            </a>
+            <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="unix">
+              <span class="dl-t">Linux / macOS</span>
+              <span class="dl-f" data-file>lang-unix.zip</span>
+              <span class="dl-n" data-note>includes install.sh</span>
+            </a>
+          </div>
+          <p class="mt-16"><a class="mono small" href="install.html" style="color:var(--accent)">Full install guide →</a></p>
+        </div>
+
+        <div>
+          <h3 class="sub">Flash the base firmware</h3>
+          <p class="prose">Merged single-file firmware written at <code>0x0</code>: bootloader, partition table and application in one shot.</p>
+          <div class="dl-grid cols-2 mt-16">
+            <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32">
+              <span class="dl-t">ESP32</span>
+              <span class="dl-f" data-file>l-esp32-merged.bin</span>
+              <span class="dl-n" data-note>flash offset 0x0</span>
+            </a>
+            <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32c3">
+              <span class="dl-t">ESP32-C3 / S3</span>
+              <span class="dl-f" data-file>l-esp32c3-merged.bin</span>
+              <span class="dl-n" data-note>flash offset 0x0</span>
+            </a>
+          </div>
+          <p class="mt-16"><a class="mono small" href="firmware.html" style="color:var(--accent)">All firmware and steps →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>05</b> Docs</p>
+      <h2>When you need the details</h2>
+      <div class="linklist mt-24">
+        <a href="language.html"><b>Language reference</b><span>types · operators · closures · exceptions · hardware</span></a>
+        <a href="usage.html"><b>Usage</b><span>REPL · CLI flags · simulation · FAQ</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/L_EBNF.md" target="_blank" rel="noopener"><b>Full EBNF grammar</b><span>L_EBNF.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/esp32/ESP32_GUIDE.md" target="_blank" rel="noopener"><b>ESP32 build &amp; flash guide</b><span>ESP32_GUIDE.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/README.md" target="_blank" rel="noopener"><b>Repository README</b><span>README.md ↗</span></a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">pure C99 · zero dependencies · ESP32 and PC</p>
+    </div>
+    <nav class="ft-links" aria-label="Footer">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="../index.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="../assets/js/releases.js"></script>
+<script src="../assets/js/site.js"></script>
+</body>
+</html>

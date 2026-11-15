@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>使用说明 — L 语言 (lang)</title>
+<meta name="description" content="L 语言的 REPL 交互、命令行参数、内置帮助系统、PC 离线仿真与常见问题。">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="usage.html">
+<link rel="alternate" hreflang="en" href="en/usage.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用说明 — L 语言 (lang)">
+<meta property="og:description" content="REPL、命令行参数、离线仿真与常见问题。">
+<meta property="og:image" content="assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="主导航">
+      <a href="language.html">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="usage.html" aria-current="page">使用</a>
+      <a href="docs.html">文档</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="en/usage.html" hreflang="en" lang="en">EN</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="打开菜单"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">语言</a>
+        <a href="install.html">安装</a>
+        <a href="firmware.html">固件</a>
+        <a href="usage.html">使用</a>
+        <a href="docs.html">文档</a>
+        <a href="en/usage.html" hreflang="en" lang="en">English</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Usage</p>
+      <h1>REPL、命令行与离线仿真</h1>
+      <p class="lede">不带参数运行 <code>l</code> 进入交互模式：语句末尾的分号可省略，跨行 <code>{ ... }</code> 代码块会自动识别，硬件对象可以边写边试。</p>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> 交互模式</p>
+      <h2>边写边跑的 REPL</h2>
+
+      <div class="two">
+        <div class="console">
+          <div class="bar"><span class="bar-t">&gt;&gt;&gt;</span></div>
+          <pre><code>L 0.1.9 (Nov  9 2026) [GCC 16.2.0 64 bit] on win32
+Type "help", "copyright", "license" or "exit" for more information.
+ESP32 快捷命令: ports() | upload("COM3", "main.l") | connect("COM3") | help("esp32")
+
+&gt;&gt;&gt; help()
+&gt;&gt;&gt; help("esp32")
+&gt;&gt;&gt; help(ESP32)
+&gt;&gt;&gt; ports()
+["COM3"]
+&gt;&gt;&gt; upload("COM3", "main.l")
+&gt;&gt;&gt; connect("COM3")
+<span class="dim">[按 Ctrl+] 或输入 .exit 退出板端终端]</span></code></pre>
+        </div>
+        <div>
+          <h3 class="sub">内置帮助就是离线手册</h3>
+          <p class="prose"><code>help()</code> 列出全部函数分组、常量与 ESP32 快捷操作；<code>help("名字")</code> 查看某一组；<code>help(对象)</code> 查看对象的全部方法。</p>
+          <div class="term mt-16">
+            <div class="bar"><span class="bar-t">simulate.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+            <pre><code class="hl">&gt;&gt;&gt; upload("sim", "main.l")   // 演练烧录 + CRC32 校验
+&gt;&gt;&gt; ESP32.set_chip("ESP32-C3") // 切换目标芯片
+&gt;&gt;&gt; ADC(34).write_sim(2048)    // 注入模拟采样值
+&gt;&gt;&gt; ADC(34).read_mv()</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> 命令行</p>
+      <h2>参数一览</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>命令</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><code>l</code></td><td>进入交互模式（REPL）</td></tr>
+            <tr><td><code>l main.l [参数...]</code></td><td>运行脚本，参数可用 <code>sys_args()</code> 读取</td></tr>
+            <tr><td><code>l -e "代码"</code></td><td>直接在命令行执行语句</td></tr>
+            <tr><td><code>l -p, --ports</code></td><td>扫描并列出本机串口</td></tr>
+            <tr><td><code>l -u, --upload COM3 main.l</code></td><td>通过串口烧录脚本到裸分区并运行</td></tr>
+            <tr><td><code>l -s, --serial COM3 [波特率]</code></td><td>连接板端交互终端，默认 115200</td></tr>
+            <tr><td><code>l -c main.l [-o main.lc]</code></td><td>编译为紧凑字节码文件</td></tr>
+            <tr><td><code>l main.lc</code></td><td>直接运行预编译字节码</td></tr>
+            <tr><td><code>l --vm main.l</code></td><td>强制用栈式虚拟机执行</td></tr>
+            <tr><td><code>l -d, --disasm main.l</code></td><td>反汇编查看单字节操作码序列</td></tr>
+            <tr><td><code>l -h</code> / <code>l -v</code></td><td>帮助 / 版本号</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-2 mt-32">
+        <div class="term">
+          <div class="bar"><span class="bar-t">daily.sh</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+          <pre><code class="hl">l -p                    # 我是哪个口？
+l -u COM3 main.l        # 改完就传
+l -s COM3               # 看板子日志</code></pre>
+        </div>
+        <div class="term">
+          <div class="bar"><span class="bar-t">bytecode.sh</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+          <pre><code class="hl">l -c app.l -o app.lc    # 编译
+l app.lc                # 运行
+l -d app.l              # 看指令</code></pre>
+        </div>
+      </div>
+
+      <p class="aside-note mt-24">退出码：<code>0</code> 成功、<code>65</code> 语法错误、<code>70</code> 运行时错误、<code>74</code> 文件无法读取，便于在 CI 或守护脚本里判断。</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> 离线仿真</p>
+      <h2>没有开发板也能写</h2>
+      <p class="lede">PC 上运行时，HAL 会切换到 host-sim：GPIO 记录状态、I2C 可以注册模拟从机、ADC / UART 可以注入数据，脚本逻辑完全不用改。</p>
+
+      <div class="two">
+        <div class="term">
+          <div class="bar"><span class="bar-t">sim.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+          <pre><code class="hl">ESP32.set_chip("ESP32-C3");        // 套用 C3 的引脚规则
+print(ESP32.pins());               // 可用 / 仅输入 / Flash 引脚
+
+let i2c = I2C(0, 8, 9, 400000);
+i2c.sim_device(0x3C);              // 注册虚拟 OLED 从机
+i2c.write_reg(0x3C, 0x00, bytes([0xAF]));
+
+let uart = UART(1, 115200);
+uart.sim_input("OK\r\n");
+print(uart.read_str());
+
+pin(2).on();
+print("GPIO2 =", pin(2).value());   // 1</code></pre>
+        </div>
+        <div>
+          <p class="prose">同样的脚本，插上板子用 <code>l -u COM3 main.l</code> 烧录就是真机行为。</p>
+          <div class="flow" style="flex-direction:column">
+            <div class="flow-i"><b>l sim.l</b><span>PC 仿真：验证逻辑与引脚合法性</span></div>
+            <div class="flow-i"><b>l -u COM3 sim.l</b><span>真机：同一份源码直接烧录</span></div>
+          </div>
+          <p class="aside-note">仿真模式下误用 Flash 引脚（GPIO 6~11）或把仅输入脚（GPIO 34~39）设为输出，同样会被拦截报错。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>04</b> 常见问题</p>
+      <h2>可能卡住你的地方</h2>
+
+      <div class="mt-24">
+        <details class="q">
+          <summary>装了但终端提示「找不到 l 命令」</summary>
+          <div class="a">
+            <p>确认使用的是安装后新开的终端窗口。Windows 用 <code>where l</code>，macOS / Linux 用 <code>which l</code> 检查解析路径；仍在旧窗口里的话，<code>PATH</code> 不会更新。</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>串口列表是空的</summary>
+          <div class="a">
+            <p>多数开发板需要安装 USB 转串口驱动（CP210x 或 CH34x）。若板子只有 USB-OTG 口，确认数据线支持传输而非仅充电。macOS 上串口名通常是 <code>/dev/cu.usbserial-*</code> 或 <code>/dev/cu.wchusbserial*</code>。</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>烧录时报 CRC32 校验失败</summary>
+          <div class="a">
+            <p>通常是串口波特率不稳或传输过程中有丢字节。换一根短一些的数据线、换 USB 口，或降低波特率重试。上传前工具会先发 <code>Ctrl+C</code> 打断板端正在运行的脚本，并统一换行为 LF。</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>为什么 GPIO 6~11 不能设为输出？</summary>
+          <div class="a">
+            <p>这些引脚连接内部 SPI Flash，驱动它们会让芯片无法取指而死机变砖。L 在 <code>Pin()</code> 构造时就会拦住并报错，而不是等板子挂掉。仅输入引脚（GPIO 34~39）同理，只允许读。</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>脚本能存多大？断电会丢吗？</summary>
+          <div class="a">
+            <p>脚本存在 <code>l_script</code> 分区（当前 128 KB），带长度与 CRC32 头部，断电不丢。写入采用先擦除后写入再校验，校验失败不会执行旧内容以外的任何东西。</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>需要挂载文件系统吗？</summary>
+          <div class="a">
+            <p>不需要。默认方案是裸 Flash 分区 + MMU 映射，零 SRAM 拷贝。只有在需要多文件 <code>import</code> 或运行时配置文件时，才按需打开 LittleFS。</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>05</b> 继续</p>
+      <h2>接下来</h2>
+      <div class="linklist mt-24">
+        <a href="language.html"><b>语言参考</b><span>类型 · 闭包 · 异常 · 硬件对象</span></a>
+        <a href="firmware.html"><b>固件与刷机</b><span>首次刷底包、日常烧录</span></a>
+        <a href="docs.html"><b>文档索引</b><span>EBNF、ESP32 指南、项目结构</span></a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">纯 C99 · 零依赖 · ESP32 与 PC 双栖</p>
+    </div>
+    <nav class="ft-links" aria-label="页脚导航">
+      <a href="language.html">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html">文档</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="en/usage.html" hreflang="en" lang="en">English</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="assets/js/releases.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>

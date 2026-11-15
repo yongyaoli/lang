@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Language reference — L (lang)</title>
+<meta name="description" content="Types, operators, control flow, closures, exceptions, modules and hardware objects in the L language.">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="../language.html">
+<link rel="alternate" hreflang="en" href="language.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Language reference — L (lang)">
+<meta property="og:description" content="Types, operators, closures, exceptions and hardware objects.">
+<meta property="og:image" content="../assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="language.html" aria-current="page">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="../language.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="Open menu"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">Language</a>
+        <a href="install.html">Install</a>
+        <a href="firmware.html">Firmware</a>
+        <a href="usage.html">Usage</a>
+        <a href="docs.html">Docs</a>
+        <a href="../language.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Language Reference</p>
+      <h1>Syntax, types and built-in objects</h1>
+      <p class="lede">Compact C-like syntax with dynamic types and an interactive feel. The full grammar lives in <a href="https://github.com/yongyaoli/lang/blob/main/L_EBNF.md" target="_blank" rel="noopener" style="color:var(--accent)">L_EBNF.md</a>; inside the REPL, <code>help()</code> is the offline manual.</p>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> Basics</p>
+      <h2>Variables, types and operators</h2>
+
+      <h3 class="sub mt-24">Variables and constants</h3>
+      <div class="term">
+        <div class="bar"><span class="bar-t">vars.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+        <pre><code class="hl">let count = 10;             // mutable
+let empty;                  // defaults to nil
+const LED_PIN = 2;          // reassignment raises a runtime error</code></pre>
+      </div>
+
+      <h3 class="sub mt-32">Core types</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Type</th><th>Literal / constructor</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>int</code></td><td><code>42</code>, <code>0xFF</code>, <code>0b1010_0001</code></td><td>32-bit signed; <code>7 / 2 == 3</code> (C integer division)</td></tr>
+            <tr><td><code>float</code></td><td><code>3.14</code>, <code>2.5e-3</code>, <code>7 / 2.0</code></td><td>64-bit double; mixed arithmetic promotes</td></tr>
+            <tr><td><code>bool</code></td><td><code>true</code>, <code>false</code></td><td>Only <code>false</code> and <code>nil</code> are falsy</td></tr>
+            <tr><td><code>nil</code></td><td><code>nil</code></td><td>Empty value</td></tr>
+            <tr><td><code>string</code></td><td><code>"hello\nL"</code></td><td>Immutable UTF-8, supports <code>+</code>, indexing, <code>.trim()</code> etc.</td></tr>
+            <tr><td><code>bytes</code></td><td><code>bytes(4)</code>, <code>bytes([0x48, 0x69])</code></td><td>Fixed-length mutable buffer for I2C / SPI / UART</td></tr>
+            <tr><td><code>array</code></td><td><code>[1, "a", true]</code></td><td><code>.push()</code> / <code>.map()</code> / <code>.filter()</code> / <code>.sort()</code></td></tr>
+            <tr><td><code>map</code></td><td><code>{ id: 1, name: "ESP32" }</code></td><td>String keys; <code>m.id</code> equals <code>m["id"]</code></td></tr>
+            <tr><td><code>function</code></td><td><code>fn(x) { return x + 1; }</code></td><td>First-class, lexically scoped</td></tr>
+            <tr><td><code>obj</code></td><td><code>Pin(2)</code></td><td>Native hardware object; method table in <code>.rodata</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="sub mt-32">Operators</h3>
+      <p class="prose">Arithmetic <code>+ - * / %</code>, comparison <code>== != &lt; &lt;= &gt; &gt;=</code>, logical <code>and</code> / <code>or</code> (short-circuit) and <code>not</code> / <code>!</code>, plus the full set of C bitwise operators and a ternary expression.</p>
+      <div class="term">
+        <div class="bar"><span class="bar-t">ops.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+        <pre><code class="hl">let reg = (1 &lt;&lt; 4) | 0x03;        // 0x13
+let high = (0xCAFE &gt;&gt; 8) &amp; 0xFF;   // 0xCA
+let level = (temp &gt; 30) ? "HIGH" : "NORMAL";</code></pre>
+      </div>
+
+      <h3 class="sub mt-32">Control flow</h3>
+      <div class="term">
+        <div class="bar"><span class="bar-t">flow.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+        <pre><code class="hl">if count &gt; 0 {          // no parentheses required
+    print("positive");
+} else {
+    print("non-positive");
+}
+
+for let i = 0; i &lt; 5; i = i + 1 {
+    if i == 2 { continue; }
+    print(i);
+}
+
+let n = 0;
+while n &lt; 3 { n = n + 1; }</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> Functions</p>
+      <h2>First-class functions and closures</h2>
+      <p class="lede">Functions can be assigned, passed, returned, and they capture their defining scope.</p>
+
+      <div class="two">
+        <div>
+          <div class="term">
+            <div class="bar"><span class="bar-t">counter.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">fn make_counter(start) {
+    let n = start;
+    return fn(step) {
+        n = n + step;
+        return n;
+    };
+}
+
+let c = make_counter(10);
+print(c(5), c(3));      // 15 18</code></pre>
+          </div>
+        </div>
+        <div>
+          <div class="term">
+            <div class="bar"><span class="bar-t">methods.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">print("  hello esp32  ".trim().upper().split(" "));
+// ["HELLO", "ESP32"]
+
+print([3, 1, 4, 2].sort().map(fn(x) { return x * 10; }));
+// [10, 20, 30, 40]
+
+let sensor = {
+    addr: 0x3C,
+    scale: 2,
+    read: fn(raw) { return raw * self.scale; }
+};
+print(sensor.read(21));  // 42</code></pre>
+          </div>
+          <p class="aside-note mt-24">Map methods get an implicit <code>self</code> binding; you may also declare <code>fn(self, ...)</code> explicitly.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> Exceptions</p>
+      <h2>Structured try / catch / throw</h2>
+      <p class="lede">Every syntax or runtime error becomes an object carrying type, message, file, line, column, source line and stack.</p>
+
+      <div class="two">
+        <div>
+          <div class="term">
+            <div class="bar"><span class="bar-t">except.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">try {
+    throw { code: 500, message: "sensor timeout" };
+} catch (e) {
+    print(e.type, e.message);
+    print(e.file + ":" + str(e.line) + ":" + str(e.col));
+    print(e.source);   // offending source line
+    print(e.stack);    // stack trace string
+}</code></pre>
+          </div>
+        </div>
+        <div>
+          <div class="console">
+            <div class="bar"><span class="bar-t">uncaught output</span></div>
+            <pre><code><span class="err">[sensor.l:12:16] runtime error: division by zero</span>
+    12 |     return 100 / scale;
+       |                <span class="err">^</span>
+  <span class="dim">stack trace:</span>
+    at read_sensor (sensor.l:12:16)
+    at main_loop (sensor.l:20:14)
+    at &lt;main&gt; (sensor.l:25:1)</code></pre>
+          </div>
+          <p class="aside-note mt-24">Exit codes: <code>65</code> syntax error, <code>70</code> runtime error, <code>74</code> unreadable file.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>04</b> Modules</p>
+      <h2>import and bytecode</h2>
+      <p class="lede">Built-in hardware modules need no filesystem; local modules are imported by path, cached, and aliased with <code>as</code>.</p>
+
+      <div class="grid-2">
+        <div class="term">
+          <div class="bar"><span class="bar-t">import.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+          <pre><code class="hl">import "esp32" as hw;          // built-in hardware module
+import "./utils/math_ext.l" as m;
+
+print(m.clamp(ADC(34).read(), 0, 4095));</code></pre>
+        </div>
+        <div class="term">
+          <div class="bar"><span class="bar-t">bytecode</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+          <pre><code class="hl">l -c main.l -o main.lc    # compile to bytecode
+l main.lc                 # run bytecode
+l -d main.l               # disassemble opcodes</code></pre>
+        </div>
+      </div>
+      <p class="aside-note mt-24">Bytecode can be written to the <code>l_script</code> partition; the <code>LBC1</code> magic makes the board run it on the stack VM, skipping lexing and parsing.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>05</b> Hardware</p>
+      <h2>Peripheral objects at a glance</h2>
+      <p class="lede">Constructors behave identically on real hardware; on PC the host-sim layer takes over and accepts injected data.</p>
+
+      <div class="hw mt-24">
+        <details>
+          <summary>Pin <span>digital IO</span></summary>
+          <div class="a">
+            <p><code>Pin(pin, [mode="out"], [val])</code> or the shorthand <code>pin(pin)</code>. Modes: <code>"out"</code>, <code>"in"</code>, <code>"in_pullup"</code>, <code>"in_pulldown"</code>, <code>"open_drain"</code>.</p>
+            <p>Methods: <code>.on()</code> / <code>.high()</code>, <code>.off()</code> / <code>.low()</code>, <code>.toggle()</code>, <code>.value([0|1])</code>, <code>.mode([m])</code>, <code>.info()</code>. Configuration calls return the object, so calls chain.</p>
+          </div>
+        </details>
+        <details>
+          <summary>PWM <span>pulse width modulation</span></summary>
+          <div class="a">
+            <p><code>PWM(pin, [freq=1000], [duty=0])</code>, 10-bit duty range <code>0..1023</code>.</p>
+            <p>Methods: <code>.freq([hz])</code>, <code>.duty([0..1023])</code>, <code>.duty_percent([0..100])</code>, <code>.stop()</code> / <code>.deinit()</code>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>ADC <span>analog input</span></summary>
+          <div class="a">
+            <p><code>ADC(pin, [atten="11db"])</code>; the constructor validates that the pin has an ADC channel.</p>
+            <p>Methods: <code>.read()</code> (0..4095), <code>.read_mv()</code>, <code>.read_uv()</code>, <code>.atten(db)</code>, <code>.write_sim(raw)</code>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>I2C <span>bus and registers</span></summary>
+          <div class="a">
+            <p><code>I2C([bus=0], [sda], [scl], [freq])</code>.</p>
+            <p>Methods: <code>.scan()</code>, <code>.write(addr, data)</code>, <code>.read(addr, len)</code>, <code>.write_reg(addr, reg, data)</code>, <code>.read_reg(addr, reg, len)</code>, <code>.sim_device(addr)</code>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>SPI <span>full duplex</span></summary>
+          <div class="a">
+            <p><code>SPI([bus=1], [sck], [mosi], [miso], [freq])</code>.</p>
+            <p>Methods: <code>.transfer(data)</code> / <code>.xfer(data)</code> returning <code>bytes</code>, <code>.write(data)</code>, <code>.read(len, [fill])</code>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>UART <span>serial port</span></summary>
+          <div class="a">
+            <p><code>UART([port=1], [baud=115200], [tx], [rx])</code>.</p>
+            <p>Methods: <code>.write(data)</code>, <code>.any()</code>, <code>.read([len])</code>, <code>.read_str()</code>, <code>.sim_input(data)</code>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>bytes <span>byte buffer</span></summary>
+          <div class="a">
+            <p><code>bytes(len | array | str)</code> with indexed writes such as <code>b[0] = 0xFF</code>.</p>
+            <p>Methods: <code>.len()</code>, <code>.hex([sep])</code>, <code>.to_str()</code>, <code>.to_array()</code>, <code>.fill(b)</code>, <code>.slice(s, [e])</code>, <code>.u16_be(off)</code>, <code>.u16_le(off)</code>, <code>.set_u16_be(off, v)</code>, <code>.set_u16_le(off, v)</code>.</p>
+          </div>
+        </details>
+      </div>
+
+      <h3 class="sub mt-32"><code>ESP32</code> class</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Method</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>ESP32.chip()</code> / <code>.version()</code></td><td>Chip model and ESP-IDF version</td></tr>
+            <tr><td><code>ESP32.info()</code></td><td>Hardware dictionary: arch, cores, frequency, SRAM, flash, PSRAM, heap, MAC</td></tr>
+            <tr><td><code>ESP32.pin_info(pin)</code> / <code>.pins()</code> / <code>.pinout()</code></td><td>Per-pin capability / category summary / printed pinout table</td></tr>
+            <tr><td><code>ESP32.set_chip(model)</code></td><td>Switch target chip in simulation, applying its pin constraints</td></tr>
+            <tr><td><code>ESP32.freq([MHz])</code> / <code>.free_heap()</code></td><td>Read or set CPU frequency / free heap bytes</td></tr>
+            <tr><td><code>ESP32.ticks_ms()</code> / <code>.delay_ms(ms)</code></td><td>Millisecond uptime / millisecond delay</td></tr>
+            <tr><td><code>ESP32.crc32(data)</code></td><td>IEEE 802.3 CRC32 of a string or <code>bytes</code></td></tr>
+            <tr><td><code>ESP32.flash_write(code)</code> / <code>.flash_exec()</code></td><td>Write with 16-byte header and CRC32 / execute in place</td></tr>
+            <tr><td><code>ESP32.flash_read()</code> / <code>.flash_info()</code> / <code>.flash_erase()</code></td><td>Read source / verify state / erase partition</td></tr>
+            <tr><td><code>ports()</code> / <code>upload(port, file)</code> / <code>connect(port)</code></td><td>List serial ports / upload a script / attach to the board REPL</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>06</b> Network</p>
+      <h2>WiFi and IoT</h2>
+      <p class="lede">Networking, time sync and HTTP live in the standard library; on PC they run against a simulation so logic can be tested first.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Function</th><th>Description</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><code>wifi_connect(ssid, [pwd], [timeout])</code></td><td>Join an access point</td><td><code>true</code> / <code>false</code></td></tr>
+            <tr><td><code>wifi_disconnect()</code> / <code>wifi_is_connected()</code></td><td>Disconnect / query state</td><td><code>bool</code></td></tr>
+            <tr><td><code>wifi_ip()</code> / <code>wifi_mac()</code></td><td>Local IPv4 / NIC MAC</td><td>string or <code>nil</code></td></tr>
+            <tr><td><code>wifi_ap(ssid, [pwd])</code></td><td>Start SoftAP (default <code>192.168.4.1</code>)</td><td><code>true</code></td></tr>
+            <tr><td><code>wifi_scan()</code></td><td>Scan nearby networks</td><td><code>[{ssid, rssi, auth}, ...]</code></td></tr>
+            <tr><td><code>http_get(url, [timeout_ms])</code></td><td>HTTP / HTTPS GET</td><td><code>{status, body, ok}</code></td></tr>
+            <tr><td><code>http_post(url, [body], [hdr], [to])</code></td><td>HTTP / HTTPS POST</td><td><code>{status, body, ok}</code></td></tr>
+            <tr><td><code>sntp_sync([server], [timeout])</code></td><td>Sync real time over the network</td><td><code>true</code> / <code>false</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="term mt-32">
+        <div class="bar"><span class="bar-t">telemetry.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+        <pre><code class="hl">if wifi_connect("Home", "12345678") {
+    sntp_sync();
+    let r = http_post("https://api.example.com/ingest",
+                      str({ temp: ADC(34).read_mv(), at: time() }));
+    print(r.status, r.body);
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>07</b> Next</p>
+      <h2>Keep going</h2>
+      <div class="linklist mt-24">
+        <a href="install.html"><b>Install the interpreter</b><span>Windows / Linux / macOS</span></a>
+        <a href="firmware.html"><b>Flash ESP32 firmware</b><span>merged binaries for three chips</span></a>
+        <a href="usage.html"><b>REPL and CLI</b><span>interactive debugging and flags</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/L_EBNF.md" target="_blank" rel="noopener"><b>Full grammar</b><span>L_EBNF.md ↗</span></a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">pure C99 · zero dependencies · ESP32 and PC</p>
+    </div>
+    <nav class="ft-links" aria-label="Footer">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="../language.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="../assets/js/releases.js"></script>
+<script src="../assets/js/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>语言参考 — L 语言 (lang)</title>
+<meta name="description" content="L 语言的类型系统、运算符、控制流、闭包、异常、模块与硬件对象参考。">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="language.html">
+<link rel="alternate" hreflang="en" href="en/language.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="语言参考 — L 语言 (lang)">
+<meta property="og:description" content="类型、运算符、闭包、异常与硬件对象参考。">
+<meta property="og:image" content="assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="主导航">
+      <a href="language.html" aria-current="page">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html">文档</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="en/language.html" hreflang="en" lang="en">EN</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="打开菜单"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">语言</a>
+        <a href="install.html">安装</a>
+        <a href="firmware.html">固件</a>
+        <a href="usage.html">使用</a>
+        <a href="docs.html">文档</a>
+        <a href="en/language.html" hreflang="en" lang="en">English</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Language Reference</p>
+      <h1>语法、类型与内置对象</h1>
+      <p class="lede">C 语言的紧凑语法，加上脚本语言的动态类型与交互式体验。完整文法见 <a href="https://github.com/yongyaoli/lang/blob/main/L_EBNF.md" target="_blank" rel="noopener" style="color:var(--accent)">L_EBNF.md</a>；在 REPL 里随时输入 <code>help()</code> 也能查到全部内置函数。</p>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> 基础</p>
+      <h2>变量、类型与运算符</h2>
+
+      <h3 class="sub mt-24">变量与常量</h3>
+      <div class="term">
+        <div class="bar"><span class="bar-t">vars.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+        <pre><code class="hl">let count = 10;             // 可变变量
+let empty;                  // 未初始化，默认 nil
+const LED_PIN = 2;          // 常量：二次赋值会抛运行时错误</code></pre>
+      </div>
+
+      <h3 class="sub mt-32">八种核心类型</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>类型</th><th>字面量与构造</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><code>int</code></td><td><code>42</code>, <code>0xFF</code>, <code>0b1010_0001</code></td><td>32 位有符号整数；<code>7 / 2 == 3</code>（C 语义整除）</td></tr>
+            <tr><td><code>float</code></td><td><code>3.14</code>, <code>2.5e-3</code>, <code>7 / 2.0</code></td><td>64 位双精度；与 <code>int</code> 混合运算自动提升</td></tr>
+            <tr><td><code>bool</code></td><td><code>true</code>, <code>false</code></td><td>只有 <code>false</code> 与 <code>nil</code> 为假，<code>0</code> 与 <code>""</code> 均为真</td></tr>
+            <tr><td><code>nil</code></td><td><code>nil</code></td><td>空值</td></tr>
+            <tr><td><code>string</code></td><td><code>"你好\nL"</code></td><td>不可变 UTF-8 字符串，支持 <code>+</code>、下标与 <code>.trim()</code> 等方法</td></tr>
+            <tr><td><code>bytes</code></td><td><code>bytes(4)</code>, <code>bytes([0x48, 0x69])</code></td><td>定长可变字节缓冲，为 I2C / SPI / UART 而生</td></tr>
+            <tr><td><code>array</code></td><td><code>[1, "a", true]</code></td><td>动态数组，<code>.push()</code> / <code>.map()</code> / <code>.filter()</code> / <code>.sort()</code></td></tr>
+            <tr><td><code>map</code></td><td><code>{ id: 1, "name": "ESP32" }</code></td><td>字符串键字典，<code>m.id</code> 与 <code>m["id"]</code> 等价</td></tr>
+            <tr><td><code>function</code></td><td><code>fn(x) { return x + 1; }</code></td><td>一等函数，带词法闭包</td></tr>
+            <tr><td><code>obj</code></td><td><code>Pin(2)</code></td><td>原生硬件对象，方法表存放在 <code>.rodata</code>，零 RAM 开销</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="sub mt-32">运算符</h3>
+      <p class="prose">算术 <code>+ - * / %</code>、比较 <code>== != &lt; &lt;= &gt; &gt;=</code>、逻辑 <code>and</code> / <code>or</code>（短路）与 <code>not</code> / <code>!</code>，以及完整的 C 位运算与三元表达式。</p>
+      <div class="term">
+        <div class="bar"><span class="bar-t">ops.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+        <pre><code class="hl">let reg = (1 &lt;&lt; 4) | 0x03;        // 0x13
+let high = (0xCAFE &gt;&gt; 8) &amp; 0xFF;   // 0xCA
+let level = (temp &gt; 30) ? "HIGH" : "NORMAL";</code></pre>
+      </div>
+
+      <h3 class="sub mt-32">控制流</h3>
+      <div class="term">
+        <div class="bar"><span class="bar-t">flow.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+        <pre><code class="hl">if count &gt; 0 {          // 条件表达式不需要圆括号
+    print("positive");
+} else {
+    print("non-positive");
+}
+
+for let i = 0; i &lt; 5; i = i + 1 {
+    if i == 2 { continue; }   // 支持 break / continue
+    print(i);
+}
+
+let n = 0;
+while n &lt; 3 { n = n + 1; }</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> 函数</p>
+      <h2>一等函数与词法闭包</h2>
+      <p class="lede">函数可以赋值、传参、返回，也能捕获定义时的外层变量。</p>
+
+      <div class="two">
+        <div>
+          <div class="term">
+            <div class="bar"><span class="bar-t">counter.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+            <pre><code class="hl">fn make_counter(start) {
+    let n = start;
+    return fn(step) {
+        n = n + step;
+        return n;
+    };
+}
+
+let c = make_counter(10);
+print(c(5), c(3));      // 15 18</code></pre>
+          </div>
+        </div>
+        <div>
+          <div class="term">
+            <div class="bar"><span class="bar-t">methods.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+            <pre><code class="hl">print("  hello esp32  ".trim().upper().split(" "));
+// ["HELLO", "ESP32"]
+
+print([3, 1, 4, 2].sort().map(fn(x) { return x * 10; }));
+// [10, 20, 30, 40]
+
+let sensor = {
+    addr: 0x3C,
+    scale: 2,
+    read: fn(raw) { return raw * self.scale; }
+};
+print(sensor.read(21));  // 42</code></pre>
+          </div>
+          <p class="aside-note mt-24">Map 方法里可以直接用隐式绑定 <code>self</code>，也可以显式写成 <code>fn(self, ...)</code>。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> 异常</p>
+      <h2>结构化的 try / catch / throw</h2>
+      <p class="lede">任何语法或运行时错误都会生成一个异常对象，带类型、消息、文件、行、列、源码行与调用栈。</p>
+
+      <div class="two">
+        <div>
+          <div class="term">
+            <div class="bar"><span class="bar-t">except.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+            <pre><code class="hl">try {
+    throw { code: 500, message: "传感器响应超时" };
+} catch (e) {
+    print(e.type, e.message);
+    print(e.file + ":" + str(e.line) + ":" + str(e.col));
+    print(e.source);   // 出错那一行的源码
+    print(e.stack);    // 调用栈字符串
+}</code></pre>
+          </div>
+        </div>
+        <div>
+          <div class="console">
+            <div class="bar"><span class="bar-t">未捕获时的输出格式</span></div>
+            <pre><code><span class="err">[sensor.l:12:16] 运行时错误: 除数不能为 0</span>
+    12 |     return 100 / scale;
+       |                <span class="err">^</span>
+  <span class="dim">调用栈回溯:</span>
+    at read_sensor (sensor.l:12:16)
+    at main_loop (sensor.l:20:14)
+    at &lt;main&gt; (sensor.l:25:1)</code></pre>
+          </div>
+          <p class="aside-note mt-24">退出码区分错误类型：<code>65</code> 语法错误、<code>70</code> 运行时错误、<code>74</code> 文件无法读取，方便脚本外层做重试。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>04</b> 模块</p>
+      <h2>import 与字节码</h2>
+      <p class="lede">内置硬件模块不需要文件系统；本地模块按路径导入，自动缓存，支持 <code>as</code> 别名。</p>
+
+      <div class="grid-2">
+        <div class="term">
+          <div class="bar"><span class="bar-t">import.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+          <pre><code class="hl">import "esp32" as hw;          // 内置硬件模块
+import "./utils/math_ext.l" as m;
+
+print(m.clamp(ADC(34).read(), 0, 4095));</code></pre>
+        </div>
+        <div class="term">
+          <div class="bar"><span class="bar-t">bytecode</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+          <pre><code class="hl">l -c main.l -o main.lc    # 编译为紧凑字节码
+l main.lc                 # 直接运行字节码
+l -d main.l               # 反汇编查看操作码</code></pre>
+        </div>
+      </div>
+      <p class="aside-note mt-24">字节码文件可写入 <code>l_script</code> 分区，<code>LBC1</code> 魔数会走栈式虚拟机执行，省去板端词法与语法分析。</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>05</b> 硬件</p>
+      <h2>外设对象速查</h2>
+      <p class="lede">所有硬件对象的构造与真机一致；在 PC 上运行时由 host-sim 层接管，可以注入模拟数据。</p>
+
+      <div class="hw mt-24">
+        <details>
+          <summary>Pin <span>数字引脚</span></summary>
+          <div class="a">
+            <p><code>Pin(pin, [mode="out"], [val])</code> 或简写 <code>pin(pin)</code>。模式：<code>"out"</code>、<code>"in"</code>、<code>"in_pullup"</code>、<code>"in_pulldown"</code>、<code>"open_drain"</code>。</p>
+            <p>方法：<code>.on()</code> / <code>.high()</code>、<code>.off()</code> / <code>.low()</code>、<code>.toggle()</code>、<code>.value([0|1])</code>、<code>.mode([m])</code>、<code>.info()</code>。修改配置会返回自身，可直接链式调用。</p>
+          </div>
+        </details>
+        <details>
+          <summary>PWM <span>脉冲宽度调制</span></summary>
+          <div class="a">
+            <p><code>PWM(pin, [freq=1000], [duty=0])</code>，10 位分辨率占空比 <code>0..1023</code>。</p>
+            <p>方法：<code>.freq([hz])</code>、<code>.duty([0..1023])</code>、<code>.duty_percent([0..100])</code>、<code>.stop()</code> / <code>.deinit()</code>。</p>
+          </div>
+        </details>
+        <details>
+          <summary>ADC <span>模拟采样</span></summary>
+          <div class="a">
+            <p><code>ADC(pin, [atten="11db"])</code>，构造时校验引脚是否具备 ADC 通道。</p>
+            <p>方法：<code>.read()</code>（0..4095）、<code>.read_mv()</code>（毫伏）、<code>.read_uv()</code>（微伏）、<code>.atten(db)</code>、<code>.write_sim(raw)</code>（仿真注入）。</p>
+          </div>
+        </details>
+        <details>
+          <summary>I2C <span>总线与寄存器</span></summary>
+          <div class="a">
+            <p><code>I2C([bus=0], [sda], [scl], [freq])</code>。</p>
+            <p>方法：<code>.scan()</code>、<code>.write(addr, data)</code>、<code>.read(addr, len)</code>、<code>.write_reg(addr, reg, data)</code>、<code>.read_reg(addr, reg, len)</code>、<code>.sim_device(addr)</code>。</p>
+          </div>
+        </details>
+        <details>
+          <summary>SPI <span>全双工收发</span></summary>
+          <div class="a">
+            <p><code>SPI([bus=1], [sck], [mosi], [miso], [freq])</code>。</p>
+            <p>方法：<code>.transfer(data)</code> / <code>.xfer(data)</code>（收发并返回 <code>bytes</code>）、<code>.write(data)</code>、<code>.read(len, [fill])</code>。</p>
+          </div>
+        </details>
+        <details>
+          <summary>UART <span>串口通信</span></summary>
+          <div class="a">
+            <p><code>UART([port=1], [baud=115200], [tx], [rx])</code>。</p>
+            <p>方法：<code>.write(data)</code>、<code>.any()</code>、<code>.read([len])</code>、<code>.read_str()</code>、<code>.sim_input(data)</code>。</p>
+          </div>
+        </details>
+        <details>
+          <summary>bytes <span>定长字节缓冲</span></summary>
+          <div class="a">
+            <p><code>bytes(len | array | str)</code>，支持下标读写 <code>b[0] = 0xFF</code>。</p>
+            <p>方法：<code>.len()</code>、<code>.hex([sep])</code>、<code>.to_str()</code>、<code>.to_array()</code>、<code>.fill(b)</code>、<code>.slice(s, [e])</code>、<code>.u16_be(off)</code>、<code>.u16_le(off)</code>、<code>.set_u16_be(off, v)</code>、<code>.set_u16_le(off, v)</code>。</p>
+          </div>
+        </details>
+      </div>
+
+      <h3 class="sub mt-32"><code>ESP32</code> 基础功能类</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>方法</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><code>ESP32.chip()</code> / <code>.version()</code></td><td>芯片型号与 ESP-IDF 版本</td></tr>
+            <tr><td><code>ESP32.info()</code></td><td>完整硬件字典：架构、核心数、主频、SRAM、Flash、PSRAM、堆、MAC</td></tr>
+            <tr><td><code>ESP32.pin_info(pin)</code> / <code>.pins()</code> / <code>.pinout()</code></td><td>单引脚能力 / 分类汇总 / 终端打印整块芯片引脚表</td></tr>
+            <tr><td><code>ESP32.set_chip(型号)</code></td><td>PC 仿真时切换目标芯片，自动套用对应引脚约束</td></tr>
+            <tr><td><code>ESP32.freq([MHz])</code> / <code>.free_heap()</code></td><td>读写主频（40/80/160/240）/ 剩余堆字节数</td></tr>
+            <tr><td><code>ESP32.ticks_ms()</code> / <code>.delay_ms(ms)</code></td><td>启动以来毫秒计数 / 毫秒级延时</td></tr>
+            <tr><td><code>ESP32.crc32(data)</code></td><td>IEEE 802.3 CRC32 校验值</td></tr>
+            <tr><td><code>ESP32.flash_write(code)</code> / <code>.flash_exec()</code></td><td>带 16B 头与 CRC32 写入 <code>l_script</code> 分区 / 零拷贝执行</td></tr>
+            <tr><td><code>ESP32.flash_read()</code> / <code>.flash_info()</code> / <code>.flash_erase()</code></td><td>读取源码 / 查询校验状态 / 擦除分区</td></tr>
+            <tr><td><code>ports()</code> / <code>upload(port, file)</code> / <code>connect(port)</code></td><td>扫描串口 / 串口烧录脚本 / 连接板端 REPL</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>06</b> 网络</p>
+      <h2>WiFi 与 IoT</h2>
+      <p class="lede">联网、授时、上报都在标准库里；PC 上运行时会走模拟实现，便于先把业务逻辑跑通。</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>函数</th><th>说明</th><th>返回</th></tr></thead>
+          <tbody>
+            <tr><td><code>wifi_connect(ssid, [pwd], [timeout])</code></td><td>连接热点</td><td><code>true</code> / <code>false</code></td></tr>
+            <tr><td><code>wifi_disconnect()</code> / <code>wifi_is_connected()</code></td><td>断开 / 查询状态</td><td><code>bool</code></td></tr>
+            <tr><td><code>wifi_ip()</code> / <code>wifi_mac()</code></td><td>本机 IP / 网卡 MAC</td><td>字符串或 <code>nil</code></td></tr>
+            <tr><td><code>wifi_ap(ssid, [pwd])</code></td><td>开启 SoftAP 热点（默认 <code>192.168.4.1</code>）</td><td><code>true</code></td></tr>
+            <tr><td><code>wifi_scan()</code></td><td>扫描周边热点</td><td><code>[{ssid, rssi, auth}, ...]</code></td></tr>
+            <tr><td><code>http_get(url, [timeout_ms])</code></td><td>HTTP / HTTPS GET</td><td><code>{status, body, ok}</code></td></tr>
+            <tr><td><code>http_post(url, [body], [hdr], [to])</code></td><td>HTTP / HTTPS POST</td><td><code>{status, body, ok}</code></td></tr>
+            <tr><td><code>sntp_sync([server], [timeout])</code></td><td>联网授时，之后 <code>time()</code> / <code>datetime()</code> 返回真实时间</td><td><code>true</code> / <code>false</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="term mt-32">
+        <div class="bar"><span class="bar-t">telemetry.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+        <pre><code class="hl">if wifi_connect("Home", "12345678") {
+    sntp_sync();
+    let r = http_post("https://api.example.com/ingest",
+                      str({ temp: ADC(34).read_mv(), at: time() }));
+    print(r.status, r.body);
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>07</b> 继续</p>
+      <h2>下一步</h2>
+      <div class="linklist mt-24">
+        <a href="install.html"><b>安装解释器</b><span>Windows / Linux / macOS</span></a>
+        <a href="firmware.html"><b>刷入 ESP32 固件</b><span>三种芯片的合并固件</span></a>
+        <a href="usage.html"><b>REPL 与命令行</b><span>交互式调试与参数说明</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/L_EBNF.md" target="_blank" rel="noopener"><b>完整文法</b><span>L_EBNF.md ↗</span></a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">纯 C99 · 零依赖 · ESP32 与 PC 双栖</p>
+    </div>
+    <nav class="ft-links" aria-label="页脚导航">
+      <a href="language.html">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html">文档</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="en/language.html" hreflang="en" lang="en">English</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="assets/js/releases.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>

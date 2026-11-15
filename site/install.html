@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>安装 — L 语言 (lang)</title>
+<meta name="description" content="在 Windows、Linux、macOS 上安装 L 语言解释器：安装包、一键脚本或源码一行编译。">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="install.html">
+<link rel="alternate" hreflang="en" href="en/install.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="安装 — L 语言 (lang)">
+<meta property="og:description" content="Windows 安装包、Linux / macOS 一键脚本、源码一行编译。">
+<meta property="og:image" content="assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="主导航">
+      <a href="language.html">语言</a>
+      <a href="install.html" aria-current="page">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html">文档</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="en/install.html" hreflang="en" lang="en">EN</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="打开菜单"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">语言</a>
+        <a href="install.html">安装</a>
+        <a href="firmware.html">固件</a>
+        <a href="usage.html">使用</a>
+        <a href="docs.html">文档</a>
+        <a href="en/install.html" hreflang="en" lang="en">English</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Install</p>
+      <h1>装好 <code>l</code>，只要一条命令</h1>
+      <p class="lede">支持 Windows、Linux、macOS。安装程序会自动部署解释器与标准库、写入 <code>PATH</code> 并关联 <code>.l</code> 文件；整个过程不需要任何预装运行时。</p>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> 选择平台</p>
+
+      <div class="tabs" data-tabs>
+        <div class="tab-bar" role="tablist" aria-label="平台">
+          <button type="button" role="tab">Windows</button>
+          <button type="button" role="tab">Linux / macOS</button>
+          <button type="button" role="tab">源码编译</button>
+        </div>
+
+        <div class="tab-panels">
+
+          <div class="panel">
+            <div class="dl-grid cols-2 mt-24">
+              <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="winSetup">
+                <span class="dl-t">Windows 安装包 <span style="color:var(--accent)">推荐</span></span>
+                <span class="dl-f" data-file>lang-setup-windows-x86_64.exe</span>
+                <span class="dl-n" data-note>Windows 10/11 · x64</span>
+              </a>
+              <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="winPortable">
+                <span class="dl-t">免安装便携包</span>
+                <span class="dl-f" data-file>lang-windows-x86_64.zip</span>
+                <span class="dl-n" data-note>解压即用，不写注册表</span>
+              </a>
+            </div>
+
+            <h3 class="sub mt-32">用安装包（最简单）</h3>
+            <ol class="steps">
+              <li>
+                <div>
+                  <b>下载并双击运行安装程序</b>
+                  <p>默认安装到 <code>%LOCALAPPDATA%\Programs\lang</code>，无需管理员权限。</p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <b>跟随向导完成，PATH 自动配置</b>
+                  <p>安装器会勾选并写入用户级 <code>PATH</code>，同时在「应用和功能」中注册，可随时一键卸载。</p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <b>打开新的终端窗口</b>
+                  <p>已经打开的窗口不会继承新的 <code>PATH</code>，请新开一个 CMD 或 PowerShell。</p>
+                </div>
+              </li>
+            </ol>
+
+            <div class="term mt-24">
+              <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+              <pre><code class="hl">PS&gt; l --version
+L 0.1.9
+
+PS&gt; l
+Type "help", "copyright", "license" or "exit" for more information.
+ESP32 快捷命令: ports() | upload("COM3", "main.l") | connect("COM3") | help("esp32")
+&gt;&gt;&gt;</code></pre>
+            </div>
+
+            <p class="note mt-16">若发布页尚未附带安装包，可改用下方的命令行脚本安装，或直接源码编译（第三个标签）。</p>
+
+            <h3 class="sub mt-32">用脚本安装</h3>
+            <div class="term">
+              <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+              <pre><code class="hl">git clone https://github.com/yongyaoli/lang
+cd lang
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1</code></pre>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="dl-grid mt-24">
+              <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="linuxX64">
+                <span class="dl-t">Linux <span style="color:var(--accent)">x86_64</span></span>
+                <span class="dl-f" data-file>lang-linux-x86_64.tar.gz</span>
+                <span class="dl-n" data-note>预编译二进制 · 含 install.sh</span>
+              </a>
+              <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="macArm64">
+                <span class="dl-t">macOS Apple Silicon</span>
+                <span class="dl-f" data-file>lang-macos-arm64.tar.gz</span>
+                <span class="dl-n" data-note>M1 / M2 / M3 / M4 · 预编译</span>
+              </a>
+              <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="macX64">
+                <span class="dl-t">macOS Intel</span>
+                <span class="dl-f" data-file>lang-macos-x86_64.tar.gz</span>
+                <span class="dl-n" data-note>x86_64 · 预编译</span>
+              </a>
+            </div>
+
+            <p class="aside-note mt-16">解压后执行 <code>bash install.sh</code> 即可。其他架构（ARM 服务器、RISC-V）请用 <a href="https://github.com/yongyaoli/lang/releases/latest" data-asset="unix" style="color:var(--accent)">lang-unix.zip</a> 源码包或源码编译。</p>
+
+            <h3 class="sub mt-32">一键脚本</h3>
+            <p class="prose">脚本会自动检测系统与架构、编译或解压对应的二进制，并把 <code>l</code> 放到可执行路径下。</p>
+            <div class="term">
+              <div class="bar"><span class="bar-t">bash</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+              <pre><code class="hl">git clone https://github.com/yongyaoli/lang
+cd lang
+bash ./scripts/install.sh</code></pre>
+            </div>
+
+            <div class="note mt-16">
+              <p><b>安装位置规则</b></p>
+              <p>1. 有 <code>sudo</code> 权限时优先安装到 <code>/usr/local/bin/l</code>；<br>
+                 2. 无 root 权限时自动回退到 <code>~/.local/bin/l</code>；<br>
+                 3. 自动检测并在 <code>~/.bashrc</code>、<code>~/.zshrc</code> 或 <code>~/.profile</code> 中补 <code>PATH</code>。</p>
+            </div>
+
+            <h3 class="sub mt-32">卸载</h3>
+            <div class="term">
+              <div class="bar"><span class="bar-t">bash</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+              <pre><code class="hl">bash ./scripts/uninstall.sh</code></pre>
+            </div>
+
+            <p class="aside-note mt-24">macOS 若提示「无法验证开发者」，在「系统设置 → 隐私与安全性」里允许一次即可；也可直接用源码编译绕过。</p>
+          </div>
+
+          <div class="panel">
+            <h3 class="sub">只要一个 C 编译器</h3>
+            <p class="prose">没有 lex、yacc、LLVM，也没有第三方库。下面这条命令就是完整构建过程：</p>
+
+            <div class="term">
+              <div class="bar"><span class="bar-t">Linux / macOS</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+              <pre><code class="hl">gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c \
+    src/main/main.c -o l</code></pre>
+            </div>
+
+            <div class="term mt-16">
+              <div class="bar"><span class="bar-t">Windows · PowerShell</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+              <pre><code class="hl">gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c src/main/main.c `
+    -lwininet -lws2_32 -static -o l.exe</code></pre>
+            </div>
+
+            <div class="note mt-16">
+              <p><b>裁剪裸机版本</b></p>
+              <p>给无文件系统的 ESP32 编译更小的解释器时，可关掉文件与进程模块：<br>
+                 <code>-DL_WITH_STDLIB_IO=0 -DL_WITH_STDLIB_SYS=0</code></p>
+            </div>
+
+            <p class="aside-note mt-24">注意：<code>tests/</code> 与 <code>stdlib/</code> 的改动需要一起编译；漏掉 <code>bytecode.c</code>、<code>compiler.c</code>、<code>vm.c</code> 会在链接阶段报未定义符号。</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> 验证</p>
+      <h2>三条命令确认装好了</h2>
+
+      <div class="two">
+        <div class="term">
+          <div class="bar"><span class="bar-t">terminal</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+          <pre><code class="hl">l --version      # 打印版本号
+l                # 进入 REPL
+l main.l         # 运行脚本文件</code></pre>
+        </div>
+        <div class="console">
+          <div class="bar"><span class="bar-t">期望输出</span></div>
+          <pre><code>$ l --version
+L 0.1.9
+
+$ l
+Type "help", "copyright", "license" or "exit" for more information.
+&gt;&gt;&gt; print("hello")
+hello</code></pre>
+        </div>
+      </div>
+
+      <p class="aside-note mt-32">如果提示「找不到命令」，多半是终端没有重新打开，或 <code>PATH</code> 未生效。Windows 可执行 <code>where l</code>，macOS / Linux 用 <code>which l</code> 定位。</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> 分发</p>
+      <h2>自己打包一份</h2>
+      <p class="lede">想把 <code>l</code> 分发给同事或放进内网，用仓库里的打包脚本一次生成安装包与压缩包。</p>
+
+      <div class="two">
+        <div class="term">
+          <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+          <pre><code class="hl">powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1</code></pre>
+        </div>
+        <div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>产物</th><th>用途</th></tr></thead>
+              <tbody>
+                <tr><td><code>lang-setup-windows-x86_64.exe</code></td><td>Windows 独立安装程序</td></tr>
+                <tr><td><code>lang-windows-x86_64.zip</code></td><td>Windows 便携版</td></tr>
+                <tr><td><code>lang-unix.zip</code></td><td>Linux / macOS 安装包</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="aside-note mt-16">脚本会先调用 <code>scripts/bump_version.ps1</code> 递增小版本号，再编译并打包，产物统一输出到 <code>dist/</code>。</p>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <a class="btn btn-p" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="winSetup">前往下载</a>
+        <a class="btn btn-g" href="firmware.html">下一步：刷固件</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">纯 C99 · 零依赖 · ESP32 与 PC 双栖</p>
+    </div>
+    <nav class="ft-links" aria-label="页脚导航">
+      <a href="language.html">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html">文档</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="en/install.html" hreflang="en" lang="en">English</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="assets/js/releases.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>

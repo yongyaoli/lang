@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install — L (lang)</title>
+<meta name="description" content="Install the L interpreter on Windows, Linux or macOS: installer, one-line script, or build from source.">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="../install.html">
+<link rel="alternate" hreflang="en" href="install.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Install — L (lang)">
+<meta property="og:description" content="Windows installer, Linux / macOS script, or a one-line build.">
+<meta property="og:image" content="../assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="language.html">Language</a>
+      <a href="install.html" aria-current="page">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="../install.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="Open menu"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">Language</a>
+        <a href="install.html">Install</a>
+        <a href="firmware.html">Firmware</a>
+        <a href="usage.html">Usage</a>
+        <a href="docs.html">Docs</a>
+        <a href="../install.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Install</p>
+      <h1>Get <code>l</code> running in one command</h1>
+      <p class="lede">Windows, Linux and macOS are supported. The installer deploys the interpreter and stdlib, writes <code>PATH</code> and associates <code>.l</code> files — no runtime to preinstall.</p>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> Pick a platform</p>
+
+      <div class="tabs" data-tabs>
+        <div class="tab-bar" role="tablist" aria-label="Platform">
+          <button type="button" role="tab">Windows</button>
+          <button type="button" role="tab">Linux / macOS</button>
+          <button type="button" role="tab">Build from source</button>
+        </div>
+
+        <div class="tab-panels">
+
+          <div class="panel">
+            <div class="dl-grid cols-2 mt-24">
+              <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="winSetup">
+                <span class="dl-t">Windows installer <span style="color:var(--accent)">recommended</span></span>
+                <span class="dl-f" data-file>lang-setup-windows-x86_64.exe</span>
+                <span class="dl-n" data-note>Windows 10/11 · x64</span>
+              </a>
+              <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="winPortable">
+                <span class="dl-t">Portable zip</span>
+                <span class="dl-f" data-file>lang-windows-x86_64.zip</span>
+                <span class="dl-n" data-note>no registry, unzip and run</span>
+              </a>
+            </div>
+
+            <h3 class="sub mt-32">Using the installer</h3>
+            <ol class="steps">
+              <li>
+                <div>
+                  <b>Download and run the setup</b>
+                  <p>Installs to <code>%LOCALAPPDATA%\Programs\lang</code> by default; no admin rights needed.</p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <b>Follow the wizard</b>
+                  <p>User-level <code>PATH</code> is written automatically and the app is registered in Apps &amp; features for one-click uninstall.</p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <b>Open a new terminal</b>
+                  <p>Already-open windows keep the old <code>PATH</code>; start a fresh CMD or PowerShell.</p>
+                </div>
+              </li>
+            </ol>
+
+            <div class="term mt-24">
+              <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+              <pre><code class="hl">PS&gt; l --version
+L 0.1.9
+
+PS&gt; l
+Type "help", "copyright", "license" or "exit" for more information.
+ESP32 快捷命令: ports() | upload("COM3", "main.l") | connect("COM3") | help("esp32")
+&gt;&gt;&gt;</code></pre>
+            </div>
+
+            <p class="note mt-16">If the release page has no installer attached yet, use the script below or build from source (third tab).</p>
+
+            <h3 class="sub mt-32">Using the script</h3>
+            <div class="term">
+              <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+              <pre><code class="hl">git clone https://github.com/yongyaoli/lang
+cd lang
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1</code></pre>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="dl-grid mt-24">
+              <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="linuxX64">
+                <span class="dl-t">Linux <span style="color:var(--accent)">x86_64</span></span>
+                <span class="dl-f" data-file>lang-linux-x86_64.tar.gz</span>
+                <span class="dl-n" data-note>prebuilt binary + install.sh</span>
+              </a>
+              <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="macArm64">
+                <span class="dl-t">macOS Apple Silicon</span>
+                <span class="dl-f" data-file>lang-macos-arm64.tar.gz</span>
+                <span class="dl-n" data-note>M1 / M2 / M3 / M4 · prebuilt</span>
+              </a>
+              <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="macX64">
+                <span class="dl-t">macOS Intel</span>
+                <span class="dl-f" data-file>lang-macos-x86_64.tar.gz</span>
+                <span class="dl-n" data-note>x86_64 · prebuilt</span>
+              </a>
+            </div>
+
+            <p class="aside-note mt-16">Unpack and run <code>bash install.sh</code>. For other architectures (ARM servers, RISC-V) use the <a href="https://github.com/yongyaoli/lang/releases/latest" data-asset="unix" style="color:var(--accent)">lang-unix.zip</a> source bundle or build from source.</p>
+
+            <h3 class="sub mt-32">One-line script</h3>
+            <p class="prose">The script detects your OS and architecture, builds or unpacks the right binary, and puts <code>l</code> on your executable path.</p>
+            <div class="term">
+              <div class="bar"><span class="bar-t">bash</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+              <pre><code class="hl">git clone https://github.com/yongyaoli/lang
+cd lang
+bash ./scripts/install.sh</code></pre>
+            </div>
+
+            <div class="note mt-16">
+              <p><b>Where it installs</b></p>
+              <p>1. With <code>sudo</code>: <code>/usr/local/bin/l</code>.<br>
+                 2. Without root: falls back to <code>~/.local/bin/l</code>.<br>
+                 3. Adds the right <code>PATH</code> line to <code>~/.bashrc</code>, <code>~/.zshrc</code> or <code>~/.profile</code>.</p>
+            </div>
+
+            <h3 class="sub mt-32">Uninstall</h3>
+            <div class="term">
+              <div class="bar"><span class="bar-t">bash</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+              <pre><code class="hl">bash ./scripts/uninstall.sh</code></pre>
+            </div>
+
+            <p class="aside-note mt-24">On macOS, if Gatekeeper blocks the binary, allow it once in System Settings → Privacy &amp; Security, or build from source.</p>
+          </div>
+
+          <div class="panel">
+            <h3 class="sub">All you need is a C compiler</h3>
+            <p class="prose">No lex, no yacc, no LLVM, no third-party libraries. This single command is the entire build:</p>
+
+            <div class="term">
+              <div class="bar"><span class="bar-t">Linux / macOS</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+              <pre><code class="hl">gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c \
+    src/main/main.c -o l</code></pre>
+            </div>
+
+            <div class="term mt-16">
+              <div class="bar"><span class="bar-t">Windows · PowerShell</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+              <pre><code class="hl">gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c src/main/main.c `
+    -lwininet -lws2_32 -static -o l.exe</code></pre>
+            </div>
+
+            <div class="note mt-16">
+              <p><b>Minimal build for bare metal</b></p>
+              <p>Drop filesystem and process modules for a smaller ESP32 interpreter:<br>
+                 <code>-DL_WITH_STDLIB_IO=0 -DL_WITH_STDLIB_SYS=0</code></p>
+            </div>
+
+            <p class="aside-note mt-24">Missing <code>bytecode.c</code>, <code>compiler.c</code> or <code>vm.c</code> shows up as undefined symbols at link time.</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> Verify</p>
+      <h2>Three commands to confirm</h2>
+
+      <div class="two">
+        <div class="term">
+          <div class="bar"><span class="bar-t">terminal</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+          <pre><code class="hl">l --version      # print the version
+l                # enter the REPL
+l main.l         # run a script file</code></pre>
+        </div>
+        <div class="console">
+          <div class="bar"><span class="bar-t">expected</span></div>
+          <pre><code>$ l --version
+L 0.1.9
+
+$ l
+Type "help", "copyright", "license" or "exit" for more information.
+&gt;&gt;&gt; print("hello")
+hello</code></pre>
+        </div>
+      </div>
+
+      <p class="aside-note mt-32">If the shell says command not found, reopen the terminal or check <code>PATH</code>. Use <code>where l</code> on Windows, <code>which l</code> elsewhere.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> Distribute</p>
+      <h2>Package your own copy</h2>
+      <p class="lede">To hand <code>l</code> to a colleague or ship it inside a private network, one script produces the installer and the zips.</p>
+
+      <div class="two">
+        <div class="term">
+          <div class="bar"><span class="bar-t">PowerShell</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+          <pre><code class="hl">powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1</code></pre>
+        </div>
+        <div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Output</th><th>Purpose</th></tr></thead>
+              <tbody>
+                <tr><td><code>lang-setup-windows-x86_64.exe</code></td><td>Windows standalone installer</td></tr>
+                <tr><td><code>lang-windows-x86_64.zip</code></td><td>Windows portable build</td></tr>
+                <tr><td><code>lang-unix.zip</code></td><td>Linux / macOS package</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="aside-note mt-16">The script bumps the patch version via <code>scripts/bump_version.ps1</code>, then builds and packs everything into <code>dist/</code>.</p>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <a class="btn btn-p" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="winSetup">Go to downloads</a>
+        <a class="btn btn-g" href="firmware.html">Next: flash firmware</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">pure C99 · zero dependencies · ESP32 and PC</p>
+    </div>
+    <nav class="ft-links" aria-label="Footer">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="../install.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="../assets/js/releases.js"></script>
+<script src="../assets/js/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="L lang">
+  <rect width="1200" height="630" fill="#0b0f19"/>
+  <rect x="72" y="72" width="64" height="64" rx="14" fill="#e6edf7"/>
+  <path d="M95 91v26h20" fill="none" stroke="#0b0f19" stroke-width="6" stroke-linecap="square"/>
+  <text x="156" y="122" font-family="ui-monospace, Consolas, monospace" font-size="38" font-weight="700" fill="#e6edf7">L</text>
+  <text x="196" y="122" font-family="ui-monospace, Consolas, monospace" font-size="28" fill="#7d8aa0">lang</text>
+  <text x="72" y="300" font-family="-apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="76" font-weight="700" fill="#f2f4f7" letter-spacing="-2">写一行脚本，</text>
+  <text x="72" y="392" font-family="-apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="76" font-weight="700" fill="#f2f4f7" letter-spacing="-2">点亮一块芯片。</text>
+  <text x="74" y="472" font-family="-apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="26" fill="#9aa5b6">纯 C99 · 零依赖 · ESP32 与 PC 双栖运行的超轻量脚本语言</text>
+  <g font-family="ui-monospace, Consolas, monospace" font-size="20" fill="#7d8aa0">
+    <text x="74" y="548">C99</text>
+    <text x="146" y="548">0 deps</text>
+    <text x="248" y="548">ESP32 / S3 / C3 / C6</text>
+    <text x="540" y="548">Windows / Linux / macOS</text>
+  </g>
+  <rect x="0" y="620" width="1200" height="10" fill="#1f6feb"/>
+</svg>

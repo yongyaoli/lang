@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>固件 — L 语言 (lang)</title>
+<meta name="description" content="ESP32 / C3 / S3 的 L 语言底包固件下载与刷机步骤。底包只刷一次，之后串口 0.2 秒烧录脚本。">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="firmware.html">
+<link rel="alternate" hreflang="en" href="en/firmware.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="固件 — L 语言 (lang)">
+<meta property="og:description" content="ESP32 / C3 / S3 单文件合并固件，刷写地址 0x0。">
+<meta property="og:image" content="assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="主导航">
+      <a href="language.html">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html" aria-current="page">固件</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html">文档</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="en/firmware.html" hreflang="en" lang="en">EN</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="打开菜单"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">语言</a>
+        <a href="install.html">安装</a>
+        <a href="firmware.html">固件</a>
+        <a href="usage.html">使用</a>
+        <a href="docs.html">文档</a>
+        <a href="en/firmware.html" hreflang="en" lang="en">English</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Firmware</p>
+      <h1>底包刷一次，脚本改一辈子</h1>
+      <p class="lede">每块开发板只需刷入一次 L 底包固件。之后修改 <code>.l</code> 脚本通过串口 0.2 秒写入并立即运行，不需要重新编译固件，也不需要挂载文件系统。</p>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> 下载</p>
+      <h2>选择你的芯片</h2>
+      <p class="lede">文件均为合并后的单文件固件，从地址 <code>0x0</code> 一次写入 bootloader、分区表与应用。</p>
+
+      <div class="dl-grid">
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32">
+          <span class="dl-t">ESP32</span>
+          <span class="dl-f" data-file>l-esp32-merged.bin</span>
+          <span class="dl-n" data-note>经典 ESP32 · 刷写地址 0x0</span>
+        </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32c3">
+          <span class="dl-t">ESP32-C3</span>
+          <span class="dl-f" data-file>l-esp32c3-merged.bin</span>
+          <span class="dl-n" data-note>RISC-V · 刷写地址 0x0</span>
+        </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32s3">
+          <span class="dl-t">ESP32-S3</span>
+          <span class="dl-f" data-file>l-esp32s3-merged.bin</span>
+          <span class="dl-n" data-note>双核 LX7 · 刷写地址 0x0</span>
+        </a>
+      </div>
+
+      <div class="note mt-24">
+        <p><b>关于 ESP32-C6</b>：解释器与固件工程已支持 C6（Wi-Fi 6 / BLE / Thread），但云端构建矩阵目前只产出 ESP32、C3、S3 三种二进制。需要 C6 时可用本地 ESP-IDF 自行编译，步骤见指南。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> 首次刷机</p>
+      <h2>三步完成</h2>
+      <p class="lede">只需要 Chrome 或 Edge 浏览器，不用安装 ESP-IDF，也不用装 Python。</p>
+
+      <div class="two">
+        <div>
+          <ol class="steps">
+            <li>
+              <div>
+                <b>下载对应芯片的 <code>.bin</code></b>
+                <p>不确定型号就看板子丝印，或插上 USB 后看串口日志里的芯片信息。</p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <b>打开网页刷机工具并连接串口</b>
+                <p>用 Chrome / Edge 打开乐鑫官方 ESP Web Flasher，点击 Connect 选择开发板串口。</p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <b>刷写地址填 <code>0x0</code>，选择文件后点 Flash</b>
+                <p>等待进度条结束，板子自动复位并进入 L 的 REPL。</p>
+              </div>
+            </li>
+          </ol>
+
+          <div class="btn-row">
+            <a class="btn btn-p" href="https://espressif.github.io/esptool-js/" target="_blank" rel="noopener">打开网页刷机工具<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+            <a class="btn btn-g" href="https://github.com/yongyaoli/lang/blob/main/esp32/web_flasher.html" target="_blank" rel="noopener">仓库内工具箱</a>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="sub">命令行刷写</h3>
+          <p class="prose">已经装了 <code>esptool.py</code> 的话，一条命令即可：</p>
+          <div class="term">
+            <div class="bar"><span class="bar-t">esptool</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+            <pre><code class="hl">esptool.py --port COM3 write_flash 0x0 l-esp32-merged.bin
+
+# macOS / Linux 串口形如 /dev/ttyUSB0 或 /dev/cu.usbserial-*</code></pre>
+          </div>
+
+          <div class="console mt-16">
+            <div class="bar"><span class="bar-t">刷写成功后</span></div>
+            <pre><code>ESP-ROM:esp32s3-20210327
+<span class="ok">L 0.1.9 (Nov  9 2026) [GCC 16.2.0 64 bit] on esp-idf</span>
+Type "help", "copyright", "license" or "exit" for more information.
+&gt;&gt;&gt; ESP32.info()
+{chip: "ESP32-S3", freq_mhz: 240, sram_kb: 512, ...}</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> 日常烧录</p>
+      <h2>改脚本不用再刷固件</h2>
+      <p class="lede">三种方式，任选一种。写入前会擦除分区，写入后用 IEEE 802.3 CRC32 校验，校验通过才执行。</p>
+
+      <div class="grid-3">
+        <div>
+          <h3 class="sub">REPL 内烧录</h3>
+          <div class="term">
+            <div class="bar"><span class="bar-t">&gt;&gt;&gt;</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+            <pre><code class="hl">ports();
+upload("COM3", "main.l");
+connect("COM3");</code></pre>
+          </div>
+        </div>
+        <div>
+          <h3 class="sub">命令行烧录</h3>
+          <div class="term">
+            <div class="bar"><span class="bar-t">terminal</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+            <pre><code class="hl">l -p                 # 列出串口
+l -u COM3 main.l     # 烧录并运行
+l -s COM3            # 远程终端</code></pre>
+          </div>
+        </div>
+        <div>
+          <h3 class="sub">浏览器烧录</h3>
+          <div class="term">
+            <div class="bar"><span class="bar-t">Web Serial</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+            <pre><code class="hl">// 网页里粘贴脚本，点「一键烧录」
+// 走同一条 __L_UPLOAD_BEGIN__ 协议
+pin(2).on();
+print(ESP32.chip());</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <p class="aside-note mt-24">串口握手会先发 <code>__L_UPLOAD_READY__</code>，脚本按 64 字节分块写入并统一为 LF 换行，避免 CRC32 不一致。</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>04</b> 分区</p>
+      <h2>脚本存在哪</h2>
+      <p class="lede">自定义数据分区 <code>l_script</code>（子类型 <code>0x99</code>）专门存放脚本，不挂载任何文件系统。</p>
+
+      <div class="two">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>分区</th><th>类型</th><th>大小</th></tr></thead>
+            <tbody>
+              <tr><td><code>nvs</code></td><td>data / nvs</td><td>0x6000</td></tr>
+              <tr><td><code>phy_init</code></td><td>data / phy</td><td>0x1000</td></tr>
+              <tr><td><code>factory</code></td><td>app / factory</td><td>2M</td></tr>
+              <tr><td><code>l_script</code></td><td>data / 0x99</td><td>128K</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <p class="prose">分区头部 16 字节：<code>magic</code>（<code>LSCR</code> 源码 / <code>LBC1</code> 字节码）、<code>length</code>、<code>crc32</code>、<code>flags</code>。上电时若魔数与校验都有效，直接用 <code>esp_partition_mmap</code> 映射执行，源码不会拷贝进 SRAM。</p>
+          <p class="aside-note mt-16">解析、报错回显、字节码执行都直接读 Flash 映射区，320 KB SRAM 全部留给业务逻辑。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>05</b> 下一站</p>
+      <h2>刷完了做什么</h2>
+      <div class="linklist mt-24">
+        <a href="usage.html"><b>REPL 与命令行</b><span>交互式调试、连接板端终端</span></a>
+        <a href="language.html"><b>语言参考</b><span>硬件对象与异常处理</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/esp32/ESP32_GUIDE.md" target="_blank" rel="noopener"><b>ESP32 完整指南</b><span>本地编译、常见问题排查 ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/esp32/web_flasher.html" target="_blank" rel="noopener"><b>网页工具箱</b><span>刷机指引 + 串口终端 ↗</span></a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">纯 C99 · 零依赖 · ESP32 与 PC 双栖</p>
+    </div>
+    <nav class="ft-links" aria-label="页脚导航">
+      <a href="language.html">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html">文档</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="en/firmware.html" hreflang="en" lang="en">English</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="assets/js/releases.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>

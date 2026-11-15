@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firmware — L (lang)</title>
+<meta name="description" content="Download L base firmware for ESP32 / C3 / S3 and flash it in three steps. Flash once, then push scripts over serial in 0.2 seconds.">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="../firmware.html">
+<link rel="alternate" hreflang="en" href="firmware.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Firmware — L (lang)">
+<meta property="og:description" content="Single merged binaries for ESP32 / C3 / S3, flash offset 0x0.">
+<meta property="og:image" content="../assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html" aria-current="page">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="../firmware.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="Open menu"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">Language</a>
+        <a href="install.html">Install</a>
+        <a href="firmware.html">Firmware</a>
+        <a href="usage.html">Usage</a>
+        <a href="docs.html">Docs</a>
+        <a href="../firmware.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Firmware</p>
+      <h1>Flash once, script forever</h1>
+      <p class="lede">Each board needs the L base firmware exactly once. After that, <code>.l</code> scripts are written over serial in 0.2 seconds and run immediately — no rebuild, no filesystem.</p>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> Download</p>
+      <h2>Choose your chip</h2>
+      <p class="lede">All files are merged single binaries: write at <code>0x0</code> and the bootloader, partition table and application are all in place.</p>
+
+      <div class="dl-grid">
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32">
+          <span class="dl-t">ESP32</span>
+          <span class="dl-f" data-file>l-esp32-merged.bin</span>
+          <span class="dl-n" data-note>classic ESP32 · offset 0x0</span>
+        </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32c3">
+          <span class="dl-t">ESP32-C3</span>
+          <span class="dl-f" data-file>l-esp32c3-merged.bin</span>
+          <span class="dl-n" data-note>RISC-V · offset 0x0</span>
+        </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32s3">
+          <span class="dl-t">ESP32-S3</span>
+          <span class="dl-f" data-file>l-esp32s3-merged.bin</span>
+          <span class="dl-n" data-note>dual-core LX7 · offset 0x0</span>
+        </a>
+      </div>
+
+      <div class="note mt-24">
+        <p><b>About ESP32-C6</b>: the interpreter and firmware project already support C6 (Wi-Fi 6 / BLE / Thread), but the CI matrix currently publishes ESP32, C3 and S3 only. Build C6 locally with ESP-IDF using the guide below.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> First flash</p>
+      <h2>Three steps</h2>
+      <p class="lede">You only need Chrome or Edge. No ESP-IDF, no Python.</p>
+
+      <div class="two">
+        <div>
+          <ol class="steps">
+            <li>
+              <div>
+                <b>Download the <code>.bin</code> for your chip</b>
+                <p>Check the silkscreen, or read the chip model from the serial log after plugging in.</p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <b>Open the web flasher and connect</b>
+                <p>Use Chrome / Edge with Espressif's ESP Web Flasher, then pick the board's serial port.</p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <b>Set the flash offset to <code>0x0</code> and press Flash</b>
+                <p>When it finishes the board resets straight into the L REPL.</p>
+              </div>
+            </li>
+          </ol>
+
+          <div class="btn-row">
+            <a class="btn btn-p" href="https://espressif.github.io/esptool-js/" target="_blank" rel="noopener">Open web flasher<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+            <a class="btn btn-g" href="https://github.com/yongyaoli/lang/blob/main/esp32/web_flasher.html" target="_blank" rel="noopener">Repo toolbox</a>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="sub">From the command line</h3>
+          <p class="prose">Already have <code>esptool.py</code>? One command:</p>
+          <div class="term">
+            <div class="bar"><span class="bar-t">esptool</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">esptool.py --port COM3 write_flash 0x0 l-esp32-merged.bin
+
+# macOS / Linux ports look like /dev/ttyUSB0 or /dev/cu.usbserial-*</code></pre>
+          </div>
+
+          <div class="console mt-16">
+            <div class="bar"><span class="bar-t">after flashing</span></div>
+            <pre><code>ESP-ROM:esp32s3-20210327
+<span class="ok">L 0.1.9 (Nov  9 2026) [GCC 16.2.0 64 bit] on esp-idf</span>
+Type "help", "copyright", "license" or "exit" for more information.
+&gt;&gt;&gt; ESP32.info()
+{chip: "ESP32-S3", freq_mhz: 240, sram_kb: 512, ...}</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> Daily uploads</p>
+      <h2>Change a script, not a firmware</h2>
+      <p class="lede">Three ways to upload. The partition is erased, written, then verified with IEEE 802.3 CRC32 before the script runs.</p>
+
+      <div class="grid-3">
+        <div>
+          <h3 class="sub">From the REPL</h3>
+          <div class="term">
+            <div class="bar"><span class="bar-t">&gt;&gt;&gt;</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">ports();
+upload("COM3", "main.l");
+connect("COM3");</code></pre>
+          </div>
+        </div>
+        <div>
+          <h3 class="sub">From the CLI</h3>
+          <div class="term">
+            <div class="bar"><span class="bar-t">terminal</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">l -p                 # list ports
+l -u COM3 main.l     # upload and run
+l -s COM3            # remote terminal</code></pre>
+          </div>
+        </div>
+        <div>
+          <h3 class="sub">From the browser</h3>
+          <div class="term">
+            <div class="bar"><span class="bar-t">Web Serial</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+            <pre><code class="hl">// paste a script, click upload
+// same __L_UPLOAD_BEGIN__ protocol
+pin(2).on();
+print(ESP32.chip());</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <p class="aside-note mt-24">The uploader waits for <code>__L_UPLOAD_READY__</code>, sends 64-byte chunks and normalizes line endings to LF so the CRC32 always matches.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>04</b> Partition</p>
+      <h2>Where the script lives</h2>
+      <p class="lede">A custom data partition <code>l_script</code> (subtype <code>0x99</code>) holds the script. No filesystem is mounted.</p>
+
+      <div class="two">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Partition</th><th>Type</th><th>Size</th></tr></thead>
+            <tbody>
+              <tr><td><code>nvs</code></td><td>data / nvs</td><td>0x6000</td></tr>
+              <tr><td><code>phy_init</code></td><td>data / phy</td><td>0x1000</td></tr>
+              <tr><td><code>factory</code></td><td>app / factory</td><td>2M</td></tr>
+              <tr><td><code>l_script</code></td><td>data / 0x99</td><td>128K</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <p class="prose">The 16-byte header holds <code>magic</code> (<code>LSCR</code> for source, <code>LBC1</code> for bytecode), <code>length</code>, <code>crc32</code> and <code>flags</code>. On boot, a valid magic plus checksum means the script executes straight from the <code>esp_partition_mmap</code> window.</p>
+          <p class="aside-note mt-16">Lexing, error reporting and bytecode execution all read the flash mapping, so all 320 KB of SRAM stay available to your logic.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>05</b> Next</p>
+      <h2>After flashing</h2>
+      <div class="linklist mt-24">
+        <a href="usage.html"><b>REPL and CLI</b><span>interactive debugging, board console</span></a>
+        <a href="language.html"><b>Language reference</b><span>hardware objects and exceptions</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/esp32/ESP32_GUIDE.md" target="_blank" rel="noopener"><b>Full ESP32 guide</b><span>local builds, troubleshooting ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/esp32/web_flasher.html" target="_blank" rel="noopener"><b>Web toolbox</b><span>flashing walkthrough + serial console ↗</span></a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">pure C99 · zero dependencies · ESP32 and PC</p>
+    </div>
+    <nav class="ft-links" aria-label="Footer">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="../firmware.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="../assets/js/releases.js"></script>
+<script src="../assets/js/site.js"></script>
+</body>
+</html>
