@@ -8,6 +8,7 @@ bin/
 *.bin
 esp32/build/
 esp32/build-*/
+assets/l.res
 esp32/sdkconfig
 esp32/sdkconfig.old
 build/

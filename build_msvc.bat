@@ -32,7 +32,11 @@ if not defined VSROOT (
 echo 使用 Visual Studio: !VSROOT!
 call "!VSROOT!\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
 
-cl /nologo /utf-8 /O2 /W3 /Isrc\include src\core\*.c src\stdlib\*.c src\main\main.c /Fe:l.exe /link wininet.lib ws2_32.lib
+rem 3. 编译图标资源 (assets/l.ico 嵌入 l.exe, 用于资源管理器文件关联图标), 失败则跳过
+set "RES="
+rc /nologo /fo assets\l.res assets\l.rc >nul 2>&1 && set "RES=assets\l.res"
+
+cl /nologo /utf-8 /O2 /W3 /Isrc\include src\core\*.c src\stdlib\*.c src\main\main.c %RES% /Fe:l.exe /link wininet.lib ws2_32.lib
 set RC=%ERRORLEVEL%
 echo CMDEXIT=%RC%
 exit /b %RC%

@@ -1,0 +1,13 @@
+{
+  "iconDefinitions": {
+    "l_file": {
+      "iconPath": "./l.svg"
+    }
+  },
+  "fileExtensions": {
+    "l": "l_file"
+  },
+  "languageIds": {
+    "l": "l_file"
+  }
+}

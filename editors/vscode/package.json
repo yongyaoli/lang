@@ -35,6 +35,13 @@
         "scopeName": "source.l",
         "path": "./syntaxes/l.tmLanguage.json"
       }
+    ],
+    "iconThemes": [
+      {
+        "id": "l-file-icons",
+        "label": "L 文件图标",
+        "path": "./icons/l-icon-theme.json"
+      }
     ]
   }
 }

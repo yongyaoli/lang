@@ -1,0 +1,2 @@
+// L 语言解释器可执行文件图标资源 (编译: rc /fo assets\l.res assets\l.rc)
+1 ICON "l.ico"
