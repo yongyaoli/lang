@@ -23,12 +23,26 @@ if (-not (Test-Path $distPath)) {
 # 0. 自动递增累加小版本号与时间戳
 $currentVersion = & "$PSScriptRoot\bump_version.ps1"
 
-# 1. 编译最新的根目录 l.exe
+# 1. 编译最新的根目录 l.exe (优先 gcc, 未安装则回退 MSVC, 均内嵌 L 图标资源)
 Write-Host "`n[1/3] 正在编译 L 语言独立解释器核心 (l.exe) 版本 $currentVersion..." -ForegroundColor Yellow
 Push-Location $rootDir
 try {
-    & gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c src/main/main.c -lwininet -lws2_32 -static -o "$rootDir\l.exe"
-    if ($LASTEXITCODE -ne 0) { throw "Windows 二进制编译失败！" }
+    $gcc = Get-Command gcc -ErrorAction SilentlyContinue
+    if ($gcc) {
+        & gcc -O2 -Wall -Wextra -Isrc/include src/core/*.c src/stdlib/*.c src/main/main.c -lwininet -lws2_32 -static -o "$rootDir\l.exe"
+        if ($LASTEXITCODE -ne 0) { throw "Windows 二进制编译失败！" }
+    } else {
+        Write-Host "未检测到 gcc, 使用 MSVC 编译..." -ForegroundColor DarkGray
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vsroot = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        if (-not $vsroot) { throw "未找到 gcc 或 MSVC 编译器, 无法编译!" }
+        # rc 编译图标资源; 资源失败时退化为无图标编译
+        $msvcCmd = "call `"$vsroot\VC\Auxiliary\Build\vcvars64.bat`" >nul 2>&1" +
+                   " && rc /nologo /fo assets\l.res assets\l.rc" +
+                   " && cl /nologo /utf-8 /O2 /W3 /Isrc\include src\core\*.c src\stdlib\*.c src\main\main.c assets\l.res /Fe:l.exe /link wininet.lib ws2_32.lib"
+        & cmd.exe /c $msvcCmd
+        if ($LASTEXITCODE -ne 0) { throw "MSVC 编译失败!" }
+    }
 } finally {
     Pop-Location
 }
@@ -81,6 +95,10 @@ Copy-Item "$rootDir\README.md" "$winPkgDir\" -Force
 Copy-Item "$rootDir\INSTALL.md" "$winPkgDir\" -Force
 Copy-Item "$PSScriptRoot\install.ps1" "$winPkgDir\" -Force
 Copy-Item "$PSScriptRoot\uninstall.ps1" "$winPkgDir\" -Force
+# 便携包同样携带 VS Code 扩展与安装脚本 (install.ps1 第 4 步会自动注册)
+New-Item -ItemType Directory -Path "$winPkgDir\scripts" -Force | Out-Null
+Copy-Item "$PSScriptRoot\install_vscode_ext.ps1" "$winPkgDir\scripts\" -Force
+Copy-Item "$rootDir\editors\vscode" "$winPkgDir\editors\vscode" -Recurse -Force
 
 $batContent = @"
 @echo off
