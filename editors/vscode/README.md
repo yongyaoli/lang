@@ -1,4 +1,4 @@
-# L Language Support for Visual Studio Code
+# L Language - Embedded & IoT Support for Visual Studio Code
 
 L 语言（`lang`）官方 VS Code 语法高亮与智能提示插件。
 
