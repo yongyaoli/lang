@@ -309,33 +309,46 @@ l -d main.l               # 反汇编查看操作码</code></pre>
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>06</b> 网络</p>
-      <h2>WiFi 与 IoT</h2>
-      <p class="lede">联网、授时、上报都在标准库里；PC 上运行时会走模拟实现，便于先把业务逻辑跑通。</p>
+      <p class="eyebrow"><b>06</b> 网络与服务端</p>
+      <h2>WiFi 与 Web 服务端</h2>
+      <p class="lede">联网、对时、HTTP 客户端与轻量级 TCP/Web 服务端都在标准库中；PC 模拟与 ESP32 真机无缝切换。</p>
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th>函数</th><th>说明</th><th>返回</th></tr></thead>
+          <thead><tr><th>函数 / 类</th><th>说明</th><th>返回 / 方法</th></tr></thead>
           <tbody>
-            <tr><td><code>wifi_connect(ssid, [pwd], [timeout])</code></td><td>连接热点</td><td><code>true</code> / <code>false</code></td></tr>
-            <tr><td><code>wifi_disconnect()</code> / <code>wifi_is_connected()</code></td><td>断开 / 查询状态</td><td><code>bool</code></td></tr>
-            <tr><td><code>wifi_ip()</code> / <code>wifi_mac()</code></td><td>本机 IP / 网卡 MAC</td><td>字符串或 <code>nil</code></td></tr>
-            <tr><td><code>wifi_ap(ssid, [pwd])</code></td><td>开启 SoftAP 热点（默认 <code>192.168.4.1</code>）</td><td><code>true</code></td></tr>
-            <tr><td><code>wifi_scan()</code></td><td>扫描周边热点</td><td><code>[{ssid, rssi, auth}, ...]</code></td></tr>
-            <tr><td><code>http_get(url, [timeout_ms])</code></td><td>HTTP / HTTPS GET</td><td><code>{status, body, ok}</code></td></tr>
-            <tr><td><code>http_post(url, [body], [hdr], [to])</code></td><td>HTTP / HTTPS POST</td><td><code>{status, body, ok}</code></td></tr>
-            <tr><td><code>sntp_sync([server], [timeout])</code></td><td>联网授时，之后 <code>time()</code> / <code>datetime()</code> 返回真实时间</td><td><code>true</code> / <code>false</code></td></tr>
+            <tr><td><code>wifi_connect(ssid, [pwd], [to])</code></td><td>连接 WiFi 热点</td><td><code>true</code> / <code>false</code></td></tr>
+            <tr><td><code>wifi_disconnect()</code> / <code>wifi_is_connected()</code></td><td>断开 / 查询连接状态</td><td><code>bool</code></td></tr>
+            <tr><td><code>wifi_ip()</code> / <code>wifi_mac()</code></td><td>局域网 IPv4 地址 / 网卡物理 MAC</td><td>字符串或 <code>nil</code></td></tr>
+            <tr><td><code>wifi_ap(ssid, [pwd])</code></td><td>开启 SoftAP 本地热点（默认 <code>192.168.4.1</code>）</td><td><code>true</code></td></tr>
+            <tr><td><code>wifi_scan()</code></td><td>扫描周围 WiFi 热点</td><td><code>[{ssid, rssi, auth}, ...]</code></td></tr>
+            <tr><td><code>http_get(url, [timeout_ms])</code></td><td>发起 HTTP / HTTPS GET 请求</td><td><code>{status, body, ok}</code></td></tr>
+            <tr><td><code>http_post(url, [body], [hdr], [to])</code></td><td>发起 HTTP / HTTPS POST 请求</td><td><code>{status, body, ok}</code></td></tr>
+            <tr><td><code>sntp_sync([server], [timeout])</code></td><td>网络对时，之后 <code>time()</code> 返回真实时间</td><td><code>true</code> / <code>false</code></td></tr>
+            <tr><td><code>Tcp(host, port, [timeout_ms])</code></td><td>TCP 客户端连接</td><td><code>.send()</code> / <code>.recv()</code> / <code>.close()</code></td></tr>
+            <tr><td><code>TcpServer(port, [host], [backlog])</code></td><td>TCP / Web 服务端监听</td><td><code>.accept([timeout_ms])</code> / <code>.close()</code></td></tr>
           </tbody>
         </table>
       </div>
 
       <div class="term mt-32">
-        <div class="bar"><span class="bar-t">telemetry.l</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
-        <pre><code class="hl">if wifi_connect("Home", "12345678") {
-    sntp_sync();
-    let r = http_post("https://api.example.com/ingest",
-                      str({ temp: ADC(34).read_mv(), at: time() }));
-    print(r.status, r.body);
+        <div class="bar"><span class="bar-t">http_server.l (轻量 Web 控制后台)</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+        <pre><code class="hl">let server = TcpServer(8080);
+print("Web 控制台已启动: http://127.0.0.1:8080/");
+
+while true {
+    // accept 带 1000ms 超时, 非阻塞等待客户端, 不卡死 CPU 与外设心跳
+    let client = server.accept(1000);
+    if client != nil {
+        let req = client.recv(2048, 1000);
+        if req != nil and req.find("GET /toggle") >= 0 {
+            Pin(2).toggle();
+        }
+        let body = "&lt;h1&gt;ESP32 控制面板&lt;/h1&gt;&lt;p&gt;&lt;a href='/toggle'&gt;切换板载 LED&lt;/a&gt;&lt;/p&gt;";
+        let resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" + body;
+        client.send(resp);
+        client.close();
+    }
 }</code></pre>
       </div>
     </div>
@@ -343,7 +356,97 @@ l -d main.l               # 反汇编查看操作码</code></pre>
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>07</b> 继续</p>
+      <p class="eyebrow"><b>07</b> 蓝牙</p>
+      <h2>BLE 低功耗蓝牙通信</h2>
+      <p class="lede">内置全局 <code>BLE</code> 对象，支持 GATT 从机广播、手机 App 连接与无线数据双向透传；PC 宿主内置离线仿真状态机。</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>方法</th><th>说明</th><th>示例 / 返回</th></tr></thead>
+          <tbody>
+            <tr><td><code>BLE.init([name="L-Lang-BLE"])</code></td><td>初始化蓝牙协议栈并配置设备广播名称</td><td><code>true</code></td></tr>
+            <tr><td><code>BLE.deinit()</code></td><td>释放蓝牙协议栈资源</td><td><code>true</code></td></tr>
+            <tr><td><code>BLE.adv_start([adv_name])</code></td><td>开启广播，允许周围手机与上位机发现</td><td><code>true</code></td></tr>
+            <tr><td><code>BLE.adv_stop()</code></td><td>停止广播</td><td><code>true</code></td></tr>
+            <tr><td><code>BLE.is_connected()</code></td><td>查询当前是否有客户端建立蓝牙连接</td><td><code>bool</code></td></tr>
+            <tr><td><code>BLE.send(数据)</code></td><td>向已连接客户端发送数据（支持文本或 <code>bytes</code>）</td><td>自身 (支持链式)</td></tr>
+            <tr><td><code>BLE.recv([max_len], [timeout_ms])</code></td><td>接收客户端写入的数据，超时返回 <code>nil</code></td><td>字符串或 <code>nil</code></td></tr>
+            <tr><td><code>BLE.recv_bytes([max_len], [to])</code></td><td>二进制安全接收 bytes 数据</td><td><code>bytes</code> 或 <code>nil</code></td></tr>
+            <tr><td><code>BLE.status()</code></td><td>查询当前运行状态字典</td><td><code>{initialized, advertising, connected, ...}</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="term mt-32">
+        <div class="bar"><span class="bar-t">ble_controller.l (手机蓝牙透传控制)</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+        <pre><code class="hl">BLE.init("ESP32-SmartNode");
+BLE.adv_start();
+print("BLE 广播已开启，可用手机 App (如 nRF Connect) 搜索连接...");
+
+while true {
+    if BLE.is_connected() {
+        let cmd = BLE.recv(128, 100);
+        if cmd == "LED_ON" {
+            Pin(2).on();
+            BLE.send("OK: LED 已点亮\n");
+        } else if cmd == "LED_OFF" {
+            Pin(2).off();
+            BLE.send("OK: LED 已熄灭\n");
+        }
+    }
+    ESP32.delay_ms(100);
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>08</b> 生态</p>
+      <h2>传感器与开源驱动库</h2>
+      <p class="lede">纯 L 语言实现，零 C 编译门槛！开源标准驱动库位于仓库 <code>examples/drivers/</code>，开箱即用。</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>外设型号</th><th>通讯接口</th><th>驱动文件</th><th>功能与特性</th></tr></thead>
+          <tbody>
+            <tr><td><b>SSD1306</b></td><td>I2C</td><td><code>examples/drivers/SSD1306.l</code></td><td>0.96 寸 128x64 OLED 屏幕驱动，内置 1KB 显存缓冲与 5x7 ASCII 字符点阵绘制</td></tr>
+            <tr><td><b>AHT20</b></td><td>I2C</td><td><code>examples/drivers/AHT20.l</code></td><td>高精度温湿度传感器驱动，支持 20 位原码校验解析，输出温度 (℃) 与湿度 (%RH)</td></tr>
+            <tr><td><b>WS2812</b></td><td>单总线 GPIO</td><td><code>examples/drivers/WS2812.l</code></td><td>RGB 幻彩全彩灯珠驱动，支持 GRB 色彩缓冲与彩虹渐变色轮算法 <code>wheel()</code></td></tr>
+            <tr><td><b>综合演示</b></td><td>多总线联动</td><td><code>examples/drivers/demo_all.l</code></td><td>多传感器协同工作站示例：OLED 实时绘制温湿度曲线并同步指示灯</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="term mt-32">
+        <div class="bar"><span class="bar-t">weather_station.l (温湿度采集与 OLED 显示)</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+        <pre><code class="hl">import "./examples/drivers/SSD1306.l" as oled;
+import "./examples/drivers/AHT20.l" as aht;
+
+// 初始化 I2C 总线 (ESP32: SDA=21, SCL=22)
+let i2c = I2C(0, 21, 22);
+let screen = oled.SSD1306(i2c);
+let sensor = aht.AHT20(i2c);
+
+screen.clear();
+screen.text("L-Lang Station", 8, 4);
+screen.show();
+
+while true {
+    let env = sensor.read();
+    screen.clear();
+    screen.text("Temp: " + str(env.temp) + " C", 0, 16);
+    screen.text("Humi: " + str(env.humi) + " %", 0, 32);
+    screen.show();
+    ESP32.delay_ms(2000);
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>09</b> 继续</p>
       <h2>下一步</h2>
       <div class="linklist mt-24">
         <a href="install.html"><b>安装解释器</b><span>Windows / Linux / macOS</span></a>

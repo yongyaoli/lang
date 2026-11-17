@@ -309,33 +309,46 @@ l -d main.l               # disassemble opcodes</code></pre>
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>06</b> Network</p>
-      <h2>WiFi and IoT</h2>
-      <p class="lede">Networking, time sync and HTTP live in the standard library; on PC they run against a simulation so logic can be tested first.</p>
+      <p class="eyebrow"><b>06</b> Network & Server</p>
+      <h2>WiFi & Web Servers</h2>
+      <p class="lede">Networking, time sync, HTTP client, and lightweight TCP/Web server all live in the standard library; smooth transition between PC simulation and ESP32 hardware.</p>
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Function</th><th>Description</th><th>Returns</th></tr></thead>
+          <thead><tr><th>Function / Class</th><th>Description</th><th>Returns / Methods</th></tr></thead>
           <tbody>
-            <tr><td><code>wifi_connect(ssid, [pwd], [timeout])</code></td><td>Join an access point</td><td><code>true</code> / <code>false</code></td></tr>
+            <tr><td><code>wifi_connect(ssid, [pwd], [to])</code></td><td>Join an access point</td><td><code>true</code> / <code>false</code></td></tr>
             <tr><td><code>wifi_disconnect()</code> / <code>wifi_is_connected()</code></td><td>Disconnect / query state</td><td><code>bool</code></td></tr>
             <tr><td><code>wifi_ip()</code> / <code>wifi_mac()</code></td><td>Local IPv4 / NIC MAC</td><td>string or <code>nil</code></td></tr>
             <tr><td><code>wifi_ap(ssid, [pwd])</code></td><td>Start SoftAP (default <code>192.168.4.1</code>)</td><td><code>true</code></td></tr>
             <tr><td><code>wifi_scan()</code></td><td>Scan nearby networks</td><td><code>[{ssid, rssi, auth}, ...]</code></td></tr>
             <tr><td><code>http_get(url, [timeout_ms])</code></td><td>HTTP / HTTPS GET</td><td><code>{status, body, ok}</code></td></tr>
             <tr><td><code>http_post(url, [body], [hdr], [to])</code></td><td>HTTP / HTTPS POST</td><td><code>{status, body, ok}</code></td></tr>
-            <tr><td><code>sntp_sync([server], [timeout])</code></td><td>Sync real time over the network</td><td><code>true</code> / <code>false</code></td></tr>
+            <tr><td><code>sntp_sync([server], [timeout])</code></td><td>Sync real time over network</td><td><code>true</code> / <code>false</code></td></tr>
+            <tr><td><code>Tcp(host, port, [timeout_ms])</code></td><td>TCP Client Connection</td><td><code>.send()</code> / <code>.recv()</code> / <code>.close()</code></td></tr>
+            <tr><td><code>TcpServer(port, [host], [backlog])</code></td><td>TCP / Web Server Listener</td><td><code>.accept([timeout_ms])</code> / <code>.close()</code></td></tr>
           </tbody>
         </table>
       </div>
 
       <div class="term mt-32">
-        <div class="bar"><span class="bar-t">telemetry.l</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
-        <pre><code class="hl">if wifi_connect("Home", "12345678") {
-    sntp_sync();
-    let r = http_post("https://api.example.com/ingest",
-                      str({ temp: ADC(34).read_mv(), at: time() }));
-    print(r.status, r.body);
+        <div class="bar"><span class="bar-t">http_server.l (Lightweight Embedded Web Console)</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+        <pre><code class="hl">let server = TcpServer(8080);
+print("Web console started: http://127.0.0.1:8080/");
+
+while true {
+    // accept with 1000ms timeout for non-blocking event loops
+    let client = server.accept(1000);
+    if client != nil {
+        let req = client.recv(2048, 1000);
+        if req != nil and req.find("GET /toggle") >= 0 {
+            Pin(2).toggle();
+        }
+        let body = "&lt;h1&gt;ESP32 Web Dashboard&lt;/h1&gt;&lt;p&gt;&lt;a href='/toggle'&gt;Toggle Onboard LED&lt;/a&gt;&lt;/p&gt;";
+        let resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" + body;
+        client.send(resp);
+        client.close();
+    }
 }</code></pre>
       </div>
     </div>
@@ -343,7 +356,97 @@ l -d main.l               # disassemble opcodes</code></pre>
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>07</b> Next</p>
+      <p class="eyebrow"><b>07</b> Bluetooth</p>
+      <h2>BLE (Bluetooth Low Energy)</h2>
+      <p class="lede">Built-in global <code>BLE</code> object with GATT peripheral advertising, smartphone connection, and two-way wireless data streaming; seamless PC offline simulation.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Method</th><th>Description</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><code>BLE.init([name="L-Lang-BLE"])</code></td><td>Initialize BLE stack with device name</td><td><code>true</code></td></tr>
+            <tr><td><code>BLE.deinit()</code></td><td>Release BLE stack resources</td><td><code>true</code></td></tr>
+            <tr><td><code>BLE.adv_start([adv_name])</code></td><td>Start advertising to nearby devices</td><td><code>true</code></td></tr>
+            <tr><td><code>BLE.adv_stop()</code></td><td>Stop advertising</td><td><code>true</code></td></tr>
+            <tr><td><code>BLE.is_connected()</code></td><td>Query if client is connected</td><td><code>bool</code></td></tr>
+            <tr><td><code>BLE.send(data)</code></td><td>Send string or <code>bytes</code> to connected client</td><td>self (chainable)</td></tr>
+            <tr><td><code>BLE.recv([max_len], [timeout_ms])</code></td><td>Receive data, returns <code>nil</code> on timeout</td><td>string or <code>nil</code></td></tr>
+            <tr><td><code>BLE.recv_bytes([max_len], [to])</code></td><td>Binary-safe receive bytes data</td><td><code>bytes</code> or <code>nil</code></td></tr>
+            <tr><td><code>BLE.status()</code></td><td>Query current status map</td><td><code>{initialized, advertising, connected, ...}</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="term mt-32">
+        <div class="bar"><span class="bar-t">ble_controller.l (Wireless BLE Controller)</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+        <pre><code class="hl">BLE.init("ESP32-SmartNode");
+BLE.adv_start();
+print("BLE advertising started. Connect via mobile App (e.g. nRF Connect)...");
+
+while true {
+    if BLE.is_connected() {
+        let cmd = BLE.recv(128, 100);
+        if cmd == "LED_ON" {
+            Pin(2).on();
+            BLE.send("OK: LED IS ON\n");
+        } else if cmd == "LED_OFF" {
+            Pin(2).off();
+            BLE.send("OK: LED IS OFF\n");
+        }
+    }
+    ESP32.delay_ms(100);
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>08</b> Ecosystem</p>
+      <h2>Sensors & Open-Source Drivers</h2>
+      <p class="lede">Pure L language scripts, zero C compilation needed! Standard open-source drivers live in <code>examples/drivers/</code>.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Hardware</th><th>Bus / Pin</th><th>Driver File</th><th>Features</th></tr></thead>
+          <tbody>
+            <tr><td><b>SSD1306</b></td><td>I2C</td><td><code>examples/drivers/SSD1306.l</code></td><td>0.96" 128x64 OLED display with 1KB framebuffer and 5x7 ASCII font rendering</td></tr>
+            <tr><td><b>AHT20</b></td><td>I2C</td><td><code>examples/drivers/AHT20.l</code></td><td>High-precision temperature (℃) & humidity (%RH) sensor driver with 20-bit raw CRC check</td></tr>
+            <tr><td><b>WS2812</b></td><td>1-Wire GPIO</td><td><code>examples/drivers/WS2812.l</code></td><td>RGB addressable NeoPixel LED driver with GRB frame buffer and rainbow wheel algorithm</td></tr>
+            <tr><td><b>All-in-One</b></td><td>Multi-Bus</td><td><code>examples/drivers/demo_all.l</code></td><td>Integrated workstation demo: Real-time OLED weather curves synchronized with status LEDs</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="term mt-32">
+        <div class="bar"><span class="bar-t">weather_station.l (Sensor Reading & Display)</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+        <pre><code class="hl">import "./examples/drivers/SSD1306.l" as oled;
+import "./examples/drivers/AHT20.l" as aht;
+
+// Initialize I2C bus (ESP32 default: SDA=21, SCL=22)
+let i2c = I2C(0, 21, 22);
+let screen = oled.SSD1306(i2c);
+let sensor = aht.AHT20(i2c);
+
+screen.clear();
+screen.text("L-Lang Station", 8, 4);
+screen.show();
+
+while true {
+    let env = sensor.read();
+    screen.clear();
+    screen.text("Temp: " + str(env.temp) + " C", 0, 16);
+    screen.text("Humi: " + str(env.humi) + " %", 0, 32);
+    screen.show();
+    ESP32.delay_ms(2000);
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>09</b> Next</p>
       <h2>Keep going</h2>
       <div class="linklist mt-24">
         <a href="install.html"><b>Install the interpreter</b><span>Windows / Linux / macOS</span></a>

@@ -67,7 +67,7 @@
       <h2>先读这三页</h2>
       <div class="linklist mt-24">
         <a href="install.html"><b>安装</b><span>三个平台，三种方式</span></a>
-        <a href="language.html"><b>语言参考</b><span>类型 · 运算符 · 闭包 · 异常 · 硬件对象</span></a>
+        <a href="language.html"><b>语言参考</b><span>类型 · 运算符 · 硬件外设 · Web 服务 · BLE · 驱动</span></a>
         <a href="usage.html"><b>使用说明</b><span>REPL · 命令行 · 离线仿真 · FAQ</span></a>
         <a href="firmware.html"><b>固件与刷机</b><span>合并固件、0x0 刷写、日常烧录</span></a>
       </div>
@@ -76,13 +76,27 @@
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>02</b> 仓库文档</p>
+      <p class="eyebrow"><b>02</b> 实战生态</p>
+      <h2>传感器驱动与网络实战</h2>
+      <div class="linklist mt-24">
+        <a href="https://github.com/yongyaoli/lang/tree/main/examples/drivers" target="_blank" rel="noopener"><b>开源外设驱动库 (SSD1306 / AHT20 / WS2812)</b><span>examples/drivers/ ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/examples/http_server.l" target="_blank" rel="noopener"><b>轻量嵌入式 Web 控制后台 (TcpServer)</b><span>examples/http_server.l ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/tests/22_tcp_server_and_ble.l" target="_blank" rel="noopener"><b>低功耗蓝牙 (BLE) 广播与透传范例</b><span>tests/22_tcp_server_and_ble.l ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/docs/vscode_ext_publish.md" target="_blank" rel="noopener"><b>VS Code 扩展多平台分发发布指南</b><span>docs/vscode_ext_publish.md ↗</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> 仓库文档</p>
       <h2>完整规范与指南</h2>
       <div class="linklist mt-24">
         <a href="https://github.com/yongyaoli/lang/blob/main/L_EBNF.md" target="_blank" rel="noopener"><b>L 语言 EBNF 文法</b><span>L_EBNF.md ↗</span></a>
         <a href="https://github.com/yongyaoli/lang/blob/main/esp32/ESP32_GUIDE.md" target="_blank" rel="noopener"><b>ESP32 固件编译与刷机指南</b><span>esp32/ESP32_GUIDE.md ↗</span></a>
         <a href="https://github.com/yongyaoli/lang/blob/main/INSTALL.md" target="_blank" rel="noopener"><b>安装与打包说明</b><span>INSTALL.md ↗</span></a>
-        <a href="https://github.com/yongyaoli/lang/blob/main/改进.md" target="_blank" rel="noopener"><b>架构设计与演进路线</b><span>改进.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/docs/改进.md" target="_blank" rel="noopener"><b>架构设计与演进路线</b><span>docs/改进.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/docs/待办.md" target="_blank" rel="noopener"><b>待办与推进路线图</b><span>docs/待办.md ↗</span></a>
         <a href="https://github.com/yongyaoli/lang/blob/main/README.md" target="_blank" rel="noopener"><b>项目总览</b><span>README.md ↗</span></a>
       </div>
     </div>
@@ -90,7 +104,7 @@
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>03</b> 源码</p>
+      <p class="eyebrow"><b>04</b> 源码</p>
       <h2>代码怎么组织的</h2>
       <p class="lede">解释器管线一目了然：词法 → 语法 → AST → 解释执行或字节码 VM，中间是值系统与标记-清除 GC。</p>
 
@@ -137,7 +151,7 @@
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>04</b> 反馈</p>
+      <p class="eyebrow"><b>05</b> 反馈</p>
       <h2>问题与建议</h2>
       <p class="lede">遇到问题先看 FAQ，仍无法解决就到仓库提 Issue，附上芯片型号、系统版本与完整报错（L 的诊断输出已经包含行列与调用栈）。</p>
       <div class="btn-row">

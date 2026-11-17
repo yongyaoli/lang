@@ -49,5 +49,5 @@ for (let i = 0; i < 5; i = i + 1) {
     }
 }
 
-server.close();
-print("[HTTP] 服务端已优雅关闭。");
+//server.close();
+//print("[HTTP] 服务端已优雅关闭。");

@@ -67,7 +67,7 @@
       <h2>Start with these</h2>
       <div class="linklist mt-24">
         <a href="install.html"><b>Install</b><span>three platforms, three ways</span></a>
-        <a href="language.html"><b>Language reference</b><span>types · operators · closures · exceptions · hardware</span></a>
+        <a href="language.html"><b>Language reference</b><span>types · hardware · Web servers · BLE · drivers</span></a>
         <a href="usage.html"><b>Usage</b><span>REPL · CLI · simulation · FAQ</span></a>
         <a href="firmware.html"><b>Firmware and flashing</b><span>merged binaries, offset 0x0, daily uploads</span></a>
       </div>
@@ -76,12 +76,27 @@
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>02</b> Repository docs</p>
+      <p class="eyebrow"><b>02</b> Practical Ecosystem</p>
+      <h2>Sensor Drivers &amp; IoT Practice</h2>
+      <div class="linklist mt-24">
+        <a href="https://github.com/yongyaoli/lang/tree/main/examples/drivers" target="_blank" rel="noopener"><b>Open-Source Driver Library (SSD1306 / AHT20 / WS2812)</b><span>examples/drivers/ ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/examples/http_server.l" target="_blank" rel="noopener"><b>Lightweight Embedded Web Server (TcpServer)</b><span>examples/http_server.l ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/tests/22_tcp_server_and_ble.l" target="_blank" rel="noopener"><b>Bluetooth Low Energy (BLE) Advertising &amp; Streaming</b><span>tests/22_tcp_server_and_ble.l ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/docs/vscode_ext_publish.md" target="_blank" rel="noopener"><b>VS Code Extension Marketplace Publishing Guide</b><span>docs/vscode_ext_publish.md ↗</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>03</b> Repository docs</p>
       <h2>Specification and guides</h2>
       <div class="linklist mt-24">
         <a href="https://github.com/yongyaoli/lang/blob/main/L_EBNF.md" target="_blank" rel="noopener"><b>L EBNF grammar</b><span>L_EBNF.md ↗</span></a>
         <a href="https://github.com/yongyaoli/lang/blob/main/esp32/ESP32_GUIDE.md" target="_blank" rel="noopener"><b>ESP32 build &amp; flash guide</b><span>esp32/ESP32_GUIDE.md ↗</span></a>
         <a href="https://github.com/yongyaoli/lang/blob/main/INSTALL.md" target="_blank" rel="noopener"><b>Install and packaging notes</b><span>INSTALL.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/docs/改进.md" target="_blank" rel="noopener"><b>Architecture &amp; Roadmap</b><span>docs/改进.md ↗</span></a>
+        <a href="https://github.com/yongyaoli/lang/blob/main/docs/待办.md" target="_blank" rel="noopener"><b>Backlog &amp; Roadmap</b><span>docs/待办.md ↗</span></a>
         <a href="https://github.com/yongyaoli/lang/blob/main/README.md" target="_blank" rel="noopener"><b>Project overview</b><span>README.md ↗</span></a>
       </div>
     </div>
@@ -89,7 +104,7 @@
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>03</b> Source</p>
+      <p class="eyebrow"><b>04</b> Source</p>
       <h2>How the code is organized</h2>
       <p class="lede">The pipeline is easy to follow: lexer → parser → AST → tree-walking interpreter or bytecode VM, with a value system and mark-sweep GC underneath.</p>
 
@@ -136,7 +151,7 @@
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>04</b> Feedback</p>
+      <p class="eyebrow"><b>05</b> Feedback</p>
       <h2>Issues and ideas</h2>
       <p class="lede">Check the FAQ first. If that does not help, open an issue with your chip model, OS and the full error output — L's diagnostics already include line, column and stack.</p>
       <div class="btn-row">
