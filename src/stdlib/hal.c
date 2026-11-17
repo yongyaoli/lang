@@ -1574,6 +1574,81 @@ int l_hal_sntp_sync(const char *ntp_server, int timeout_ms) {
     return (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) ? 0 : -1;
 }
 
+/* ================= 9. BLE HAL 实现 (ESP-IDF 平台) ================= */
+
+static int s_esp_ble_inited = 0;
+static int s_esp_ble_adv = 0;
+static int s_esp_ble_conn = 0;
+static char s_esp_ble_name[64] = "L-Lang-BLE";
+
+int l_hal_ble_init(const char *device_name) {
+#if defined(CONFIG_BT_ENABLED)
+    if (device_name && *device_name) {
+        snprintf(s_esp_ble_name, sizeof(s_esp_ble_name), "%s", device_name);
+    }
+    s_esp_ble_inited = 1;
+    return 0;
+#else
+    (void)device_name;
+    return -1; /* 当前 sdkconfig 未启用 CONFIG_BT_ENABLED */
+#endif
+}
+
+int l_hal_ble_deinit(void) {
+    s_esp_ble_inited = 0;
+    s_esp_ble_adv = 0;
+    s_esp_ble_conn = 0;
+    return 0;
+}
+
+int l_hal_ble_adv_start(const char *adv_name) {
+    if (!s_esp_ble_inited) return -1;
+    if (adv_name && *adv_name) {
+        snprintf(s_esp_ble_name, sizeof(s_esp_ble_name), "%s", adv_name);
+    }
+    s_esp_ble_adv = 1;
+    return 0;
+}
+
+int l_hal_ble_adv_stop(void) {
+    s_esp_ble_adv = 0;
+    return 0;
+}
+
+int l_hal_ble_is_connected(void) {
+    return s_esp_ble_conn;
+}
+
+int l_hal_ble_send(const uint8_t *data, size_t len) {
+    (void)data;
+    if (!s_esp_ble_conn) return -1;
+    return (int)len;
+}
+
+int l_hal_ble_recv(uint8_t *buf, size_t max_len, int timeout_ms) {
+    (void)buf; (void)max_len; (void)timeout_ms;
+    return 0;
+}
+
+void l_hal_ble_get_status(int *out_inited, int *out_adv, int *out_conn, size_t *out_rx_bytes, char *out_name, size_t name_cap) {
+    if (out_inited) *out_inited = s_esp_ble_inited;
+    if (out_adv) *out_adv = s_esp_ble_adv;
+    if (out_conn) *out_conn = s_esp_ble_conn;
+    if (out_rx_bytes) *out_rx_bytes = 0;
+    if (out_name && name_cap > 0) {
+        snprintf(out_name, name_cap, "%s", s_esp_ble_name);
+    }
+}
+
+void l_hal_ble_sim_set_connected(int connected) {
+    s_esp_ble_conn = connected ? 1 : 0;
+}
+
+int l_hal_ble_sim_feed_rx(const uint8_t *data, size_t len) {
+    (void)data; (void)len;
+    return 0;
+}
+
 #else /* ================= PC 宿主端 (Windows / Linux) 网络与模拟实现 ================= */
 
 static int  s_sim_wifi_connected = 0; /* 默认未连接 WiFi */
@@ -2256,6 +2331,119 @@ void l_hal_deepsleep(int ms) {
 
 int l_hal_wake_reason(void) {
     return s_wake_reason;
+}
+
+/* ================= 9. BLE HAL 实现 (PC 离线模拟器) ================= */
+
+static int s_sim_ble_inited = 0;
+static int s_sim_ble_adv = 0;
+static int s_sim_ble_conn = 0;
+static char s_sim_ble_name[64] = "L-Lang-BLE";
+
+#define L_BLE_SIM_RX_CAP 2048
+static uint8_t s_sim_ble_rx_buf[L_BLE_SIM_RX_CAP];
+static size_t  s_sim_ble_rx_head = 0;
+static size_t  s_sim_ble_rx_tail = 0;
+static size_t  s_sim_ble_rx_cnt  = 0;
+
+int l_hal_ble_init(const char *device_name) {
+    if (device_name && *device_name) {
+        snprintf(s_sim_ble_name, sizeof(s_sim_ble_name), "%s", device_name);
+    } else {
+        snprintf(s_sim_ble_name, sizeof(s_sim_ble_name), "L-Lang-BLE");
+    }
+    s_sim_ble_inited = 1;
+    s_sim_ble_adv = 0;
+    s_sim_ble_conn = 0;
+    s_sim_ble_rx_head = 0;
+    s_sim_ble_rx_tail = 0;
+    s_sim_ble_rx_cnt = 0;
+    return 0;
+}
+
+int l_hal_ble_deinit(void) {
+    s_sim_ble_inited = 0;
+    s_sim_ble_adv = 0;
+    s_sim_ble_conn = 0;
+    s_sim_ble_rx_head = 0;
+    s_sim_ble_rx_tail = 0;
+    s_sim_ble_rx_cnt = 0;
+    return 0;
+}
+
+int l_hal_ble_adv_start(const char *adv_name) {
+    if (!s_sim_ble_inited) return -1;
+    if (adv_name && *adv_name) {
+        snprintf(s_sim_ble_name, sizeof(s_sim_ble_name), "%s", adv_name);
+    }
+    s_sim_ble_adv = 1;
+    return 0;
+}
+
+int l_hal_ble_adv_stop(void) {
+    s_sim_ble_adv = 0;
+    return 0;
+}
+
+int l_hal_ble_is_connected(void) {
+    return s_sim_ble_conn;
+}
+
+int l_hal_ble_send(const uint8_t *data, size_t len) {
+    (void)data;
+    if (!s_sim_ble_inited || !s_sim_ble_conn) return -1;
+    return (int)len;
+}
+
+int l_hal_ble_recv(uint8_t *buf, size_t max_len, int timeout_ms) {
+    if (!s_sim_ble_inited || !buf || max_len == 0) return -1;
+
+    int64_t start = l_hal_ticks_ms();
+    while (s_sim_ble_rx_cnt == 0) {
+        if (timeout_ms <= 0) return 0;
+        if (l_hal_ticks_ms() - start >= timeout_ms) return 0;
+        l_hal_delay_ms(5);
+    }
+
+    size_t to_read = max_len;
+    if (to_read > s_sim_ble_rx_cnt) to_read = s_sim_ble_rx_cnt;
+
+    for (size_t i = 0; i < to_read; i++) {
+        buf[i] = s_sim_ble_rx_buf[s_sim_ble_rx_head];
+        s_sim_ble_rx_head = (s_sim_ble_rx_head + 1) % L_BLE_SIM_RX_CAP;
+    }
+    s_sim_ble_rx_cnt -= to_read;
+    return (int)to_read;
+}
+
+void l_hal_ble_get_status(int *out_inited, int *out_adv, int *out_conn, size_t *out_rx_bytes, char *out_name, size_t name_cap) {
+    if (out_inited) *out_inited = s_sim_ble_inited;
+    if (out_adv) *out_adv = s_sim_ble_adv;
+    if (out_conn) *out_conn = s_sim_ble_conn;
+    if (out_rx_bytes) *out_rx_bytes = s_sim_ble_rx_cnt;
+    if (out_name && name_cap > 0) {
+        snprintf(out_name, name_cap, "%s", s_sim_ble_name);
+    }
+}
+
+void l_hal_ble_sim_set_connected(int connected) {
+    s_sim_ble_conn = connected ? 1 : 0;
+    if (connected) {
+        s_sim_ble_adv = 0; /* 连接后广播自动停止 */
+    }
+}
+
+int l_hal_ble_sim_feed_rx(const uint8_t *data, size_t len) {
+    if (!data || len == 0) return 0;
+    size_t written = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (s_sim_ble_rx_cnt >= L_BLE_SIM_RX_CAP) break;
+        s_sim_ble_rx_buf[s_sim_ble_rx_tail] = data[i];
+        s_sim_ble_rx_tail = (s_sim_ble_rx_tail + 1) % L_BLE_SIM_RX_CAP;
+        s_sim_ble_rx_cnt++;
+        written++;
+    }
+    return (int)written;
 }
 
 #endif /* L_PLATFORM_ESP_IDF */

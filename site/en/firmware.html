@@ -27,6 +27,7 @@
       <a href="language.html">Language</a>
       <a href="install.html">Install</a>
       <a href="firmware.html" aria-current="page">Firmware</a>
+      <a href="flash.html">Flash</a>
       <a href="usage.html">Usage</a>
       <a href="docs.html">Docs</a>
     </nav>
@@ -40,6 +41,7 @@
         <a href="language.html">Language</a>
         <a href="install.html">Install</a>
         <a href="firmware.html">Firmware</a>
+        <a href="flash.html">Flash</a>
         <a href="usage.html">Usage</a>
         <a href="docs.html">Docs</a>
         <a href="../firmware.html" hreflang="zh-CN" lang="zh-CN">中文</a>
@@ -65,7 +67,7 @@
       <h2>Choose your chip</h2>
       <p class="lede">All files are merged single binaries: write at <code>0x0</code> and the bootloader, partition table and application are all in place.</p>
 
-      <div class="dl-grid">
+      <div class="dl-grid cols-2">
         <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32">
           <span class="dl-t">ESP32</span>
           <span class="dl-f" data-file>l-esp32-merged.bin</span>
@@ -81,10 +83,15 @@
           <span class="dl-f" data-file>l-esp32s3-merged.bin</span>
           <span class="dl-n" data-note>dual-core LX7 · offset 0x0</span>
         </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32c6">
+          <span class="dl-t">ESP32-C6</span>
+          <span class="dl-f" data-file>l-esp32c6-merged.bin</span>
+          <span class="dl-n" data-note>Wi-Fi 6 / RISC-V · offset 0x0</span>
+        </a>
       </div>
 
       <div class="note mt-24">
-        <p><b>About ESP32-C6</b>: the interpreter and firmware project already support C6 (Wi-Fi 6 / BLE / Thread), but the CI matrix currently publishes ESP32, C3 and S3 only. Build C6 locally with ESP-IDF using the guide below.</p>
+        <p><b>Unified merged binaries</b>: All binaries above are pre-built via cloud CI for ESP32, C3, S3 and C6. Flash once at offset <code>0x0</code>, then hot-upload <code>.l</code> scripts in 0.2 seconds without reflashing.</p>
       </div>
     </div>
   </section>
@@ -119,8 +126,8 @@
           </ol>
 
           <div class="btn-row">
-            <a class="btn btn-p" href="https://espressif.github.io/esptool-js/" target="_blank" rel="noopener">Open web flasher<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
-            <a class="btn btn-g" href="https://github.com/yongyaoli/lang/blob/main/esp32/web_flasher.html" target="_blank" rel="noopener">Repo toolbox</a>
+            <a class="btn btn-p" href="flash.html">Open Web Flasher<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+            <a class="btn btn-g" href="https://espressif.github.io/esptool-js/" target="_blank" rel="noopener">Espressif Flasher (esptool-js)</a>
           </div>
         </div>
 
@@ -219,10 +226,10 @@ print(ESP32.chip());</code></pre>
       <p class="eyebrow"><b>05</b> Next</p>
       <h2>After flashing</h2>
       <div class="linklist mt-24">
+        <a href="flash.html"><b>Web Flasher</b><span>Zero-install serial connection & 0.2s upload</span></a>
         <a href="usage.html"><b>REPL and CLI</b><span>interactive debugging, board console</span></a>
         <a href="language.html"><b>Language reference</b><span>hardware objects and exceptions</span></a>
         <a href="https://github.com/yongyaoli/lang/blob/main/esp32/ESP32_GUIDE.md" target="_blank" rel="noopener"><b>Full ESP32 guide</b><span>local builds, troubleshooting ↗</span></a>
-        <a href="https://github.com/yongyaoli/lang/blob/main/esp32/web_flasher.html" target="_blank" rel="noopener"><b>Web toolbox</b><span>flashing walkthrough + serial console ↗</span></a>
       </div>
     </div>
   </section>
@@ -239,6 +246,7 @@ print(ESP32.chip());</code></pre>
       <a href="language.html">Language</a>
       <a href="install.html">Install</a>
       <a href="firmware.html">Firmware</a>
+      <a href="flash.html">Flash</a>
       <a href="usage.html">Usage</a>
       <a href="docs.html">Docs</a>
       <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>

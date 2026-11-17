@@ -62,7 +62,7 @@ print("=== 8. try / catch 异常捕获 ===");
 try {
     throw "VM 保护块异常拦截成功";
 } catch (err) {
-    print("捕获到异常:", err);
+    print("捕获到异常:", err.type, err.message, "line:", err.line);
 }
 
 print("=== M6 VM 测试全部通过 ===");

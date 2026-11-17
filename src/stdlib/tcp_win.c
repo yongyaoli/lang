@@ -108,6 +108,96 @@ int l_tcp_recv(l_tcp_sock_t sock, void *buf, size_t cap, int timeout_ms,
     return n;
 }
 
+l_tcp_sock_t l_tcp_listen(const char *host, int port, int backlog,
+                          char *errbuf, size_t cap) {
+    WSADATA wsa;
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        tcp_set_err(errbuf, cap, "WinSock2 初始化失败", WSAGetLastError());
+        return -1;
+    }
+
+    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == INVALID_SOCKET) {
+        tcp_set_err(errbuf, cap, "创建监听套接字失败", WSAGetLastError());
+        return -1;
+    }
+
+    int opt = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons((unsigned short)port);
+
+    if (!host || !*host || strcmp(host, "0.0.0.0") == 0) {
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    } else {
+        addr.sin_addr.s_addr = inet_addr(host);
+        if (addr.sin_addr.s_addr == INADDR_NONE) {
+            struct hostent *he = gethostbyname(host);
+            if (he && he->h_addr_list && he->h_addr_list[0]) {
+                memcpy(&addr.sin_addr, he->h_addr_list[0], sizeof(addr.sin_addr));
+            } else {
+                closesocket(s);
+                tcp_set_err(errbuf, cap, "无法解析绑定地址", WSAGetLastError());
+                return -1;
+            }
+        }
+    }
+
+    if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+        int err = WSAGetLastError();
+        closesocket(s);
+        tcp_set_err(errbuf, cap, "绑定端口失败 (可能已被占用)", err);
+        return -1;
+    }
+
+    if (listen(s, backlog > 0 ? backlog : 5) != 0) {
+        int err = WSAGetLastError();
+        closesocket(s);
+        tcp_set_err(errbuf, cap, "进入监听状态失败", err);
+        return -1;
+    }
+
+    return (l_tcp_sock_t)s;
+}
+
+l_tcp_sock_t l_tcp_accept(l_tcp_sock_t server_sock, int timeout_ms,
+                          char *client_ip, size_t ip_cap, int *client_port,
+                          char *errbuf, size_t cap_err) {
+    if (timeout_ms >= 0) {
+        fd_set rset;
+        FD_ZERO(&rset);
+        FD_SET((SOCKET)server_sock, &rset);
+        struct timeval tv = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
+        int sr = select((int)server_sock + 1, &rset, NULL, NULL, &tv);
+        if (sr == 0) return 0; // 超时无接入连接
+        if (sr < 0) {
+            tcp_set_err(errbuf, cap_err, "select 失败", WSAGetLastError());
+            return -1;
+        }
+    }
+
+    struct sockaddr_in cli_addr;
+    int addr_len = sizeof(cli_addr);
+    SOCKET client = accept((SOCKET)server_sock, (struct sockaddr *)&cli_addr, &addr_len);
+    if (client == INVALID_SOCKET) {
+        tcp_set_err(errbuf, cap_err, "accept 接受连接失败", WSAGetLastError());
+        return -1;
+    }
+
+    if (client_ip && ip_cap > 0) {
+        char *ip = inet_ntoa(cli_addr.sin_addr);
+        snprintf(client_ip, ip_cap, "%s", ip ? ip : "unknown");
+    }
+    if (client_port) {
+        *client_port = ntohs(cli_addr.sin_port);
+    }
+
+    return (l_tcp_sock_t)client;
+}
+
 void l_tcp_close(l_tcp_sock_t sock) {
     closesocket((SOCKET)sock);
 }

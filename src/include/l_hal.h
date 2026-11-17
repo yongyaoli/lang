@@ -184,4 +184,34 @@ void l_hal_deepsleep(int ms);
 /* 唤醒原因: 0=上电 1=定时器唤醒 2=外部引脚唤醒 */
 int  l_hal_wake_reason(void);
 
+/* ================= 9. BLE (低功耗蓝牙 GATT Server / Peripheral) HAL 接口 ================= */
+
+/* 初始化 BLE 协议栈并设置设备广播名称 */
+int  l_hal_ble_init(const char *device_name);
+
+/* 反初始化 BLE 协议栈并释放内存 */
+int  l_hal_ble_deinit(void);
+
+/* 开启 BLE 广播 */
+int  l_hal_ble_adv_start(const char *adv_name);
+
+/* 停止 BLE 广播 */
+int  l_hal_ble_adv_stop(void);
+
+/* 查询是否有客户端已建立 BLE 连接 (1: 已连接, 0: 未连接) */
+int  l_hal_ble_is_connected(void);
+
+/* 向已连接的客户端发送数据 (Notify / TX 数据流) */
+int  l_hal_ble_send(const uint8_t *data, size_t len);
+
+/* 接收客户端写入的数据 (RX 数据流), timeout_ms 毫秒超时 (0 为非阻塞立刻返回) */
+int  l_hal_ble_recv(uint8_t *buf, size_t max_len, int timeout_ms);
+
+/* 查询 BLE 当前运行状态与接收队列信息 */
+void l_hal_ble_get_status(int *out_inited, int *out_adv, int *out_conn, size_t *out_rx_bytes, char *out_name, size_t name_cap);
+
+/* PC 离线模拟与测试辅助接口: 设置模拟连接状态, 以及注入模拟客户端发送的数据 */
+void l_hal_ble_sim_set_connected(int connected);
+int  l_hal_ble_sim_feed_rx(const uint8_t *data, size_t len);
+
 #endif /* L_HAL_H */

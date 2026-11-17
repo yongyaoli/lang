@@ -23,5 +23,5 @@ map id: 42
 === 7. ESP32 状态看板 (VM 模式派发) ===
 VM 查询芯片型号: ESP32 核心数: 2
 === 8. try / catch 异常捕获 ===
-捕获到异常: {type: "ThrowError", message: "VM 保护块异常拦截成功", file: "D:\github\lang_g\tests\19_vm_bytecode.l", line: 63, col: 5, fn: "<main>", func: "<main>", source: "throw "VM 保护块异常拦截成功";", stack: ["<main> (D:\github\lang_g\tests\19_vm_bytecode.l:63:5)"]}
+捕获到异常: ThrowError VM 保护块异常拦截成功 line: 63
 === M6 VM 测试全部通过 ===

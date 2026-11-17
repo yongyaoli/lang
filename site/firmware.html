@@ -27,6 +27,7 @@
       <a href="language.html">语言</a>
       <a href="install.html">安装</a>
       <a href="firmware.html" aria-current="page">固件</a>
+      <a href="flash.html">烧录</a>
       <a href="usage.html">使用</a>
       <a href="docs.html">文档</a>
     </nav>
@@ -40,6 +41,7 @@
         <a href="language.html">语言</a>
         <a href="install.html">安装</a>
         <a href="firmware.html">固件</a>
+        <a href="flash.html">烧录</a>
         <a href="usage.html">使用</a>
         <a href="docs.html">文档</a>
         <a href="en/firmware.html" hreflang="en" lang="en">English</a>
@@ -65,7 +67,7 @@
       <h2>选择你的芯片</h2>
       <p class="lede">文件均为合并后的单文件固件，从地址 <code>0x0</code> 一次写入 bootloader、分区表与应用。</p>
 
-      <div class="dl-grid">
+      <div class="dl-grid cols-2">
         <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32">
           <span class="dl-t">ESP32</span>
           <span class="dl-f" data-file>l-esp32-merged.bin</span>
@@ -81,10 +83,15 @@
           <span class="dl-f" data-file>l-esp32s3-merged.bin</span>
           <span class="dl-n" data-note>双核 LX7 · 刷写地址 0x0</span>
         </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32c6">
+          <span class="dl-t">ESP32-C6</span>
+          <span class="dl-f" data-file>l-esp32c6-merged.bin</span>
+          <span class="dl-n" data-note>Wi-Fi 6 / RISC-V · 刷写地址 0x0</span>
+        </a>
       </div>
 
       <div class="note mt-24">
-        <p><b>关于 ESP32-C6</b>：解释器与固件工程已支持 C6（Wi-Fi 6 / BLE / Thread），但云端构建矩阵目前只产出 ESP32、C3、S3 三种二进制。需要 C6 时可用本地 ESP-IDF 自行编译，步骤见指南。</p>
+        <p><b>全系单固件直刷</b>：以上固件已全部由云端 CI 自动完成编译与打包（涵盖 ESP32、C3、S3、C6），统一在 <code>0x0</code> 地址刷写即可。底包只刷一次，日常写脚本通过裸 Flash 机制 0.2 秒写入并自动运行。</p>
       </div>
     </div>
   </section>
@@ -119,8 +126,8 @@
           </ol>
 
           <div class="btn-row">
-            <a class="btn btn-p" href="https://espressif.github.io/esptool-js/" target="_blank" rel="noopener">打开网页刷机工具<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
-            <a class="btn btn-g" href="https://github.com/yongyaoli/lang/blob/main/esp32/web_flasher.html" target="_blank" rel="noopener">仓库内工具箱</a>
+            <a class="btn btn-p" href="flash.html">打开站内网页烧录器<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+            <a class="btn btn-g" href="https://espressif.github.io/esptool-js/" target="_blank" rel="noopener">乐鑫官方刷机工具 (esptool-js)</a>
           </div>
         </div>
 
@@ -219,10 +226,10 @@ print(ESP32.chip());</code></pre>
       <p class="eyebrow"><b>05</b> 下一站</p>
       <h2>刷完了做什么</h2>
       <div class="linklist mt-24">
+        <a href="flash.html"><b>网页烧录器 (Web Flasher)</b><span>免安装串口连接、0.2 秒上传脚本与实时终端</span></a>
         <a href="usage.html"><b>REPL 与命令行</b><span>交互式调试、连接板端终端</span></a>
         <a href="language.html"><b>语言参考</b><span>硬件对象与异常处理</span></a>
         <a href="https://github.com/yongyaoli/lang/blob/main/esp32/ESP32_GUIDE.md" target="_blank" rel="noopener"><b>ESP32 完整指南</b><span>本地编译、常见问题排查 ↗</span></a>
-        <a href="https://github.com/yongyaoli/lang/blob/main/esp32/web_flasher.html" target="_blank" rel="noopener"><b>网页工具箱</b><span>刷机指引 + 串口终端 ↗</span></a>
       </div>
     </div>
   </section>
@@ -239,6 +246,7 @@ print(ESP32.chip());</code></pre>
       <a href="language.html">语言</a>
       <a href="install.html">安装</a>
       <a href="firmware.html">固件</a>
+      <a href="flash.html">烧录</a>
       <a href="usage.html">使用</a>
       <a href="docs.html">文档</a>
       <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>

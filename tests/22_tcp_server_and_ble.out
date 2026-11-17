@@ -1,0 +1,7 @@
+--- 测试 1. TcpServer 参数校验 ---
+捕获非法端口诊断: TcpServer() 端口必须在 1..65535 之间, 实际为 99999
+--- 测试 2. TcpServer 监听与 accept 超时 ---
+--- 测试 3. TcpServer 环回通信 (服务端 accept 与双向数据交互) ---
+--- 测试 4. BLE 初始化与广播控制 ---
+--- 测试 5. BLE 连接、发送与接收仿真 ---
+22_tcp_server_and_ble 全部通过!

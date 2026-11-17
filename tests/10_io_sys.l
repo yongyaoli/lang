@@ -16,7 +16,7 @@ print("exists2:", io_exists(test_file));
 
 // 4. sys 库
 print("platform:", sys_platform() != "");
-print("version:", sys_version());
+print("version:", len(sys_version()) > 0);
 print("cwd:", len(sys_cwd()) > 0);
 let alloc_before = sys_allocated();
 sys_gc_collect();

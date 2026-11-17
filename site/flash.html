@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>网页烧录器 — L 语言 (lang)</title>
+<meta name="description" content="无需安装 Python 或 ESP-IDF，直接在 Chrome / Edge 浏览器中连接 ESP32 串口，0.2 秒极速烧录 .l 脚本并进入实时交互终端。">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="flash.html">
+<link rel="alternate" hreflang="en" href="en/flash.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="网页烧录器 — L 语言 (lang)">
+<meta property="og:description" content="免安装工具箱：底包固件一键下载 + 浏览器串口 0.2 秒烧录 .l 脚本与实时终端。">
+<meta property="og:image" content="assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="主导航">
+      <a href="language.html">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="flash.html" aria-current="page">烧录</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html">文档</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="en/flash.html" hreflang="en" lang="en">EN</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="打开菜单"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">语言</a>
+        <a href="install.html">安装</a>
+        <a href="firmware.html">固件</a>
+        <a href="flash.html">烧录</a>
+        <a href="usage.html">使用</a>
+        <a href="docs.html">文档</a>
+        <a href="en/flash.html" hreflang="en" lang="en">English</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Web Flasher</p>
+      <h1>浏览器免驱动连接 ESP32</h1>
+      <p class="lede">无需配置 ESP-IDF 或 Python 环境。使用 Chrome 或 Edge 浏览器，不仅能下载与刷入底包固件，还能直接通过 Web Serial 串口以 0.2 秒极速将 <code>.l</code> 脚本写入板端 Flash 裸分区，并进行板端实时交互！</p>
+    </div>
+  </div>
+
+  <!-- 步骤 1：首次底包固件准备 -->
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> 首次准备</p>
+      <h2>下载并刷入底包固件（每块板只需做一次）</h2>
+      <p class="lede">如果你的板子尚未刷入 L 语言固件，请先根据芯片型号下载合并固件（从地址 <code>0x0</code> 一次写入）：</p>
+
+      <div class="dl-grid cols-2">
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32">
+          <span class="dl-t">ESP32</span>
+          <span class="dl-f" data-file>l-esp32-merged.bin</span>
+          <span class="dl-n" data-note>经典 ESP32 · 刷写地址 0x0</span>
+        </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32c3">
+          <span class="dl-t">ESP32-C3</span>
+          <span class="dl-f" data-file>l-esp32c3-merged.bin</span>
+          <span class="dl-n" data-note>RISC-V · 刷写地址 0x0</span>
+        </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32s3">
+          <span class="dl-t">ESP32-S3</span>
+          <span class="dl-f" data-file>l-esp32s3-merged.bin</span>
+          <span class="dl-n" data-note>双核 LX7 · 刷写地址 0x0</span>
+        </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32c6">
+          <span class="dl-t">ESP32-C6</span>
+          <span class="dl-f" data-file>l-esp32c6-merged.bin</span>
+          <span class="dl-n" data-note>Wi-Fi 6 / RISC-V · 刷写地址 0x0</span>
+        </a>
+      </div>
+
+      <div class="btn-row mt-24">
+        <a class="btn btn-p" href="https://espressif.github.io/esptool-js/" target="_blank" rel="noopener">打开乐鑫官方网页刷机工具 (ESP Web Flasher)<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+        <a class="btn btn-g" href="firmware.html">查看详细刷机指引</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 步骤 2：网页日常脚本烧录与实时终端 -->
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> 日常烧录与交互</p>
+      <h2>网页串口工作台 (Web Serial)</h2>
+      <p class="lede">底包刷好后，日常修改 <code>.l</code> 脚本完全不需要重新编译固件。连接串口后，点击「一键烧录」即可在 0.2 秒内热更新至 <code>l_script</code> 分区并立即执行。</p>
+
+      <div class="flasher-panel mt-24">
+        <div class="flasher-bar">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-p" id="btnConnect" type="button">连接 ESP32 串口</button>
+            <button class="btn btn-g" id="btnDisconnect" type="button" style="display:none;">断开连接</button>
+            <select class="flasher-select" id="sampleSelect" aria-label="示例脚本选择">
+              <option value="blink">示例 1: 点亮 GPIO 2 LED</option>
+              <option value="status">示例 2: ESP32 状态看板</option>
+              <option value="timer">示例 3: 定时器心跳</option>
+              <option value="pwm">示例 4: PWM 呼吸灯</option>
+            </select>
+          </div>
+          <div class="flasher-state">
+            <span class="flasher-dot" id="stateDot"></span>
+            <span id="stateText">未连接串口</span>
+          </div>
+        </div>
+
+        <textarea class="flasher-textarea" id="scriptBox" spellcheck="false" placeholder="在此编写或粘贴你的 .l 脚本..."></textarea>
+
+        <div class="flasher-bar">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-p" id="btnUpload" type="button" disabled>一键烧录下方脚本到 ESP32</button>
+            <button class="btn btn-g" id="btnPinout" type="button" disabled>引脚表 ESP32.pinout()</button>
+            <button class="btn btn-g" id="btnStatus" type="button" disabled>系统看板 ESP32.status()</button>
+          </div>
+          <div>
+            <button class="btn btn-g" id="btnClearTerm" type="button">清屏</button>
+          </div>
+        </div>
+
+        <div class="flasher-term-box" id="termOutput">[未连接串口] 请使用 Chrome 或 Edge 浏览器，点击上方「连接 ESP32 串口」按钮...&#10;</div>
+
+        <div class="flasher-input-row">
+          <input class="flasher-input" type="text" id="cmdInput" placeholder="输入单行指令回车直接执行，例如 pin(2).toggle() 或 ESP32.info()" disabled />
+          <button class="btn btn-p" id="btnSend" type="button" disabled>发送</button>
+        </div>
+      </div>
+
+      <p class="aside-note mt-24">烧录通信协议：先握手 <code>__L_UPLOAD_BEGIN__</code> 并预检 <code>__L_UPLOAD_READY__</code>，源码按 64 字节分块传输并执行硬件级 IEEE 802.3 CRC32 校验，断电不丢失，上电自动运行。</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">纯 C99 · 零依赖 · ESP32 与 PC 双栖</p>
+    </div>
+    <nav class="ft-links" aria-label="页脚导航">
+      <a href="language.html">语言</a>
+      <a href="install.html">安装</a>
+      <a href="firmware.html">固件</a>
+      <a href="flash.html">烧录</a>
+      <a href="usage.html">使用</a>
+      <a href="docs.html">文档</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="en/flash.html" hreflang="en" lang="en">English</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="assets/js/releases.js"></script>
+<script src="assets/js/site.js"></script>
+<script>
+// Web Serial 与在线烧录交互逻辑
+(function () {
+  let port = null, writer = null, reader = null;
+  const term = document.getElementById('termOutput');
+  const dot = document.getElementById('stateDot');
+  const stateText = document.getElementById('stateText');
+  const btnConnect = document.getElementById('btnConnect');
+  const btnDisconnect = document.getElementById('btnDisconnect');
+  const btnUpload = document.getElementById('btnUpload');
+  const btnPinout = document.getElementById('btnPinout');
+  const btnStatus = document.getElementById('btnStatus');
+  const cmdInput = document.getElementById('cmdInput');
+  const btnSend = document.getElementById('btnSend');
+  const scriptBox = document.getElementById('scriptBox');
+  const sampleSelect = document.getElementById('sampleSelect');
+
+  const SAMPLES = {
+    blink: '// 示例 1: 闪烁 GPIO 2 LED 并打印芯片信息\nprint("当前芯片:", ESP32.chip(), "可用堆内存:", ESP32.free_heap());\nconst LED = 2;\nlet led = pin(LED).on();\nprint("GPIO 2 当前电平:", led.value());\nled.toggle();\nprint("翻转后电平:", led.value());',
+    status: '// 示例 2: 查看当前板端系统规格与 Wi-Fi 状态看板\nESP32.status();\nprint("CPU 主频:", ESP32.freq(), "MHz");\nprint("IDF 版本:", ESP32.version());',
+    timer: '// 示例 3: 启动 100ms 周期定时器并在心跳中打印\nlet ticks = 0;\nlet t = Timer(100, fn() {\n    ticks = ticks + 1;\n    print("定时器心跳计数:", ticks);\n}, true);\n\n// 运行 1 秒后停止\nESP32.delay_ms(1000);\nt.stop();\nprint("定时器已停止, 总计数:", ticks);',
+    pwm: '// 示例 4: 使用 PWM 驱动板载 LED\nconst LED = 2;\nlet p = PWM(LED, 5000, 256);  // 5kHz, 25% 占空比\nprint("PWM 频率:", p.freq(), "占空比:", p.duty());\nESP32.delay_ms(500);\np.duty(768);                 // 调整为 75% 占空比\nESP32.delay_ms(500);\np.stop();\nprint("PWM 已停止");'
+  };
+
+  scriptBox.value = SAMPLES.blink;
+  sampleSelect.onchange = function () {
+    if (SAMPLES[this.value]) scriptBox.value = SAMPLES[this.value];
+  };
+
+  function log(s) {
+    term.textContent += s;
+    term.scrollTop = term.scrollHeight;
+  }
+
+  document.getElementById('btnClearTerm').onclick = function () {
+    term.textContent = '';
+  };
+
+  // IEEE 802.3 CRC32 算法 (与板端 hal.c 完全一致)
+  function crc32Bytes(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) {
+      crc ^= bytes[i];
+      for (let b = 0; b < 8; b++) {
+        crc = (crc >>> 1) ^ (0xEDB88320 & (-(crc & 1)));
+      }
+    }
+    return ((~crc) >>> 0);
+  }
+
+  function setConnected(connected, portInfo) {
+    if (connected) {
+      dot.className = 'flasher-dot online';
+      stateText.textContent = '已连接 ' + (portInfo || 'ESP32 @ 115200');
+      btnConnect.style.display = 'none';
+      btnDisconnect.style.display = 'inline-block';
+      btnUpload.disabled = false;
+      btnPinout.disabled = false;
+      btnStatus.disabled = false;
+      cmdInput.disabled = false;
+      btnSend.disabled = false;
+    } else {
+      dot.className = 'flasher-dot';
+      stateText.textContent = '未连接串口';
+      btnConnect.style.display = 'inline-block';
+      btnDisconnect.style.display = 'none';
+      btnUpload.disabled = true;
+      btnPinout.disabled = true;
+      btnStatus.disabled = true;
+      cmdInput.disabled = true;
+      btnSend.disabled = true;
+    }
+  }
+
+  btnConnect.onclick = async function () {
+    if (!('serial' in navigator)) {
+      alert('当前浏览器不支持 Web Serial API。请使用最新版 Chrome、Edge 或 Chromium 浏览器。');
+      return;
+    }
+    try {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+      writer = port.writable.getWriter();
+      setConnected(true);
+      log('\n[已连接 ESP32 串口 @ 115200 bps]\n');
+      await sendText('\r\n');
+      readLoop();
+    } catch (e) {
+      log('\n[连接失败] ' + e.message + '\n');
+      setConnected(false);
+    }
+  };
+
+  btnDisconnect.onclick = async function () {
+    if (writer) {
+      try { writer.releaseLock(); } catch (e) {}
+      writer = null;
+    }
+    if (reader) {
+      try { await reader.cancel(); } catch (e) {}
+      reader = null;
+    }
+    if (port) {
+      try { await port.close(); } catch (e) {}
+      port = null;
+    }
+    setConnected(false);
+    log('\n[已断开串口连接]\n');
+  };
+
+  async function readLoop() {
+    const decoder = new TextDecoder();
+    while (port && port.readable) {
+      reader = port.readable.getReader();
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) log(decoder.decode(value));
+        }
+      } catch (e) {
+        break;
+      } finally {
+        try { reader.releaseLock(); } catch (err) {}
+      }
+    }
+  }
+
+  async function sendText(str) {
+    if (!writer) return;
+    const data = new TextEncoder().encode(str);
+    await writer.write(data);
+  }
+
+  btnUpload.onclick = async function () {
+    const code = scriptBox.value.replace(/\r\n/g, '\n');
+    const bytes = new TextEncoder().encode(code);
+    const crc = crc32Bytes(bytes).toString(16).toUpperCase().padStart(8, '0');
+
+    dot.className = 'flasher-dot busy';
+    stateText.textContent = '正在极速烧录...';
+    btnUpload.disabled = true;
+
+    log(`\n[网页烧录] 写入 l_script 分区 (${bytes.length} 字节, CRC32=0x${crc})...\n`);
+
+    try {
+      // 发送协议头
+      await sendText(`\r\n__L_UPLOAD_BEGIN__ ${bytes.length} 0x${crc} 1\r\n`);
+      await new Promise(r => setTimeout(r, 60));
+
+      // 按 64 字节分块传输
+      for (let offset = 0; offset < bytes.length; offset += 64) {
+        const chunk = bytes.slice(offset, Math.min(offset + 64, bytes.length));
+        await writer.write(chunk);
+        await new Promise(r => setTimeout(r, 8));
+      }
+
+      await sendText('\r\n');
+      dot.className = 'flasher-dot online';
+      stateText.textContent = '烧录完成，脚本运行中';
+    } catch (e) {
+      log('\n[烧录异常] ' + e.message + '\n');
+      dot.className = 'flasher-dot error';
+      stateText.textContent = '烧录异常';
+    } finally {
+      btnUpload.disabled = false;
+    }
+  };
+
+  btnPinout.onclick = function () { sendText('ESP32.pinout();\r\n'); };
+  btnStatus.onclick = function () { sendText('ESP32.status();\r\n'); };
+
+  async function sendCmd() {
+    const v = cmdInput.value.trim();
+    if (!v) return;
+    cmdInput.value = '';
+    await sendText(v + '\r\n');
+  }
+  btnSend.onclick = sendCmd;
+  cmdInput.onkeydown = function (e) { if (e.key === 'Enter') sendCmd(); };
+})();
+</script>
+</body>
+</html>

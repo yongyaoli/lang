@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Flasher — L Language (lang)</title>
+<meta name="description" content="Connect to ESP32 serial directly in Chrome or Edge without Python or ESP-IDF. Upload .l scripts in 0.2s and interact via live REPL terminal.">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/site.css">
+<link rel="alternate" hreflang="zh-CN" href="../flash.html">
+<link rel="alternate" hreflang="en" href="flash.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Web Flasher — L Language (lang)">
+<meta property="og:description" content="Zero-install web tool: download base firmware + flash .l scripts in 0.2s via Web Serial.">
+<meta property="og:image" content="../assets/img/og.svg">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap hd">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M11.5 8.5v12h9"/></svg>
+      <span class="brand-t"><b>L</b><i>lang</i></span>
+    </a>
+    <nav class="nav" aria-label="Main Navigation">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="flash.html" aria-current="page">Flash</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+    </nav>
+    <div class="hd-r">
+      <a class="lang-sw" href="../flash.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+      <a class="gh" href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+    </div>
+    <details class="mm">
+      <summary aria-label="Open menu"><span></span></summary>
+      <div class="mm-panel">
+        <a href="language.html">Language</a>
+        <a href="install.html">Install</a>
+        <a href="firmware.html">Firmware</a>
+        <a href="flash.html">Flash</a>
+        <a href="usage.html">Usage</a>
+        <a href="docs.html">Docs</a>
+        <a href="../flash.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+        <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <div class="page-head">
+    <div class="wrap">
+      <p class="kicker">Web Flasher</p>
+      <h1>Zero-Install ESP32 Browser Studio</h1>
+      <p class="lede">No ESP-IDF or Python setup required. Using Chrome or Edge, download base firmware, upload <code>.l</code> scripts to Flash in 0.2s over Web Serial, and interact through a live web terminal!</p>
+    </div>
+  </div>
+
+  <!-- Step 1: Base Firmware -->
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>01</b> Initial Setup</p>
+      <h2>Download & Flash Base Firmware (Once per Board)</h2>
+      <p class="lede">If your board does not have L firmware yet, download the merged binary for your chip (flashed to offset <code>0x0</code>):</p>
+
+      <div class="dl-grid cols-2">
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32">
+          <span class="dl-t">ESP32</span>
+          <span class="dl-f" data-file>l-esp32-merged.bin</span>
+          <span class="dl-n" data-note>Classic ESP32 · Flash at 0x0</span>
+        </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32c3">
+          <span class="dl-t">ESP32-C3</span>
+          <span class="dl-f" data-file>l-esp32c3-merged.bin</span>
+          <span class="dl-n" data-note>RISC-V · Flash at 0x0</span>
+        </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32s3">
+          <span class="dl-t">ESP32-S3</span>
+          <span class="dl-f" data-file>l-esp32s3-merged.bin</span>
+          <span class="dl-n" data-note>Dual-core LX7 · Flash at 0x0</span>
+        </a>
+        <a class="dl" href="https://github.com/yongyaoli/lang/releases/latest" data-asset="fwEsp32c6">
+          <span class="dl-t">ESP32-C6</span>
+          <span class="dl-f" data-file>l-esp32c6-merged.bin</span>
+          <span class="dl-n" data-note>Wi-Fi 6 / RISC-V · Flash at 0x0</span>
+        </a>
+      </div>
+
+      <div class="btn-row mt-24">
+        <a class="btn btn-p" href="https://espressif.github.io/esptool-js/" target="_blank" rel="noopener">Open Espressif Web Flasher (esptool-js)<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 8.8 8.8 3.2M8.8 3.2H4.6M8.8 3.2v4.2"/></svg></a>
+        <a class="btn btn-g" href="firmware.html">View Firmware Guide</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Step 2: Daily Script Upload & Terminal -->
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>02</b> Daily Development</p>
+      <h2>Web Serial Terminal & 0.2s Script Upload</h2>
+      <p class="lede">After the base firmware is flashed, you never need to rebuild C code. Connect via Web Serial and hot-reload scripts directly into the <code>l_script</code> raw Flash partition.</p>
+
+      <div class="flasher-panel mt-24">
+        <div class="flasher-bar">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-p" id="btnConnect" type="button">Connect ESP32 Serial</button>
+            <button class="btn btn-g" id="btnDisconnect" type="button" style="display:none;">Disconnect</button>
+            <select class="flasher-select" id="sampleSelect" aria-label="Sample Script Selector">
+              <option value="blink">Sample 1: Blink GPIO 2 LED</option>
+              <option value="status">Sample 2: ESP32 Status Board</option>
+              <option value="timer">Sample 3: Timer Heartbeat</option>
+              <option value="pwm">Sample 4: PWM Breathing LED</option>
+            </select>
+          </div>
+          <div class="flasher-state">
+            <span class="flasher-dot" id="stateDot"></span>
+            <span id="stateText">Serial Disconnected</span>
+          </div>
+        </div>
+
+        <textarea class="flasher-textarea" id="scriptBox" spellcheck="false" placeholder="Write or paste your .l script here..."></textarea>
+
+        <div class="flasher-bar">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-p" id="btnUpload" type="button" disabled>Flash Script to ESP32</button>
+            <button class="btn btn-g" id="btnPinout" type="button" disabled>Pinout ESP32.pinout()</button>
+            <button class="btn btn-g" id="btnStatus" type="button" disabled>Status ESP32.status()</button>
+          </div>
+          <div>
+            <button class="btn btn-g" id="btnClearTerm" type="button">Clear</button>
+          </div>
+        </div>
+
+        <div class="flasher-term-box" id="termOutput">[Serial Disconnected] In Chrome or Edge, click "Connect ESP32 Serial" above to begin...&#10;</div>
+
+        <div class="flasher-input-row">
+          <input class="flasher-input" type="text" id="cmdInput" placeholder="Enter single-line command (e.g. pin(2).toggle() or ESP32.info()) and press Enter" disabled />
+          <button class="btn btn-p" id="btnSend" type="button" disabled>Send</button>
+        </div>
+      </div>
+
+      <p class="aside-note mt-24">Upload protocol: performs <code>__L_UPLOAD_BEGIN__</code> handshake, splits script into 64-byte chunks, and verifies hardware-level IEEE 802.3 CRC32 before executing without SRAM copying.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap ft">
+    <div>
+      <p class="ft-t"><b>L</b><span>lang</span></p>
+      <p class="ft-s">Pure C99 · Zero Deps · Dual-Target ESP32 & PC</p>
+    </div>
+    <nav class="ft-links" aria-label="Footer Navigation">
+      <a href="language.html">Language</a>
+      <a href="install.html">Install</a>
+      <a href="firmware.html">Firmware</a>
+      <a href="flash.html">Flash</a>
+      <a href="usage.html">Usage</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/yongyaoli/lang" target="_blank" rel="noopener">GitHub</a>
+      <a href="../flash.html" hreflang="zh-CN" lang="zh-CN">中文</a>
+    </nav>
+    <p class="ft-c"><span data-version class="mono">v0.1.9</span> · © <span data-year>2026</span> Yongyao Li · MIT</p>
+  </div>
+</footer>
+
+<script src="../assets/js/releases.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  let port = null, writer = null, reader = null;
+  const term = document.getElementById('termOutput');
+  const dot = document.getElementById('stateDot');
+  const stateText = document.getElementById('stateText');
+  const btnConnect = document.getElementById('btnConnect');
+  const btnDisconnect = document.getElementById('btnDisconnect');
+  const btnUpload = document.getElementById('btnUpload');
+  const btnPinout = document.getElementById('btnPinout');
+  const btnStatus = document.getElementById('btnStatus');
+  const cmdInput = document.getElementById('cmdInput');
+  const btnSend = document.getElementById('btnSend');
+  const scriptBox = document.getElementById('scriptBox');
+  const sampleSelect = document.getElementById('sampleSelect');
+
+  const SAMPLES = {
+    blink: '// Sample 1: Blink GPIO 2 LED & query chip specs\nprint("Chip:", ESP32.chip(), "Free Heap:", ESP32.free_heap());\nconst LED = 2;\nlet led = pin(LED).on();\nprint("GPIO 2 level:", led.value());\nled.toggle();\nprint("After toggle:", led.value());',
+    status: '// Sample 2: Query full hardware status & Wi-Fi\nESP32.status();\nprint("CPU Freq:", ESP32.freq(), "MHz");\nprint("IDF Version:", ESP32.version());',
+    timer: '// Sample 3: 100ms periodic timer with heartbeat\nlet ticks = 0;\nlet t = Timer(100, fn() {\n    ticks = ticks + 1;\n    print("Timer tick:", ticks);\n}, true);\n\n// Run for 1 second then stop\nESP32.delay_ms(1000);\nt.stop();\nprint("Timer stopped, total ticks:", ticks);',
+    pwm: '// Sample 4: Drive onboard LED with PWM\nconst LED = 2;\nlet p = PWM(LED, 5000, 256);  // 5kHz, 25% duty\nprint("PWM Freq:", p.freq(), "Duty:", p.duty());\nESP32.delay_ms(500);\np.duty(768);                 // 75% duty\nESP32.delay_ms(500);\np.stop();\nprint("PWM stopped");'
+  };
+
+  scriptBox.value = SAMPLES.blink;
+  sampleSelect.onchange = function () {
+    if (SAMPLES[this.value]) scriptBox.value = SAMPLES[this.value];
+  };
+
+  function log(s) {
+    term.textContent += s;
+    term.scrollTop = term.scrollHeight;
+  }
+
+  document.getElementById('btnClearTerm').onclick = function () {
+    term.textContent = '';
+  };
+
+  function crc32Bytes(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) {
+      crc ^= bytes[i];
+      for (let b = 0; b < 8; b++) {
+        crc = (crc >>> 1) ^ (0xEDB88320 & (-(crc & 1)));
+      }
+    }
+    return ((~crc) >>> 0);
+  }
+
+  function setConnected(connected, portInfo) {
+    if (connected) {
+      dot.className = 'flasher-dot online';
+      stateText.textContent = 'Connected ' + (portInfo || 'ESP32 @ 115200');
+      btnConnect.style.display = 'none';
+      btnDisconnect.style.display = 'inline-block';
+      btnUpload.disabled = false;
+      btnPinout.disabled = false;
+      btnStatus.disabled = false;
+      cmdInput.disabled = false;
+      btnSend.disabled = false;
+    } else {
+      dot.className = 'flasher-dot';
+      stateText.textContent = 'Serial Disconnected';
+      btnConnect.style.display = 'inline-block';
+      btnDisconnect.style.display = 'none';
+      btnUpload.disabled = true;
+      btnPinout.disabled = true;
+      btnStatus.disabled = true;
+      cmdInput.disabled = true;
+      btnSend.disabled = true;
+    }
+  }
+
+  btnConnect.onclick = async function () {
+    if (!('serial' in navigator)) {
+      alert('Your browser does not support Web Serial API. Please use Google Chrome or Microsoft Edge.');
+      return;
+    }
+    try {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+      writer = port.writable.getWriter();
+      setConnected(true);
+      log('\n[Connected to ESP32 Serial @ 115200 bps]\n');
+      await sendText('\r\n');
+      readLoop();
+    } catch (e) {
+      log('\n[Connection Error] ' + e.message + '\n');
+      setConnected(false);
+    }
+  };
+
+  btnDisconnect.onclick = async function () {
+    if (writer) {
+      try { writer.releaseLock(); } catch (e) {}
+      writer = null;
+    }
+    if (reader) {
+      try { await reader.cancel(); } catch (e) {}
+      reader = null;
+    }
+    if (port) {
+      try { await port.close(); } catch (e) {}
+      port = null;
+    }
+    setConnected(false);
+    log('\n[Serial Disconnected]\n');
+  };
+
+  async function readLoop() {
+    const decoder = new TextDecoder();
+    while (port && port.readable) {
+      reader = port.readable.getReader();
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) log(decoder.decode(value));
+        }
+      } catch (e) {
+        break;
+      } finally {
+        try { reader.releaseLock(); } catch (err) {}
+      }
+    }
+  }
+
+  async function sendText(str) {
+    if (!writer) return;
+    const data = new TextEncoder().encode(str);
+    await writer.write(data);
+  }
+
+  btnUpload.onclick = async function () {
+    const code = scriptBox.value.replace(/\r\n/g, '\n');
+    const bytes = new TextEncoder().encode(code);
+    const crc = crc32Bytes(bytes).toString(16).toUpperCase().padStart(8, '0');
+
+    dot.className = 'flasher-dot busy';
+    stateText.textContent = 'Uploading to Flash...';
+    btnUpload.disabled = true;
+
+    log(`\n[Web Upload] Writing to l_script partition (${bytes.length} bytes, CRC32=0x${crc})...\n`);
+
+    try {
+      await sendText(`\r\n__L_UPLOAD_BEGIN__ ${bytes.length} 0x${crc} 1\r\n`);
+      await new Promise(r => setTimeout(r, 60));
+
+      for (let offset = 0; offset < bytes.length; offset += 64) {
+        const chunk = bytes.slice(offset, Math.min(offset + 64, bytes.length));
+        await writer.write(chunk);
+        await new Promise(r => setTimeout(r, 8));
+      }
+
+      await sendText('\r\n');
+      dot.className = 'flasher-dot online';
+      stateText.textContent = 'Upload complete, running';
+    } catch (e) {
+      log('\n[Upload Error] ' + e.message + '\n');
+      dot.className = 'flasher-dot error';
+      stateText.textContent = 'Upload failed';
+    } finally {
+      btnUpload.disabled = false;
+    }
+  };
+
+  btnPinout.onclick = function () { sendText('ESP32.pinout();\r\n'); };
+  btnStatus.onclick = function () { sendText('ESP32.status();\r\n'); };
+
+  async function sendCmd() {
+    const v = cmdInput.value.trim();
+    if (!v) return;
+    cmdInput.value = '';
+    await sendText(v + '\r\n');
+  }
+  btnSend.onclick = sendCmd;
+  cmdInput.onkeydown = function (e) { if (e.key === 'Enter') sendCmd(); };
+})();
+</script>
+</body>
+</html>

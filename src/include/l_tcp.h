@@ -26,6 +26,19 @@ int l_tcp_send_all(l_tcp_sock_t sock, const void *data, size_t len,
 int l_tcp_recv(l_tcp_sock_t sock, void *buf, size_t cap, int timeout_ms,
                char *errbuf, size_t cap_err);
 
+/* 创建 TCP 服务端监听套接字并绑定端口。
+ * host 为 NULL 或 "0.0.0.0" 时监听全部网络接口。
+ * 成功返回监听套接字; 失败返回 -1 并在 errbuf 填充原因。 */
+l_tcp_sock_t l_tcp_listen(const char *host, int port, int backlog,
+                          char *errbuf, size_t cap);
+
+/* 接受传入连接 (带超时控制)。
+ * 成功返回已接受的客户端套接字, 并在 client_ip / client_port 填充对端地址;
+ * 超时无连接返回 0; 失败返回 -1 并在 errbuf 填充原因。 */
+l_tcp_sock_t l_tcp_accept(l_tcp_sock_t server_sock, int timeout_ms,
+                          char *client_ip, size_t ip_cap, int *client_port,
+                          char *errbuf, size_t cap_err);
+
 /* 关闭套接字 */
 void l_tcp_close(l_tcp_sock_t sock);
 

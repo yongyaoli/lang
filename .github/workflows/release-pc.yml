@@ -86,6 +86,12 @@ jobs:
 
           Get-ChildItem dist | Select-Object Name, Length
 
+      - name: Package VS Code extension (.vsix)
+        shell: pwsh
+        run: |
+          & .\scripts\package_vscode_ext.ps1
+          Get-ChildItem dist | Select-Object Name, Length
+
       - uses: actions/upload-artifact@v4
         with:
           name: pc-windows
@@ -93,6 +99,7 @@ jobs:
           path: |
             dist/lang-setup-windows-x86_64.exe
             dist/lang-windows-x86_64.zip
+            dist/*.vsix
 
   linux:
     name: Linux x86_64

@@ -1774,6 +1774,176 @@ static Value m_esp_wdt_disable(Interp *in, const Node *at, Value self, int argc,
     return self;
 }
 
+/* ================= 9. BLE (低功耗蓝牙) 内置对象 ================= */
+
+static Value m_ble_init(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)self;
+    const char *name = (argc > 0 && argv[0].type == V_STR) ? val_get_cstr(argv[0]) : "L-Lang-BLE";
+    if (l_hal_ble_init(name) != 0) {
+        rt_error(in, at, "BLE.init() 启动失败: 当前硬件固件可能未开启蓝牙协议栈支持");
+    }
+    return val_bool(1);
+}
+
+static Value m_ble_deinit(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)self; (void)argc; (void)argv;
+    l_hal_ble_deinit();
+    return val_bool(1);
+}
+
+static Value m_ble_adv_start(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)self;
+    const char *name = (argc > 0 && argv[0].type == V_STR) ? val_get_cstr(argv[0]) : NULL;
+    if (l_hal_ble_adv_start(name) != 0) {
+        rt_error(in, at, "BLE.adv_start() 失败: 请先调用 BLE.init() 初始化蓝牙协议栈");
+    }
+    return val_bool(1);
+}
+
+static Value m_ble_adv_stop(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)self; (void)argc; (void)argv;
+    l_hal_ble_adv_stop();
+    return val_bool(1);
+}
+
+static Value m_ble_is_connected(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)self; (void)argc; (void)argv;
+    return val_bool(l_hal_ble_is_connected() != 0);
+}
+
+static Value m_ble_send(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    if (argc < 1) {
+        rt_error(in, at, "BLE.send() 缺少数据参数");
+    }
+    const uint8_t *data = NULL;
+    size_t len = 0;
+    if (argv[0].type == V_BYTES) {
+        Bytes *b = argv[0].as.bytes;
+        data = b ? b->data : (const uint8_t *)"";
+        len  = b ? b->len : 0;
+    } else {
+        need_arg(in, at, "BLE.send", argv, 0, V_STR, "string 或 bytes");
+        const char *s = val_get_cstr(argv[0]);
+        data = (const uint8_t *)s;
+        len  = strlen(s);
+    }
+    int ret = l_hal_ble_send(data, len);
+    if (ret < 0) {
+        rt_error(in, at, "BLE.send() 发送失败: 未连接任何蓝牙客户端或协议栈未就绪");
+    }
+    return self;
+}
+
+static Value m_ble_recv(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)self;
+    int max_len = (argc > 0 && argv[0].type == V_INT) ? (int)argv[0].as.i : 512;
+    int tmo     = (argc > 1 && argv[1].type == V_INT) ? (int)argv[1].as.i : 0;
+    if (max_len <= 0) max_len = 512;
+    if (max_len > 4096) max_len = 4096;
+
+    uint8_t buf[4096];
+    int n = l_hal_ble_recv(buf, (size_t)max_len, tmo);
+    if (n > 0) {
+        return val_str(str_new(in, (char *)buf, (size_t)n));
+    }
+    return val_nil();
+}
+
+static Value m_ble_recv_bytes(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)self;
+    int max_len = (argc > 0 && argv[0].type == V_INT) ? (int)argv[0].as.i : 512;
+    int tmo     = (argc > 1 && argv[1].type == V_INT) ? (int)argv[1].as.i : 0;
+    if (max_len <= 0) max_len = 512;
+    if (max_len > 4096) max_len = 4096;
+
+    uint8_t buf[4096];
+    int n = l_hal_ble_recv(buf, (size_t)max_len, tmo);
+    if (n > 0) {
+        return val_bytes(bytes_new(in, (size_t)n, buf));
+    }
+    return val_nil();
+}
+
+static Value m_ble_status(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)at; (void)self; (void)argc; (void)argv;
+    int inited = 0, adv = 0, conn = 0;
+    size_t rx_bytes = 0;
+    char name[64] = "";
+    l_hal_ble_get_status(&inited, &adv, &conn, &rx_bytes, name, sizeof(name));
+
+    Map *m = map_new(in);
+    map_put_bool(in, m, "initialized", inited);
+    map_put_bool(in, m, "advertising", adv);
+    map_put_bool(in, m, "connected", conn);
+    map_put_cstr(in, m, "device_name", name);
+    map_put_int(in, m, "rx_buffered", (int32_t)rx_bytes);
+    return val_map(m);
+}
+
+/* 离线模拟辅助接口: BLE.sim_connect(bool) 与 BLE.feed_rx_sim(data) */
+static Value m_ble_sim_connect(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at;
+    int conn = (argc > 0 && argv[0].type == V_BOOL) ? argv[0].as.boolean : 1;
+    l_hal_ble_sim_set_connected(conn);
+    return self;
+}
+
+static Value m_ble_feed_rx_sim(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    if (argc < 1) rt_error(in, at, "BLE.feed_rx_sim() 需要数据参数");
+    const uint8_t *data = NULL;
+    size_t len = 0;
+    if (argv[0].type == V_BYTES) {
+        Bytes *b = argv[0].as.bytes;
+        data = b ? b->data : (const uint8_t *)"";
+        len  = b ? b->len : 0;
+    } else {
+        need_arg(in, at, "BLE.feed_rx_sim", argv, 0, V_STR, "string 或 bytes");
+        const char *s = val_get_cstr(argv[0]);
+        data = (const uint8_t *)s;
+        len  = strlen(s);
+    }
+    l_hal_ble_sim_feed_rx(data, len);
+    return self;
+}
+
+static void ble_format(const NativeObj *obj, char *buf, size_t size) {
+    (void)obj;
+    int inited = 0, adv = 0, conn = 0;
+    size_t rx_bytes = 0;
+    char name[64] = "";
+    l_hal_ble_get_status(&inited, &adv, &conn, &rx_bytes, name, sizeof(name));
+    snprintf(buf, size, "<BLE %s (inited=%d, adv=%d, conn=%d)>",
+             name[0] ? name : "L-Lang-BLE", inited, adv, conn);
+}
+
+static const ObjMethod ble_methods[] = {
+    {"init",          0, 1, m_ble_init,          "BLE.init([device_name=\"L-Lang-BLE\"])", "初始化低功耗蓝牙协议栈与设备名"},
+    {"deinit",        0, 0, m_ble_deinit,        "BLE.deinit()",                           "释放蓝牙协议栈资源"},
+    {"adv_start",     0, 1, m_ble_adv_start,     "BLE.adv_start([adv_name])",              "开启 BLE 广播"},
+    {"adv_stop",      0, 0, m_ble_adv_stop,      "BLE.adv_stop()",                         "停止 BLE 广播"},
+    {"is_connected",  0, 0, m_ble_is_connected,  "BLE.is_connected()",                     "查询当前是否有 BLE 客户端连接"},
+    {"send",          1, 1, m_ble_send,          "BLE.send(数据)",                         "向已连接客户端发送数据 (支持 string 或 bytes)"},
+    {"recv",          0, 2, m_ble_recv,          "BLE.recv([最大字节=512], [超时毫秒=0])",  "接收客户端数据文本, 超时或无数据返回 nil"},
+    {"recv_bytes",    0, 2, m_ble_recv_bytes,    "BLE.recv_bytes([最大字节], [超时])",      "接收二进制 bytes 数据"},
+    {"status",        0, 0, m_ble_status,        "BLE.status()",                           "获取当前 BLE 状态字典"},
+    {"sim_connect",   0, 1, m_ble_sim_connect,   "BLE.sim_connect([connected=true])",      "离线模拟: 设置连接/断开状态"},
+    {"feed_rx_sim",   1, 1, m_ble_feed_rx_sim,   "BLE.feed_rx_sim(数据)",                  "离线模拟: 灌入对端发送数据"},
+};
+
+static const ObjClass ble_class = {
+    "BLE",
+    ble_methods,
+    sizeof ble_methods / sizeof ble_methods[0],
+    ble_format,
+    NULL
+};
+
+static Value f_ble(Interp *in, const Node *at, int argc, Value *argv) {
+    (void)at; (void)argc; (void)argv;
+    NativeObj *o = obj_new(in, &ble_class);
+    return val_obj(o);
+}
+
 /* ================= 10. 注册与内置模块导出 ================= */
 
 static const Native hw_natives[] = {
@@ -1791,6 +1961,7 @@ static const Native hw_natives[] = {
     {"ports",   0, 0, f_ports,   "ports()",                                       "扫描本机可用串口(如 [\"COM3\"])"},
     {"upload",  2, 3, f_upload,  "upload(串口, 脚本文件或代码, [波特率=115200])", "通过串口(或 \"sim\")将脚本烧录到 ESP32 的 l_script 分区"},
     {"connect", 1, 3, f_connect, "connect(串口, [代码或波特率], [代码])",            "连接 ESP32 串口交互终端，或直接远程发送执行代码"},
+    {"BLE",     0, 0, f_ble,     "BLE()",                                         "获取/创建低功耗蓝牙对象; 方法: init/deinit/adv_start/adv_stop/is_connected/send/recv/status"},
 };
 
 const NativeGroup group_hw = {
@@ -1802,6 +1973,11 @@ void hw_install_globals(Interp *in) {
     Value ev = val_obj(esp);
     env_define(in->globals, "ESP32", ev);
     env_define(in->globals, "esp32", ev);
+
+    NativeObj *ble = obj_new(in, &ble_class);
+    Value bv = val_obj(ble);
+    env_define(in->globals, "BLE", bv);
+    env_define(in->globals, "ble", bv);
 }
 
 Value hw_build_module(Interp *in) {
@@ -1819,6 +1995,12 @@ Value hw_build_module(Interp *in) {
         NativeObj *eo = obj_new(in, &esp32_class);
         map_set(m, str_new(in, "ESP32", 5), val_obj(eo));
         map_set(m, str_new(in, "esp32", 5), val_obj(eo));
+    }
+    Value *ble = map_get(m, "BLE");
+    if (!ble) {
+        NativeObj *bo = obj_new(in, &ble_class);
+        map_set(m, str_new(in, "BLE", 3), val_obj(bo));
+        map_set(m, str_new(in, "ble", 3), val_obj(bo));
     }
     gc_pop_roots(in, 1);
     return mv;

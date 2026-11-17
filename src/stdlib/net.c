@@ -441,6 +441,188 @@ static Value f_tcp(Interp *in, const Node *at, int argc, Value *argv) {
     return val_obj(o);
 }
 
+/* ================= 3.2 TcpServer 服务端实现 ================= */
+
+typedef struct {
+    l_tcp_sock_t sock;
+    int listening;
+    int port;
+    char host[64];
+} TcpServerHandle;
+
+static TcpServerHandle *tcpserver_handle(NativeObj *o) {
+    return (TcpServerHandle *)o->extra;
+}
+
+static void tcpserver_obj_destroy(NativeObj *o) {
+    if (!o || !o->extra) return;
+    TcpServerHandle *h = tcpserver_handle(o);
+    if (h->listening && h->sock >= 0) {
+        l_tcp_close(h->sock);
+        h->sock = -1;
+        h->listening = 0;
+    }
+    free(h);
+    o->extra = NULL;
+}
+
+static void tcpserver_format(const NativeObj *obj, char *buf, size_t size) {
+    TcpServerHandle *h = (TcpServerHandle *)obj->extra;
+    if (h && h->listening) {
+        snprintf(buf, size, "<TcpServer %s:%d 监听中>", h->host, h->port);
+    } else {
+        snprintf(buf, size, "<TcpServer 已关闭>");
+    }
+}
+
+/* 为 accept 到的客户端套接字创建 Tcp 对象 */
+static Value tcpserver_make_client_obj(Interp *in, l_tcp_sock_t sock, const char *client_ip, int client_port) {
+    NativeObj *o = obj_new(in, &tcp_class);
+    o->extra = malloc(sizeof(TcpHandle));
+    if (!o->extra) {
+        l_tcp_close(sock);
+        return val_nil();
+    }
+    TcpHandle *h = tcp_handle(o);
+    memset(h, 0, sizeof(*h));
+    h->sock = sock;
+    h->connected = 1;
+    h->port = client_port;
+    snprintf(h->host, sizeof(h->host), "%s", client_ip ? client_ip : "unknown");
+    return val_obj(o);
+}
+
+/* accept([超时毫秒=1000]): 等待并接受新客户端连接, 超时返回 nil (便于主循环与心跳共存), 成功返回 Tcp 客户端对象 */
+static Value m_tcpserver_accept(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    int timeout_ms = (argc > 0 && argv[0].type == V_INT) ? (int)argv[0].as.i : 1000;
+    NativeObj *o = self.as.obj;
+    TcpServerHandle *h = tcpserver_handle(o);
+    if (!h || !h->listening) {
+        rt_error(in, at, "TcpServer.accept() 失败: 服务端已关闭或未在监听");
+    }
+
+    char client_ip[64] = "";
+    int client_port = 0;
+    char err[160] = "";
+
+    l_tcp_sock_t client_sock = l_tcp_accept(h->sock, timeout_ms, client_ip, sizeof(client_ip), &client_port, err, sizeof(err));
+    if (client_sock > 0) {
+        Value client_val = tcpserver_make_client_obj(in, client_sock, client_ip, client_port);
+        if (client_val.type == V_NIL) {
+            rt_error(in, at, "TcpServer.accept() 内存不足, 无法分配客户端连接对象");
+        }
+        return client_val;
+    } else if (client_sock == 0) {
+        return val_nil(); /* 超时, 无连接进站 */
+    } else {
+        rt_error(in, at, "TcpServer.accept() 监听接收失败: %s", err);
+        return val_nil();
+    }
+}
+
+/* is_listening(): 查询服务端是否处于监听中 */
+static Value m_tcpserver_is_listening(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)argc; (void)argv;
+    TcpServerHandle *h = tcpserver_handle(self.as.obj);
+    return val_bool(h && h->listening);
+}
+
+/* close(): 主动关闭监听端口并释放资源 */
+static Value m_tcpserver_close(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)in; (void)at; (void)argc; (void)argv;
+    TcpServerHandle *h = tcpserver_handle(self.as.obj);
+    if (h && h->listening && h->sock >= 0) {
+        l_tcp_close(h->sock);
+        h->sock = -1;
+        h->listening = 0;
+    }
+    return self;
+}
+
+/* info(): 返回 {host, port, listening} 状态字典 */
+static Value m_tcpserver_info(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)argc; (void)argv; (void)at;
+    TcpServerHandle *h = tcpserver_handle(self.as.obj);
+    Map *m = map_new(in);
+    map_put_cstr(in, m, "host", h ? h->host : "");
+    map_put_int(in, m, "port", h ? h->port : 0);
+    map_put_bool(in, m, "listening", h && h->listening);
+    return val_map(m);
+}
+
+static const ObjMethod tcpserver_methods[] = {
+    {"accept",       0, 1, m_tcpserver_accept,       "tcpserver.accept([超时毫秒=1000])", "等待并接入新客户端, 超时返回 nil 便于轮询, 成功返回 Tcp 实例"},
+    {"is_listening", 0, 0, m_tcpserver_is_listening, "tcpserver.is_listening()",          "查询服务端是否处于监听中"},
+    {"close",        0, 0, m_tcpserver_close,        "tcpserver.close()",                 "主动关闭监听套接字"},
+    {"info",         0, 0, m_tcpserver_info,         "tcpserver.info()",                  "返回 {host, port, listening} 字典"},
+};
+
+static const ObjClass tcpserver_class = {
+    "TcpServer",
+    tcpserver_methods,
+    sizeof tcpserver_methods / sizeof tcpserver_methods[0],
+    tcpserver_format,
+    tcpserver_obj_destroy
+};
+
+/* TcpServer(port, [host="0.0.0.0"], [backlog=5]) 或 TcpServer(host, port, [backlog=5])
+ * 创建 TCP 服务端并立即绑定监听 */
+static Value f_tcpserver(Interp *in, const Node *at, int argc, Value *argv) {
+    if (argc < 1) {
+        rt_error(in, at, "TcpServer() 缺少参数: 至少需要指定监听端口");
+    }
+
+    int port = 0;
+    const char *host = "0.0.0.0";
+    int backlog = 5;
+
+    if (argv[0].type == V_INT) {
+        port = (int)argv[0].as.i;
+        if (argc > 1 && argv[1].type == V_STR) {
+            host = val_get_cstr(argv[1]);
+        }
+        if (argc > 2 && argv[2].type == V_INT) {
+            backlog = (int)argv[2].as.i;
+        }
+    } else if (argv[0].type == V_STR) {
+        host = val_get_cstr(argv[0]);
+        if (argc < 2 || argv[1].type != V_INT) {
+            rt_error(in, at, "TcpServer() 参数错误: 传入 host 时第二参数必须为端口 int");
+        }
+        port = (int)argv[1].as.i;
+        if (argc > 2 && argv[2].type == V_INT) {
+            backlog = (int)argv[2].as.i;
+        }
+    } else {
+        rt_error(in, at, "TcpServer() 参数错误: 第一参数必须为端口数字或主机名字符串");
+    }
+
+    if (port < 1 || port > 65535) {
+        rt_error(in, at, "TcpServer() 端口必须在 1..65535 之间, 实际为 %d", port);
+    }
+    if (backlog <= 0) backlog = 5;
+
+    char err[160] = "";
+    l_tcp_sock_t sock = l_tcp_listen(host, port, backlog, err, sizeof(err));
+    if (sock < 0) {
+        rt_error(in, at, "TcpServer() 绑定监听 %s:%d 失败: %s。排查建议: 确认端口未被其他程序占用", host, port, err);
+    }
+
+    NativeObj *o = obj_new(in, &tcpserver_class);
+    o->extra = malloc(sizeof(TcpServerHandle));
+    if (!o->extra) {
+        l_tcp_close(sock);
+        rt_error(in, at, "TcpServer() 内存不足, 无法创建服务端对象");
+    }
+    TcpServerHandle *h = tcpserver_handle(o);
+    memset(h, 0, sizeof(*h));
+    h->sock = sock;
+    h->listening = 1;
+    h->port = port;
+    snprintf(h->host, sizeof(h->host), "%s", host);
+    return val_obj(o);
+}
+
 /* ================= 4. 原生函数表与分组注册 ================= */
 
 static const Native net_natives[] = {
@@ -456,6 +638,7 @@ static const Native net_natives[] = {
     {"http_post",         1, 4, f_http_post,         "http_post(url, [body], [hdr], [to])",    "发起 HTTP/HTTPS POST 请求, 返回 {status, body, ok, error}"},
     {"sntp_sync",         0, 2, f_sntp_sync,         "sntp_sync([ntp_server], [timeout_ms])",  "网络对时, 成功返回 true, 失败抛出带原因的可捕获错误"},
     {"Tcp",               2, 3, f_tcp,               "Tcp(host, port, [timeout_ms=5000])",     "创建 TCP 客户端并连接, 失败抛出带原因的可捕获错误; 方法: send/recv/recv_bytes/close/info"},
+    {"TcpServer",         1, 3, f_tcpserver,         "TcpServer(port, [host=\"0.0.0.0\"], [backlog=5])", "创建 TCP 服务端并监听端口; 方法: accept/is_listening/close/info"},
 };
 
 const NativeGroup group_net = {

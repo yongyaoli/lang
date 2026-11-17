@@ -849,6 +849,98 @@ details.q .a p + p { margin-top: 8px; }
 .muted { color: var(--ink-3); }
 .small { font-size: 13px; }
 
+/* ---------- flasher (web terminal & upload) ---------- */
+.flasher-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 24px;
+}
+.flasher-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.flasher-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-family: var(--mono);
+  color: var(--ink-2);
+}
+.flasher-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+.flasher-dot.online { background: #22c55e; box-shadow: 0 0 8px #22c55e88; }
+.flasher-dot.busy { background: #eab308; box-shadow: 0 0 8px #eab30888; }
+.flasher-dot.error { background: #ef4444; }
+
+.flasher-textarea {
+  width: 100%;
+  min-height: 220px;
+  background: var(--code-bg);
+  color: var(--code-ink);
+  border: 1px solid var(--code-line);
+  border-radius: var(--r-sm);
+  padding: 14px;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.flasher-term-box {
+  width: 100%;
+  height: 240px;
+  background: #020617;
+  color: #86efac;
+  border: 1px solid #1e293b;
+  border-radius: var(--r-sm);
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.flasher-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.flasher-input {
+  flex: 1;
+  background: var(--code-bg);
+  color: var(--code-ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 13.5px;
+}
+.flasher-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.flasher-select {
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {

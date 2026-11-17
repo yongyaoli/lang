@@ -6,6 +6,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -112,6 +114,96 @@ int l_tcp_recv(l_tcp_sock_t sock, void *buf, size_t cap, int timeout_ms,
 
 void l_tcp_close(l_tcp_sock_t sock) {
     close((int)sock);
+}
+
+l_tcp_sock_t l_tcp_listen(const char *host, int port, int backlog,
+                          char *errbuf, size_t cap) {
+    int s = socket(AF_INET, SOCK_STREAM, 0);
+    if (s < 0) {
+        tcp_set_err(errbuf, cap, "创建监听套接字失败", errno);
+        return -1;
+    }
+
+    int reuse = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons((uint16_t)port);
+
+    if (!host || strcmp(host, "0.0.0.0") == 0 || host[0] == '\0') {
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    } else {
+        if (inet_pton(AF_INET, host, &addr.sin_addr) <= 0) {
+            tcp_set_err(errbuf, cap, "无效的绑定地址", 0);
+            close(s);
+            return -1;
+        }
+    }
+
+    if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+        tcp_set_err(errbuf, cap, "绑定端口失败", errno);
+        close(s);
+        return -1;
+    }
+
+    if (listen(s, backlog > 0 ? backlog : 5) != 0) {
+        tcp_set_err(errbuf, cap, "监听端口失败", errno);
+        close(s);
+        return -1;
+    }
+
+    return (l_tcp_sock_t)s;
+}
+
+l_tcp_sock_t l_tcp_accept(l_tcp_sock_t server_sock, int timeout_ms,
+                          char *client_ip, size_t ip_cap, int *client_port,
+                          char *errbuf, size_t cap_err) {
+    int s = (int)server_sock;
+    if (s < 0) {
+        tcp_set_err(errbuf, cap_err, "监听套接字无效", 0);
+        return -1;
+    }
+
+    if (timeout_ms >= 0) {
+        fd_set rset;
+        FD_ZERO(&rset);
+        FD_SET(s, &rset);
+        struct timeval tv = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
+        int sr = select(s + 1, &rset, NULL, NULL, &tv);
+        if (sr == 0) return 0; /* 超时，无新连接 */
+        if (sr < 0) {
+            if (errno == EINTR) return 0;
+            tcp_set_err(errbuf, cap_err, "select 监听等待失败", errno);
+            return -1;
+        }
+    }
+
+    struct sockaddr_in client_addr;
+    socklen_t addr_len = sizeof(client_addr);
+    memset(&client_addr, 0, sizeof(client_addr));
+
+    int client_s = accept(s, (struct sockaddr *)&client_addr, &addr_len);
+    if (client_s < 0) {
+        if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 0;
+        }
+        tcp_set_err(errbuf, cap_err, "accept 接受客户端连接失败", errno);
+        return -1;
+    }
+
+    if (client_ip && ip_cap > 0) {
+        const char *ip_str = inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, (socklen_t)ip_cap);
+        if (!ip_str) {
+            snprintf(client_ip, ip_cap, "unknown");
+        }
+    }
+    if (client_port) {
+        *client_port = ntohs(client_addr.sin_port);
+    }
+
+    return (l_tcp_sock_t)client_s;
 }
 
 #endif /* !_WIN32 */
