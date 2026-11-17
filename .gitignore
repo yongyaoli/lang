@@ -6,6 +6,7 @@ l
 dist/
 bin/
 *.bin
+*.vsix
 esp32/build/
 esp32/build-*/
 assets/l.res
@@ -17,3 +18,12 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 # site/ 曾用于本地站点草稿; 官网现由 site/ 目录发布 (GitHub Pages), 不再忽略
+
+# 本地私密敏感凭据与本地环境配置 (严格禁止提交)
+*.local
+*.local.*
+*.secret
+*.secrets
+.secrets*
+secrets*
+credentials*
