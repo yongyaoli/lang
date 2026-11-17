@@ -379,6 +379,7 @@ static Node *while_stmt(Parser *p) {
 
 static Node *for_stmt(Parser *p) {
     Node *n = new_node(N_FOR, &p->prev);
+    int has_paren = match(p, T_LPAREN);
     if (match(p, T_SEMICOLON)) {
         n->as.for_stmt.init = NULL;
     } else if (match(p, T_LET)) {
@@ -388,7 +389,12 @@ static Node *for_stmt(Parser *p) {
     }
     if (!check(p, T_SEMICOLON)) n->as.for_stmt.cond = expression(p);
     consume(p, T_SEMICOLON, "for 条件后期望 ';'");
-    if (!check(p, T_LBRACE)) n->as.for_stmt.step = expression(p);
+    if (has_paren) {
+        if (!check(p, T_RPAREN)) n->as.for_stmt.step = expression(p);
+        consume(p, T_RPAREN, "for 头部期望 ')'");
+    } else {
+        if (!check(p, T_LBRACE)) n->as.for_stmt.step = expression(p);
+    }
     n->as.for_stmt.body = block(p);
     return n;
 }
