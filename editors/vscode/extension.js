@@ -186,6 +186,10 @@ const BUILTIN_DOCS = {
     signature: 'class SSD1306(i2c_bus, [addr=0x3C], [width=128], [height=64])',
     doc: '0.96寸 I2C OLED 屏幕驱动 (来自 examples/drivers/SSD1306.l)。\n\n方法:\n- `.clear()`: 清空显存缓冲\n- `.pixel(x, y, [color=1])`: 绘制单点\n- `.text(s, x, y)`: 打印 5x7 ASCII 字符文本\n- `.show()`: 将显存缓冲一次性刷新到 OLED 屏幕'
   },
+  'ILI9341': {
+    signature: 'class ILI9341(spi, cs_pin, dc_pin, [rst_pin], [bl_pin])',
+    doc: '2.4/2.8/3.2寸 SPI 彩色 TFT LCD 显示屏驱动 (来自 examples/drivers/ILI9341.l)。分辨率 240x320，RGB565 65K 色。\n\n方法:\n- `.clear([color])` / `.fill(color)`: 全屏纯色填充\n- `.pixel(x, y, color)`: 绘制单个彩色像素点\n- `.line(x0, y0, x1, y1, color)`: Bresenham 算法画线\n- `.rect(x, y, w, h, color)` / `.fill_rect(...)`: 绘制空心/实心矩形\n- `.circle(x, y, r, color)` / `.fill_circle(...)`: 绘制空心/实心圆形\n- `.text(s, x, y, [color], [bg], [scale=1])`: 打印带缩放的 ASCII 文本\n- `.set_rotation(0~3)`: 切换 0度/90度/180度/270度 旋转模式\n- `.backlight(true/false)`: 控制背光使能'
+  },
   'AHT20': {
     signature: 'class AHT20(i2c_bus, [addr=0x38])',
     doc: '高精度 I2C 温湿度传感器驱动 (来自 examples/drivers/AHT20.l)。\n\n方法:\n- `.read()`: 触发采样并返回 `{temp, humi}` (温度℃与湿度%RH)'
