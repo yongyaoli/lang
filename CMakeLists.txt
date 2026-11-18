@@ -34,6 +34,7 @@ add_executable(l
     src/stdlib/io.c
     src/stdlib/sys.c
     src/stdlib/net.c
+    src/stdlib/json.c
     src/stdlib/tcp_posix.c
     src/stdlib/tcp_win.c
     # 入口

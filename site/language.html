@@ -446,7 +446,43 @@ while true {
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>09</b> 继续</p>
+      <p class="eyebrow"><b>09</b> 数据交换</p>
+      <h2>流式 JSON 编解码器</h2>
+      <p class="lede">遵循 RFC 8259 规范，纯 C99 零外部依赖单趟递归下降实现。直接在托管堆上分配 Map/Array，支持美化格式与最大 16 层深度防御，出错时精确定位到行列。</p>
+
+      <div class="term mt-32">
+        <div class="bar"><span class="bar-t">json_demo.l (JSON 序列化与反序列化)</span><button class="copy" type="button" data-copied="已复制">复制</button></div>
+        <pre><code class="hl">// 1. 序列化: 原生字典 / 数组 -> JSON 字符串
+let telemetry = {
+    device: "esp32_c6",
+    online: true,
+    temp: 26.5,
+    pins: [2, 4, 12]
+};
+
+let json_compact = JSON.stringify(telemetry);
+print("紧凑 JSON: " + json_compact);
+
+let json_pretty = JSON.stringify(telemetry, true); // 传 true 启用 2 空格美化缩进
+
+// 2. 反序列化: JSON 字符串 -> 原生字典 / 数组
+let payload = JSON.parse(json_compact);
+print("设备型号: " + payload.device);
+print("温度数值: " + str(payload.temp));
+
+// 3. 语法容错与异常捕获
+try {
+    JSON.parse("{ bad_json: true }"); // 缺少引号
+} catch (e) {
+    print("捕获错误: " + e.message); // [JSON 解析错误 行:1 列:3] 对象属性名必须是以双引号包围的字符串
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>10</b> 继续</p>
       <h2>下一步</h2>
       <div class="linklist mt-24">
         <a href="install.html"><b>安装解释器</b><span>Windows / Linux / macOS</span></a>

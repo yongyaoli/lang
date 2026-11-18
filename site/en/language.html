@@ -446,7 +446,43 @@ while true {
 
   <section class="section">
     <div class="wrap">
-      <p class="eyebrow"><b>09</b> Next</p>
+      <p class="eyebrow"><b>09</b> Data Interchange</p>
+      <h2>Streaming JSON Codec</h2>
+      <p class="lede">Strict RFC 8259 compliance, pure C99 single-pass recursive descent parser with zero external dependencies. Directly allocates Map/Array on the managed heap with 16-level depth defense and precise line:column error reporting.</p>
+
+      <div class="term mt-32">
+        <div class="bar"><span class="bar-t">json_demo.l (JSON Stringify & Parse)</span><button class="copy" type="button" data-copied="Copied">Copy</button></div>
+        <pre><code class="hl">// 1. Stringify: Native Map / Array -> JSON string
+let telemetry = {
+    device: "esp32_c6",
+    online: true,
+    temp: 26.5,
+    pins: [2, 4, 12]
+};
+
+let json_compact = JSON.stringify(telemetry);
+print("Compact JSON: " + json_compact);
+
+let json_pretty = JSON.stringify(telemetry, true); // pass true for 2-space pretty formatting
+
+// 2. Parse: JSON string -> Native Map / Array
+let payload = JSON.parse(json_compact);
+print("Device model: " + payload.device);
+print("Temperature: " + str(payload.temp));
+
+// 3. Error Handling with try / catch
+try {
+    JSON.parse("{ bad_json: true }"); // missing quotes on key
+} catch (e) {
+    print("Caught error: " + e.message); // [JSON parse error line:1 col:3] ...
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow"><b>10</b> Next</p>
       <h2>Keep going</h2>
       <div class="linklist mt-24">
         <a href="install.html"><b>Install the interpreter</b><span>Windows / Linux / macOS</span></a>

@@ -10,21 +10,10 @@ $tmp = Join-Path $env:TEMP "l_test_out.txt"
 $pass = 0; $fail = 0
 
 # TCP loopback echo server on 127.0.0.1:23075 (needed by tests/21_tcp_socket.l)
-$echoJob = $null
+$echoProc = $null
 if (Test-Path (Join-Path $root "tests\21_tcp_socket.l")) {
-    $echoJob = Start-Job -ScriptBlock {
-        $l = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 23075)
-        $l.Start()
-        try {
-            while ($true) {
-                $c = $l.AcceptTcpClient()
-                $s = $c.GetStream()
-                $buf = New-Object byte[] 4096
-                while (($n = $s.Read($buf, 0, $buf.Length)) -gt 0) { $s.Write($buf, 0, $n) }
-                $c.Close()
-            }
-        } finally { $l.Stop() }
-    }
+    $echoCmd = '$l=[System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback,23075);$l.Start();try{while($true){$c=$l.AcceptTcpClient();$s=$c.GetStream();$buf=New-Object byte[] 4096;while(($n=$s.Read($buf,0,$buf.Length))-gt 0){$s.Write($buf,0,$n)};$c.Close()}}finally{$l.Stop()}'
+    $echoProc = Start-Process powershell -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $echoCmd -PassThru
     Start-Sleep -Milliseconds 400   # wait for listener
 }
 
@@ -45,9 +34,8 @@ foreach ($src in Get-ChildItem (Join-Path $root "tests") -Filter *.l | Sort-Obje
     else { Write-Host "FAIL  $($src.Name)" -ForegroundColor Red; $fail++ }
 }
 
-if ($echoJob) {
-    Stop-Job $echoJob -ErrorAction SilentlyContinue
-    Remove-Job $echoJob -Force -ErrorAction SilentlyContinue
+if ($echoProc) {
+    try { $echoProc.Kill() } catch {}
 }
 
 if (-not $Update) {

@@ -150,6 +150,23 @@ const BUILTIN_DOCS = {
     signature: 'function connect(port: string, [baud: int = 115200]): void',
     doc: '通过串口连接到 ESP32 板载交互终端 (REPL)。'
   },
+  // JSON 编解码器
+  'JSON': {
+    signature: 'singleton class JSON',
+    doc: 'RFC 8259 流式 JSON 编解码器全局对象。纯 C99 零外部依赖单趟解析，具备深度防御与精确定位。\n\n方法:\n- `JSON.stringify(val, [pretty=false])`: 序列化原生 Map/Array/值 为 JSON 字符串 (pretty 为 true 时缩进 2 空格)\n- `JSON.parse(str)`: 将 JSON 字符串反序列化为原生 Map/Array 结构，支持行列精确定位报错'
+  },
+  'json': {
+    signature: 'singleton class json (alias for JSON)',
+    doc: '全局 JSON 对象的小写别名。参见 `JSON`。'
+  },
+  'json_parse': {
+    signature: 'function json_parse(str: string): any',
+    doc: '将 JSON 格式字符串解析为 L 原生数据类型 (Map/Array/值)。'
+  },
+  'json_stringify': {
+    signature: 'function json_stringify(val: any, [pretty: bool = false]): string',
+    doc: '将 L 原生数据类型序列化为 JSON 字符串。'
+  },
   // TCP 客户端与轻量服务端
   'Tcp': {
     signature: 'class Tcp(host: string, port: int, [timeout_ms: int = 5000])',

@@ -1,0 +1,36 @@
+--- 1. 基本字面量 ---
+null: nil
+bool: true false
+int: 0 -42 2147483647
+float: 3.14 -0.05 100.0 0.25
+string: hello
+world	"quoted"
+unicode: 中文A
+--- 2. 数组与对象 ---
+empty arr len: 0
+empty map len: 0
+device: esp32_c6
+online: true
+rssi: -68
+pins: 2 4 12
+--- 3. 序列化 ---
+compact length > 0: true
+roundtrip check: AHT20 25.5 25.5
+pretty lines count: 7
+--- 4. bytes 缓冲区 ---
+bytes to json: [170,85,1]
+--- 5. 别名与模块 ---
+json lowercase: [1,2]
+json_parse function: 42
+json_stringify function: true
+from import mod: true
+--- 6. 异常捕获 ---
+PASS: 空文本 -> 空文本不是合法的 JSON
+PASS: 数组尾随逗号 -> JSON 数组不允许尾随逗号 (trailing comma)
+PASS: 对象尾随逗号 -> JSON 对象不允许尾随逗号 (trailing comma)
+PASS: 键名无引号 -> 对象属性名必须是以双引号包围的字符串
+PASS: 多余字符 -> 根值之后存在多余字符
+PASS: 未闭合字符串 -> 未闭合的字符串字面量
+--- 7. 嵌套深度防御 ---
+PASS: 深层数组 -> JSON 嵌套层次过深 (超过 16 层)
+全部 JSON 测试完成!

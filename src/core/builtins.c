@@ -7,6 +7,7 @@
 
 #include "interp.h"
 #include "bytecode.h"
+#include "l_json.h"
 
 /* 参数类型检查 */
 void need_arg(Interp *in, const Node *at, const char *fn, Value *argv, int i,
@@ -257,6 +258,8 @@ void builtins_install(Interp *in) {
     if (!env_find(in->globals, "sim"))
         env_define(in->globals, "sim", val_str(str_new(in, "sim", 3)));
 #endif
+    /* 注册全局 JSON 内置编解码器对象与函数 */
+    json_install_globals(in);
     /* 隐藏内置: 字节码 import 语句通过它执行导入, 不出现在 help 列表中 */
     {
         static Native import_native = {
@@ -290,6 +293,12 @@ static const struct { const char *name; const char *title; const char *text; } t
      "  true false nil                 布尔值与空值\n"
      "  and or not                     逻辑运算(and / or 短路求值)\n"
      "  & | ^ ~ << >>                  位运算(仅整数); int/int 为整数除法(7/2 为 3)\n"},
+    {"json", "JSON 编解码 (RFC 8259)",
+     "  JSON.stringify(val[, pretty])   将原生值/数组/字典序列化为 JSON 字符串 (pretty=true 缩进)\n"
+     "  JSON.parse(str)                 将 JSON 字符串反序列化为原生字典/数组/值 (行列精确定位)\n"
+     "  json_stringify(val[, pretty])   全局函数别名\n"
+     "  json_parse(str)                 全局函数别名\n"
+     "  import \"json\"                   导入包含 parse / stringify 的模块字典\n"},
     {"types", "数据类型",
      "  int        32 位整数(支持 0x 0b)  1   0xFF  0b101\n"
      "  float      64 位浮点数           3.14   1.0\n"

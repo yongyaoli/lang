@@ -3,6 +3,7 @@
 #include "compiler.h"
 #include "vm.h"
 #include "l_heap.h"
+#include "l_json.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -356,7 +357,9 @@ static Value eval_binary(Interp *in, const Node *n) {
     }
 
     Value l = eval(in, n->as.binary.left);
+    gc_push_root(in, l);
     Value r = eval(in, n->as.binary.right);
+    gc_pop_roots(in, 1);
 
     switch (op) {
     case T_EQ_EQ:   return val_bool(values_equal(l, r));
@@ -982,6 +985,13 @@ static Signal exec_import(Interp *in, const Node *n) {
     if (strcmp(raw_path, "esp32") == 0 || strcmp(raw_path, "gpio") == 0 ||
         strcmp(raw_path, "hw") == 0 || strcmp(raw_path, "machine") == 0) {
         Value mod_val = hw_build_module(in);
+        const char *bname = n->as.import_stmt.alias ? n->as.import_stmt.alias : raw_path;
+        env_define(in->env, l_strdup(bname), mod_val);
+        return SIG_NORMAL;
+    }
+    /* 内置 JSON 编解码模块: 无需文件系统即可 import "json" */
+    if (strcmp(raw_path, "json") == 0) {
+        Value mod_val = json_build_module(in);
         const char *bname = n->as.import_stmt.alias ? n->as.import_stmt.alias : raw_path;
         env_define(in->env, l_strdup(bname), mod_val);
         return SIG_NORMAL;

@@ -1835,6 +1835,7 @@ static Value m_ble_send(Interp *in, const Node *at, Value self, int argc, Value 
 }
 
 static Value m_ble_recv(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)at;
     (void)self;
     int max_len = (argc > 0 && argv[0].type == V_INT) ? (int)argv[0].as.i : 512;
     int tmo     = (argc > 1 && argv[1].type == V_INT) ? (int)argv[1].as.i : 0;
@@ -1850,6 +1851,7 @@ static Value m_ble_recv(Interp *in, const Node *at, Value self, int argc, Value 
 }
 
 static Value m_ble_recv_bytes(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)at;
     (void)self;
     int max_len = (argc > 0 && argv[0].type == V_INT) ? (int)argv[0].as.i : 512;
     int tmo     = (argc > 1 && argv[1].type == V_INT) ? (int)argv[1].as.i : 0;
