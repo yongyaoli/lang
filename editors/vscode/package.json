@@ -1,8 +1,8 @@
 {
   "name": "l-language-support",
   "displayName": "L Language - Embedded & IoT Support",
-  "description": "L 语言 (lang) 官方扩展：语法高亮、类与方法 Hover 悬停提示、Ctrl+Click 跳转定义与 CodeLens 引用计数 (PHP级IDE体验)",
-  "version": "0.3.0",
+  "description": "L 语言 (lang) 官方扩展：右键一键运行/烧录、串口自动检测与监视器、类与方法 Hover 提示、Ctrl+Click 跳转定义与语法高亮",
+  "version": "0.3.1",
   "publisher": "yongyaoli",
   "icon": "./icons/icon.png",
   "engines": {
@@ -23,11 +23,19 @@
     "esp32",
     "embedded",
     "iot",
+    "serial",
     "micropython"
   ],
   "main": "./extension.js",
   "activationEvents": [
-    "onLanguage:l"
+    "onLanguage:l",
+    "onCommand:l.runScript",
+    "onCommand:l.runScriptVM",
+    "onCommand:l.uploadToBoard",
+    "onCommand:l.selectSerialPort",
+    "onCommand:l.openSerialMonitor",
+    "onCommand:l.compileBytecode",
+    "onCommand:l.startRepl"
   ],
   "categories": [
     "Programming Languages"
@@ -60,6 +68,132 @@
         "label": "L 文件图标",
         "path": "./icons/l-icon-theme.json"
       }
-    ]
+    ],
+    "commands": [
+      {
+        "command": "l.runScript",
+        "title": "L: 运行当前脚本 (Run L Script)",
+        "icon": "$(play)"
+      },
+      {
+        "command": "l.uploadToBoard",
+        "title": "L: 烧录脚本到 ESP32 开发板 (Upload to Board)",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "l.openSerialMonitor",
+        "title": "L: 打开串口监视器 / 终端 (Serial Monitor)",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "l.selectSerialPort",
+        "title": "L: 选择 ESP32 串口 (Select Serial Port)",
+        "icon": "$(circuit-board)"
+      },
+      {
+        "command": "l.runScriptVM",
+        "title": "L: 运行当前脚本 (VM 模式)",
+        "icon": "$(run)"
+      },
+      {
+        "command": "l.compileBytecode",
+        "title": "L: 编译为预编译字节码 (.lc)",
+        "icon": "$(package)"
+      },
+      {
+        "command": "l.startRepl",
+        "title": "L: 打开交互式 REPL 终端",
+        "icon": "$(console)"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "l.runScript",
+          "when": "resourceLangId == l",
+          "group": "l_group@1"
+        },
+        {
+          "command": "l.uploadToBoard",
+          "when": "resourceLangId == l",
+          "group": "l_group@2"
+        },
+        {
+          "command": "l.openSerialMonitor",
+          "when": "resourceLangId == l",
+          "group": "l_group@3"
+        },
+        {
+          "command": "l.runScriptVM",
+          "when": "resourceLangId == l",
+          "group": "l_group@4"
+        },
+        {
+          "command": "l.compileBytecode",
+          "when": "resourceLangId == l",
+          "group": "l_group@5"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "l.runScript",
+          "when": "resourceExtname == .l",
+          "group": "l_group@1"
+        },
+        {
+          "command": "l.uploadToBoard",
+          "when": "resourceExtname == .l",
+          "group": "l_group@2"
+        },
+        {
+          "command": "l.compileBytecode",
+          "when": "resourceExtname == .l",
+          "group": "l_group@3"
+        }
+      ],
+      "editor/title/run": [
+        {
+          "command": "l.runScript",
+          "when": "resourceLangId == l",
+          "group": "navigation@1"
+        },
+        {
+          "command": "l.uploadToBoard",
+          "when": "resourceLangId == l",
+          "group": "navigation@2"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "L Language",
+      "properties": {
+        "l.executablePath": {
+          "type": "string",
+          "default": "l",
+          "description": "L 语言解释器 (l.exe) 的路径，默认为系统 PATH 中的 l 命令"
+        },
+        "l.serialPort": {
+          "type": "string",
+          "default": "",
+          "description": "ESP32 开发板的目标串口名称 (例如 COM3, /dev/ttyUSB0)"
+        },
+        "l.baudRate": {
+          "type": "number",
+          "default": 115200,
+          "enum": [
+            9600,
+            19200,
+            38400,
+            57600,
+            115200,
+            230400,
+            460800,
+            921600
+          ],
+          "description": "串口监视器通信波特率，默认为 115200"
+        }
+      }
+    }
   }
 }

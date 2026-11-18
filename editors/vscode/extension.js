@@ -1,4 +1,5 @@
 const vscode = require('vscode');
+const cp = require('child_process');
 
 // L 语言内置常用对象与函数文档库
 const BUILTIN_DOCS = {
@@ -148,6 +149,33 @@ const BUILTIN_DOCS = {
   'connect': {
     signature: 'function connect(port: string, [baud: int = 115200]): void',
     doc: '通过串口连接到 ESP32 板载交互终端 (REPL)。'
+  },
+  // TCP 客户端与轻量服务端
+  'Tcp': {
+    signature: 'class Tcp(host: string, port: int, [timeout_ms: int = 5000])',
+    doc: 'TCP 客户端套接字连接对象。\n\n方法:\n- `.send(data)`: 发送字符串或 bytes\n- `.recv([max_bytes=1024], [timeout_ms=2000])`: 接收文本\n- `.recv_bytes([max_bytes], [timeout_ms])`: 接收二进制 bytes\n- `.is_connected()`: 查询连接有效性\n- `.close()`: 关闭套接字\n- `.info()`: 返回 `{host, port, connected}`'
+  },
+  'TcpServer': {
+    signature: 'class TcpServer(port: int, [host: string = "0.0.0.0"], [backlog: int = 5])',
+    doc: '轻量级 TCP / Web 服务端对象。用于在 ESP32 或 PC 上搭建局域网 Web 控制后台与配网接口。\n\n方法:\n- `.accept([timeout_ms=1000])`: 等待并接入新客户端, 超时返回 `nil` (轮询友好, 不卡死心跳), 成功返回 `Tcp` 客户端对象\n- `.is_listening()`: 查询是否处于监听中\n- `.close()`: 主动关闭服务端\n- `.info()`: 返回 `{host, port, listening}`'
+  },
+  // 低功耗蓝牙 BLE
+  'BLE': {
+    signature: 'singleton class BLE',
+    doc: '全局低功耗蓝牙 (BLE GATT Server) 控制对象。支持蓝牙广播、手机 App 连接与无线数据透传。\n\n方法:\n- `BLE.init([device_name="L-Lang-BLE"])`: 初始化协议栈并设置广播名\n- `BLE.adv_start([adv_name])`: 开启蓝牙广播\n- `BLE.adv_stop()`: 停止蓝牙广播\n- `BLE.is_connected()`: 查询是否有客户端连接\n- `BLE.send(data)`: 向客户端发送文本或 bytes\n- `BLE.recv([max_len=512], [timeout_ms=0])`: 接收客户端数据\n- `BLE.recv_bytes([max_len], [timeout_ms])`: 二进制安全接收\n- `BLE.status()`: 返回 `{initialized, advertising, connected, ...}`\n- `BLE.deinit()`: 释放蓝牙资源'
+  },
+  // 开源传感器与外设驱动
+  'SSD1306': {
+    signature: 'class SSD1306(i2c_bus, [addr=0x3C], [width=128], [height=64])',
+    doc: '0.96寸 I2C OLED 屏幕驱动 (来自 examples/drivers/SSD1306.l)。\n\n方法:\n- `.clear()`: 清空显存缓冲\n- `.pixel(x, y, [color=1])`: 绘制单点\n- `.text(s, x, y)`: 打印 5x7 ASCII 字符文本\n- `.show()`: 将显存缓冲一次性刷新到 OLED 屏幕'
+  },
+  'AHT20': {
+    signature: 'class AHT20(i2c_bus, [addr=0x38])',
+    doc: '高精度 I2C 温湿度传感器驱动 (来自 examples/drivers/AHT20.l)。\n\n方法:\n- `.read()`: 触发采样并返回 `{temp, humi}` (温度℃与湿度%RH)'
+  },
+  'WS2812': {
+    signature: 'class WS2812(pin, count)',
+    doc: 'RGB 全彩幻彩灯珠驱动 (来自 examples/drivers/WS2812.l)。\n\n方法:\n- `.set_rgb(i, r, g, b)`: 设置单个灯珠颜色\n- `.wheel(pos)`: 彩虹色轮算法\n- `.show()`: 发送脉冲刷新灯珠'
   }
 };
 
@@ -555,6 +583,280 @@ function activate(context) {
   });
 
   context.subscriptions.push(hoverProvider, definitionProvider, codeLensProvider, symbolProvider);
+
+  // ---------------- 5. 串口检测、终端控制与右键菜单指令 ----------------
+
+  // 状态栏: 串口选择器
+  portStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  portStatusBarItem.command = 'l.selectSerialPort';
+  updatePortStatusBar(getSelectedPort());
+  portStatusBarItem.show();
+
+  // 状态栏: 串口监视器快捷启动
+  monitorStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+  monitorStatusBarItem.command = 'l.openSerialMonitor';
+  monitorStatusBarItem.text = '$(terminal) 串口监视';
+  monitorStatusBarItem.tooltip = '打开 ESP32 串口交互终端监视器';
+  monitorStatusBarItem.show();
+
+  // 自动检测可用串口 (若只有一个串口且未配置，则自动智能选中)
+  listSerialPorts().then(ports => {
+    if (ports && ports.length > 0) {
+      const cur = getSelectedPort();
+      if (!cur || !ports.includes(cur)) {
+        if (ports.length === 1) {
+          setSelectedPort(ports[0]);
+          vscode.window.setStatusBarMessage(`[L 语言] 自动检测并选定串口: ${ports[0]}`, 4000);
+        }
+      }
+    }
+  }).catch(() => {});
+
+  // 注册命令
+  const cmdRun = vscode.commands.registerCommand('l.runScript', runScriptCommand);
+  const cmdRunVM = vscode.commands.registerCommand('l.runScriptVM', runScriptVMCommand);
+  const cmdUpload = vscode.commands.registerCommand('l.uploadToBoard', uploadToBoardCommand);
+  const cmdSelectPort = vscode.commands.registerCommand('l.selectSerialPort', selectSerialPortCommand);
+  const cmdMonitor = vscode.commands.registerCommand('l.openSerialMonitor', openSerialMonitorCommand);
+  const cmdCompile = vscode.commands.registerCommand('l.compileBytecode', compileBytecodeCommand);
+  const cmdRepl = vscode.commands.registerCommand('l.startRepl', startReplCommand);
+
+  context.subscriptions.push(
+    portStatusBarItem,
+    monitorStatusBarItem,
+    cmdRun,
+    cmdRunVM,
+    cmdUpload,
+    cmdSelectPort,
+    cmdMonitor,
+    cmdCompile,
+    cmdRepl
+  );
+}
+
+// 终端与状态栏全局句柄
+let lTerminal = null;
+let serialTerminal = null;
+let portStatusBarItem = null;
+let monitorStatusBarItem = null;
+
+// 获取用户配置的 L 解释器可执行文件命令
+function getLCommand() {
+  const cfg = vscode.workspace.getConfiguration('l');
+  const exe = cfg.get('executablePath');
+  return (exe && exe.trim()) ? exe.trim() : 'l';
+}
+
+// 获取当前配置或选中的串口
+function getSelectedPort() {
+  const cfg = vscode.workspace.getConfiguration('l');
+  return cfg.get('serialPort') || '';
+}
+
+// 设置选中的串口并更新持久化配置与状态栏
+async function setSelectedPort(port) {
+  const cfg = vscode.workspace.getConfiguration('l');
+  await cfg.update('serialPort', port, vscode.ConfigurationTarget.Global);
+  updatePortStatusBar(port);
+}
+
+// 更新状态栏显示
+function updatePortStatusBar(port) {
+  if (!portStatusBarItem) return;
+  if (port) {
+    portStatusBarItem.text = `$(circuit-board) ${port}`;
+    portStatusBarItem.tooltip = `已选 ESP32 串口: ${port} (点击切换)`;
+  } else {
+    portStatusBarItem.text = `$(plug) L: 选择串口`;
+    portStatusBarItem.tooltip = `点击选择 ESP32 目标串口`;
+  }
+}
+
+// 扫描系统可用串口列表 (优先调用 l -p, 备选 PowerShell)
+function listSerialPorts() {
+  return new Promise((resolve) => {
+    const lExe = getLCommand();
+    cp.execFile(lExe, ['-p'], { timeout: 3000 }, (err, stdout) => {
+      if (!err && stdout) {
+        const matches = stdout.match(/(COM\d+|\/dev\/tty[A-Za-z0-9_-]+|\/dev\/cu\.[A-Za-z0-9_-]+)/g);
+        if (matches && matches.length > 0) {
+          const unique = Array.from(new Set(matches));
+          return resolve(unique);
+        }
+      }
+
+      // Windows 备选方案: PowerShell 查询串口
+      if (process.platform === 'win32') {
+        cp.exec('powershell -NoProfile -Command "[System.IO.Ports.SerialPort]::GetPortNames()"', { timeout: 3000 }, (err2, stdout2) => {
+          if (!err2 && stdout2) {
+            const lines = stdout2.split(/\r?\n/).map(s => s.trim()).filter(s => /^COM\d+$/i.test(s));
+            if (lines.length > 0) {
+              return resolve(Array.from(new Set(lines)));
+            }
+          }
+          resolve([]);
+        });
+      } else {
+        resolve([]);
+      }
+    });
+  });
+}
+
+// 获取待执行的目标文件路径 (支持从右键菜单 uri 或当前激活编辑器提取，自动保存未存文件)
+async function getTargetFilePath(uri) {
+  if (uri && uri.fsPath) {
+    return uri.fsPath;
+  }
+  const editor = vscode.window.activeTextEditor;
+  if (editor && editor.document) {
+    if (editor.document.isDirty) {
+      await editor.document.save();
+    }
+    return editor.document.uri.fsPath;
+  }
+  return null;
+}
+
+// 获取或创建普通运行终端
+function getLTerminal() {
+  if (!lTerminal || lTerminal.exitStatus !== undefined) {
+    lTerminal = vscode.window.createTerminal({ name: 'L Terminal' });
+  }
+  return lTerminal;
+}
+
+// 1. 运行当前脚本 (AST 解释器模式)
+async function runScriptCommand(uri) {
+  const filePath = await getTargetFilePath(uri);
+  if (!filePath) {
+    vscode.window.showErrorMessage('请先打开或选择一个要运行的 .l 脚本文件');
+    return;
+  }
+  const term = getLTerminal();
+  term.show();
+  const exe = getLCommand();
+  term.sendText(`"${exe}" "${filePath}"`);
+}
+
+// 2. 运行当前脚本 (VM 虚拟机模式)
+async function runScriptVMCommand(uri) {
+  const filePath = await getTargetFilePath(uri);
+  if (!filePath) {
+    vscode.window.showErrorMessage('请先打开或选择一个要运行的 .l 脚本文件');
+    return;
+  }
+  const term = getLTerminal();
+  term.show();
+  const exe = getLCommand();
+  term.sendText(`"${exe}" --vm "${filePath}"`);
+}
+
+// 3. 编译为二进制字节码 (.lc)
+async function compileBytecodeCommand(uri) {
+  const filePath = await getTargetFilePath(uri);
+  if (!filePath) {
+    vscode.window.showErrorMessage('请先打开或选择一个要编译的 .l 脚本文件');
+    return;
+  }
+  const exe = getLCommand();
+  cp.execFile(exe, ['-c', filePath], (err, stdout, stderr) => {
+    if (err) {
+      vscode.window.showErrorMessage(`字节码编译失败: ${stderr || stdout || err.message}`);
+    } else {
+      const lcPath = filePath.replace(/\.l$/i, '.lc');
+      vscode.window.showInformationMessage(`编译成功，已生成二进制字节码: ${lcPath}`);
+    }
+  });
+}
+
+// 4. 选择串口交互 QuickPick
+async function selectSerialPortCommand() {
+  const ports = await listSerialPorts();
+  const curPort = getSelectedPort();
+
+  const items = ports.map(p => ({
+    label: `$(circuit-board) ${p}`,
+    description: p === curPort ? '当前已选' : '',
+    port: p
+  }));
+
+  items.push({ label: '$(refresh) 重新扫描可用串口...', port: '__refresh__' });
+  items.push({ label: '$(edit) 手动输入串口名称...', port: '__manual__' });
+
+  const picked = await vscode.window.showQuickPick(items, {
+    placeHolder: ports.length > 0 ? '选择用于烧录或监控的目标串口' : '未检测到可用串口，可手动输入或重新插拔后扫描'
+  });
+
+  if (!picked) return curPort;
+
+  if (picked.port === '__refresh__') {
+    return selectSerialPortCommand();
+  }
+  if (picked.port === '__manual__') {
+    const input = await vscode.window.showInputBox({
+      prompt: '请输入串口名称 (如 COM3 或 /dev/ttyUSB0)',
+      value: curPort
+    });
+    if (input && input.trim()) {
+      await setSelectedPort(input.trim());
+      vscode.window.showInformationMessage(`已设置目标串口: ${input.trim()}`);
+      return input.trim();
+    }
+    return curPort;
+  }
+
+  await setSelectedPort(picked.port);
+  vscode.window.showInformationMessage(`已切换目标串口: ${picked.port}`);
+  return picked.port;
+}
+
+// 5. 烧录脚本到 ESP32 开发板
+async function uploadToBoardCommand(uri) {
+  const filePath = await getTargetFilePath(uri);
+  if (!filePath) {
+    vscode.window.showErrorMessage('请先打开或选择一个要烧录的 .l 脚本文件');
+    return;
+  }
+  let port = getSelectedPort();
+  if (!port) {
+    port = await selectSerialPortCommand();
+    if (!port) return;
+  }
+
+  const term = getLTerminal();
+  term.show();
+  const exe = getLCommand();
+  term.sendText(`"${exe}" -u ${port} "${filePath}"`);
+}
+
+// 6. 打开串口监视器 / 交互终端
+async function openSerialMonitorCommand() {
+  let port = getSelectedPort();
+  if (!port) {
+    port = await selectSerialPortCommand();
+    if (!port) return;
+  }
+  const cfg = vscode.workspace.getConfiguration('l');
+  const baud = cfg.get('baudRate') || 115200;
+  const exe = getLCommand();
+
+  if (serialTerminal && serialTerminal.exitStatus === undefined) {
+    serialTerminal.dispose();
+  }
+  serialTerminal = vscode.window.createTerminal({
+    name: `L 串口监视器 (${port})`
+  });
+  serialTerminal.show();
+  serialTerminal.sendText(`"${exe}" -s ${port} ${baud}`);
+}
+
+// 7. 打开本地交互式 REPL 终端
+function startReplCommand() {
+  const term = getLTerminal();
+  term.show();
+  const exe = getLCommand();
+  term.sendText(`"${exe}"`);
 }
 
 function deactivate() {}
