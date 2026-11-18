@@ -2,7 +2,7 @@
   "name": "l-language-support",
   "displayName": "L Language - Embedded & IoT Support",
   "description": "L 语言 (lang) 官方扩展：右键一键运行/烧录、串口自动检测与监视器、类与方法 Hover 提示、Ctrl+Click 跳转定义与语法高亮",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "publisher": "yongyaoli",
   "icon": "./icons/icon.png",
   "engines": {

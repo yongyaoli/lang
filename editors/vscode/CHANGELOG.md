@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.3.2
+
+- 修复 PowerShell 终端下由于引号包裹导致命令解析失败的问题（`"l" "path"` 报 `意外的标记` 错误），优化跨 Shell（PowerShell/cmd/bash/zsh）的命令行调用兼容性；
+- 完善 Hover 悬停提示文档：增加 `JSON`、`json`、`json_parse` 与 `json_stringify` 说明。
+
 ## 0.3.1
 
 - 新增编辑器/资源管理器右键上下文菜单与标题栏运行快捷按钮：支持一键运行、烧录到 ESP32 开发板、VM 模式运行、编译为 `.lc` 二进制字节码；

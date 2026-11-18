@@ -743,6 +743,26 @@ function getLTerminal() {
   return lTerminal;
 }
 
+// 格式化终端执行命令 (兼容 Windows PowerShell、cmd、Git Bash、macOS 与 Linux)
+function formatShellCommand(exe, args = []) {
+  let cmd = (exe && exe.trim()) ? exe.trim() : 'l';
+  // 如果可执行文件路径中包含空格，在 PowerShell 下必须加 & 运算符以正确调用，避免被当成字符串字面量
+  if (/\s/.test(cmd)) {
+    cmd = `& "${cmd}"`;
+  }
+  const formattedArgs = args.map(arg => {
+    if (arg === undefined || arg === null) return '';
+    const str = String(arg);
+    // 包含空格或路径分隔符的参数添加双引号保护
+    if (str.includes(' ') || str.includes('\\') || str.includes('/')) {
+      return `"${str}"`;
+    }
+    return str;
+  }).filter(s => s.length > 0);
+
+  return [cmd, ...formattedArgs].join(' ');
+}
+
 // 1. 运行当前脚本 (AST 解释器模式)
 async function runScriptCommand(uri) {
   const filePath = await getTargetFilePath(uri);
@@ -753,7 +773,7 @@ async function runScriptCommand(uri) {
   const term = getLTerminal();
   term.show();
   const exe = getLCommand();
-  term.sendText(`"${exe}" "${filePath}"`);
+  term.sendText(formatShellCommand(exe, [filePath]));
 }
 
 // 2. 运行当前脚本 (VM 虚拟机模式)
@@ -766,7 +786,7 @@ async function runScriptVMCommand(uri) {
   const term = getLTerminal();
   term.show();
   const exe = getLCommand();
-  term.sendText(`"${exe}" --vm "${filePath}"`);
+  term.sendText(formatShellCommand(exe, ['--vm', filePath]));
 }
 
 // 3. 编译为二进制字节码 (.lc)
@@ -844,7 +864,7 @@ async function uploadToBoardCommand(uri) {
   const term = getLTerminal();
   term.show();
   const exe = getLCommand();
-  term.sendText(`"${exe}" -u ${port} "${filePath}"`);
+  term.sendText(formatShellCommand(exe, ['-u', port, filePath]));
 }
 
 // 6. 打开串口监视器 / 交互终端
@@ -865,7 +885,7 @@ async function openSerialMonitorCommand() {
     name: `L 串口监视器 (${port})`
   });
   serialTerminal.show();
-  serialTerminal.sendText(`"${exe}" -s ${port} ${baud}`);
+  serialTerminal.sendText(formatShellCommand(exe, ['-s', port, baud]));
 }
 
 // 7. 打开本地交互式 REPL 终端
@@ -873,7 +893,7 @@ function startReplCommand() {
   const term = getLTerminal();
   term.show();
   const exe = getLCommand();
-  term.sendText(`"${exe}"`);
+  term.sendText(formatShellCommand(exe, []));
 }
 
 function deactivate() {}
