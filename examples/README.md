@@ -25,6 +25,7 @@
 | :--- | :--- | :--- | :--- |
 | [`mqtt_aliyun_iot.l`](mqtt_aliyun_iot.l) | `MqttClient` / 阿里云 Alink 物模型 | 阿里云物联网平台设备连接、属性上报 (Alink JSON) 与反向命令控制响应 | `l examples/mqtt_aliyun_iot.l` |
 | [`mqtt_huaweicloud_iot.l`](mqtt_huaweicloud_iot.l) | `MqttClient` / 华为云 IoTDA | 华为云设备接入，多服务属性采集上报与云端控制指令下发回调 | `l examples/mqtt_huaweicloud_iot.l` |
+| [`mqtts_huaweicloud_iot.l`](mqtts_huaweicloud_iot.l) | `MqttClient` / 华为云 MQTTS (8883) | 华为云 MQTTS 加密端点接入与高保真仿真演练，支持设备密钥认证与反向控制 | `l examples/mqtts_huaweicloud_iot.l` |
 | [`tcp_client.l`](tcp_client.l) | `Tcp` 类 / Socket 客户端 | TCP 双向通信套接字，演示数据帧发送、超时接收与连接异常容错 | `l examples/tcp_client.l` |
 | [`iot_sensor_json.l`](iot_sensor_json.l) | `JSON.stringify()` / `JSON.parse()` | 多传感器物理量采集，RFC 8259 规范的紧凑 JSON 序列化与云端上报模拟 | `l examples/iot_sensor_json.l` |
 | [`http_server.l`](http_server.l) | `TcpServer` 类 / 80 端口 Web 服务 | 完整的嵌入式 Web 服务器，提供局域网网页控制台与 REST 接口 | `l examples/http_server.l` |

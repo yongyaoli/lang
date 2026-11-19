@@ -291,12 +291,22 @@ static Value m_mqtt_connect(Interp *in, const Node *at, Value self, int argc, Va
     if (r <= 0) {
         l_tcp_close(h->sock);
         h->sock = -1;
-        rt_error(in, at, "MqttClient.connect() 等待 CONNACK 响应超时或连接被断开: %s", err[0] ? err : "服务端未响应");
+        if (port == 8883) {
+            rt_error(in, at, "MqttClient.connect() 连接 MQTTS (8883) 未响应或被对端断开: "
+                             "目标端口要求 TLS/SSL 加密层握手。排查建议: 确认物联网平台是否开放标准 1883 端口，或启用设备密钥认证");
+        } else {
+            rt_error(in, at, "MqttClient.connect() 等待 CONNACK 响应超时或连接被断开: %s", err[0] ? err : "服务端未响应");
+        }
     }
     if (r < 4 || (ack_buf[0] >> 4) != MQTT_PKT_CONNACK || ack_buf[1] != 0x02) {
         l_tcp_close(h->sock);
         h->sock = -1;
-        rt_error(in, at, "MqttClient.connect() 服务端返回非法 CONNACK 报文");
+        if (port == 8883) {
+            rt_error(in, at, "MqttClient.connect() 连接 MQTTS (8883) 收到非 MQTT 报文: "
+                             "目标端口为 TLS/SSL 加密端口，对端可能返回了 TLS 握手告警 (Alert)");
+        } else {
+            rt_error(in, at, "MqttClient.connect() 服务端返回非法 CONNACK 报文");
+        }
     }
 
     uint8_t return_code = ack_buf[3];
