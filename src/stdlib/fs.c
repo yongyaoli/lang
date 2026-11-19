@@ -143,7 +143,7 @@ const char *l_vfs_resolve_path(const char *path, char *out_buf, size_t cap) {
 
 /* FS.exists(path): 检查文件或目录是否存在 */
 static Value m_fs_exists(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)self;
+    (void)self; (void)argc;
     need_arg(in, at, "FS.exists", argv, 0, V_STR, "string");
     char real_path[512];
     l_vfs_resolve_path(val_get_cstr(argv[0]), real_path, sizeof(real_path));
@@ -152,7 +152,7 @@ static Value m_fs_exists(Interp *in, const Node *at, Value self, int argc, Value
 
 /* FS.read(path): 读取整个文件为文本字符串 */
 static Value m_fs_read(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)self;
+    (void)self; (void)argc;
     need_arg(in, at, "FS.read", argv, 0, V_STR, "string");
     const char *orig_path = val_get_cstr(argv[0]);
     char real_path[512];
@@ -255,7 +255,7 @@ static Value m_fs_append(Interp *in, const Node *at, Value self, int argc, Value
 
 /* FS.remove(path): 删除文件或空目录 */
 static Value m_fs_remove(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)self;
+    (void)self; (void)argc;
     need_arg(in, at, "FS.remove", argv, 0, V_STR, "string");
     char real_path[512];
     l_vfs_resolve_path(val_get_cstr(argv[0]), real_path, sizeof(real_path));
@@ -280,7 +280,7 @@ static int vfs_cmp_cstr(const void *a, const void *b) {
 
 /* FS.list([dir_path="/flash"]): 列出目录下所有条目 */
 static Value m_fs_list(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)self;
+    (void)at; (void)self;
     const char *orig_path = "/flash";
     if (argc > 0 && argv[0].type == V_STR) {
         orig_path = val_get_cstr(argv[0]);
@@ -329,7 +329,7 @@ static Value m_fs_list(Interp *in, const Node *at, Value self, int argc, Value *
 
 /* FS.mkdir(dir_path): 递归创建目录 */
 static Value m_fs_mkdir(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)self;
+    (void)self; (void)argc;
     need_arg(in, at, "FS.mkdir", argv, 0, V_STR, "string");
     char real_path[512];
     l_vfs_resolve_path(val_get_cstr(argv[0]), real_path, sizeof(real_path));
@@ -339,7 +339,7 @@ static Value m_fs_mkdir(Interp *in, const Node *at, Value self, int argc, Value 
 
 /* FS.size(path): 获取文件大小字节数 */
 static Value m_fs_size(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)self;
+    (void)self; (void)argc;
     need_arg(in, at, "FS.size", argv, 0, V_STR, "string");
     char real_path[512];
     l_vfs_resolve_path(val_get_cstr(argv[0]), real_path, sizeof(real_path));
@@ -350,7 +350,7 @@ static Value m_fs_size(Interp *in, const Node *at, Value self, int argc, Value *
 
 /* FS.isdir(path): 是否为目录 */
 static Value m_fs_isdir(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)self;
+    (void)self; (void)argc;
     need_arg(in, at, "FS.isdir", argv, 0, V_STR, "string");
     char real_path[512];
     l_vfs_resolve_path(val_get_cstr(argv[0]), real_path, sizeof(real_path));
@@ -360,7 +360,7 @@ static Value m_fs_isdir(Interp *in, const Node *at, Value self, int argc, Value 
 
 /* FS.rename(old_path, new_path): 重命名或移动文件 */
 static Value m_fs_rename(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)self;
+    (void)self; (void)argc;
     need_arg(in, at, "FS.rename", argv, 0, V_STR, "string");
     need_arg(in, at, "FS.rename", argv, 1, V_STR, "string");
     char old_real[512], new_real[512];
@@ -372,7 +372,7 @@ static Value m_fs_rename(Interp *in, const Node *at, Value self, int argc, Value
 
 /* FS.copy(src, dst): 复制文件 */
 static Value m_fs_copy(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)self;
+    (void)self; (void)argc;
     need_arg(in, at, "FS.copy", argv, 0, V_STR, "string");
     need_arg(in, at, "FS.copy", argv, 1, V_STR, "string");
     char src_real[512], dst_real[512];
@@ -628,7 +628,7 @@ static Value m_file_tell(Interp *in, const Node *at, Value self, int argc, Value
 
 /* file.eof(): 查询是否到达文件末尾 */
 static Value m_file_eof(Interp *in, const Node *at, Value self, int argc, Value *argv) {
-    (void)argc; (void)argv;
+    (void)in; (void)at; (void)argc; (void)argv;
     FileHandle *h = file_handle(self.as.obj);
     if (h->closed || !h->fp) return val_bool(1);
     return val_bool(feof(h->fp) != 0);

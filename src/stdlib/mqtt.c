@@ -171,6 +171,7 @@ static void mqtt_format(const NativeObj *obj, char *buf, size_t size) {
 
 /* client.set_auth(username, password) */
 static Value m_mqtt_set_auth(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)argc;
     MqttHandle *h = mqtt_handle(self.as.obj);
     need_arg(in, at, "MqttClient.set_auth", argv, 0, V_STR, "string");
     need_arg(in, at, "MqttClient.set_auth", argv, 1, V_STR, "string");
@@ -181,6 +182,7 @@ static Value m_mqtt_set_auth(Interp *in, const Node *at, Value self, int argc, V
 
 /* client.set_keepalive(seconds) */
 static Value m_mqtt_set_keepalive(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)argc;
     MqttHandle *h = mqtt_handle(self.as.obj);
     int sec = int_arg(in, at, "MqttClient.set_keepalive", argv, 0);
     if (sec <= 0 || sec > 65535) {
@@ -468,6 +470,7 @@ static Value m_mqtt_subscribe(Interp *in, const Node *at, Value self, int argc, 
 
 /* client.unsubscribe(topic) */
 static Value m_mqtt_unsubscribe(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)argc;
     MqttHandle *h = mqtt_handle(self.as.obj);
     if (!h->connected) rt_error(in, at, "MqttClient.unsubscribe() 失败: 客户端未连接到 Broker");
     need_arg(in, at, "MqttClient.unsubscribe", argv, 0, V_STR, "string");
@@ -534,14 +537,14 @@ static Value m_mqtt_on_message(Interp *in, const Node *at, Value self, int argc,
 static void dispatch_mqtt_publish(Interp *in, MqttHandle *h, const uint8_t *body, uint32_t body_len, uint8_t qos) {
     if (body_len < 2) return;
     uint16_t topic_len = read_u16_be(body);
-    if (2 + topic_len > body_len) return;
+    if ((uint32_t)(2 + topic_len) > body_len) return;
 
     const char *topic_str = (const char *)(body + 2);
     size_t offset = 2 + topic_len;
 
     uint16_t packet_id = 0;
     if (qos > 0) {
-        if (offset + 2 > body_len) return;
+        if ((uint32_t)(offset + 2) > body_len) return;
         packet_id = read_u16_be(body + offset);
         offset += 2;
 
@@ -662,12 +665,10 @@ static Value m_mqtt_sim_connect(Interp *in, const Node *at, Value self, int argc
 
 /* client.sim_incoming(topic, payload): PC 离线模式模拟云端主动下发消息 */
 static Value m_mqtt_sim_incoming(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)argc;
     MqttHandle *h = mqtt_handle(self.as.obj);
     need_arg(in, at, "MqttClient.sim_incoming", argv, 0, V_STR, "string");
     need_arg(in, at, "MqttClient.sim_incoming", argv, 1, V_STR, "string");
-
-    const char *topic_str = val_get_cstr(argv[0]);
-    const char *payload_str = val_get_cstr(argv[1]);
 
     Map *handlers = mqtt_get_handler_map(in);
     char key[32];
