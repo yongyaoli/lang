@@ -23,16 +23,20 @@
 ### 3. 物联网与传输协议 (IoT Protocols)
 | 示例文件 | 核心 API / 硬件 | 功能说明 | 运行命令 |
 | :--- | :--- | :--- | :--- |
+| [`mqtt_aliyun_iot.l`](mqtt_aliyun_iot.l) | `MqttClient` / 阿里云 Alink 物模型 | 阿里云物联网平台设备连接、属性上报 (Alink JSON) 与反向命令控制响应 | `l examples/mqtt_aliyun_iot.l` |
+| [`mqtt_huaweicloud_iot.l`](mqtt_huaweicloud_iot.l) | `MqttClient` / 华为云 IoTDA | 华为云设备接入，多服务属性采集上报与云端控制指令下发回调 | `l examples/mqtt_huaweicloud_iot.l` |
 | [`tcp_client.l`](tcp_client.l) | `Tcp` 类 / Socket 客户端 | TCP 双向通信套接字，演示数据帧发送、超时接收与连接异常容错 | `l examples/tcp_client.l` |
 | [`iot_sensor_json.l`](iot_sensor_json.l) | `JSON.stringify()` / `JSON.parse()` | 多传感器物理量采集，RFC 8259 规范的紧凑 JSON 序列化与云端上报模拟 | `l examples/iot_sensor_json.l` |
 | [`http_server.l`](http_server.l) | `TcpServer` 类 / 80 端口 Web 服务 | 完整的嵌入式 Web 服务器，提供局域网网页控制台与 REST 接口 | `l examples/http_server.l` |
 | [`ili9341_demo.l`](ili9341_demo.l) | `ILI9341` 驱动 / 彩色 TFT UI | 彩色液晶屏综合展示：顶栏看板、指标卡、同心圆状态灯与彩虹色块 | `l examples/ili9341_demo.l` |
+| [`display_chinese_demo.l`](display_chinese_demo.l) | SSD1306 / ILI9341 / 中文字库 | 双屏幕 16x16 汉字与 ASCII 中英文无缝混排及动态字模扩展实测 | `l examples/display_chinese_demo.l` |
 
-### 4. 传感器开源驱动库 ([drivers/](drivers/))
+### 4. 传感器开源驱动与中文字库 ([drivers/](drivers/))
 | 驱动文件 | 外设型号与接口 | 功能与特性 |
 | :--- | :--- | :--- |
-| [`drivers/SSD1306.l`](drivers/SSD1306.l) | 0.96 寸 I2C OLED 屏幕 | 内置 1KB 显存缓冲与 5x7 ASCII 字符点阵绘制 |
-| [`drivers/ILI9341.l`](drivers/ILI9341.l) | 2.4/2.8/3.2寸 SPI 彩色 TFT 屏 | 240x320 分辨率，RGB565 65K 色，支持旋转、几何图形与多倍字号文本 (演示见 `ili9341_demo.l`) |
+| [`drivers/font_cn.l`](drivers/font_cn.l) | 16x16 常用点阵中文字库 | 纯 L 语言实现，内置常用工业环境物联网汉字字模，支持运行时动态注册扩展 |
+| [`drivers/SSD1306.l`](drivers/SSD1306.l) | 0.96 寸 I2C OLED 屏幕 | 内置 1KB 显存缓冲，支持 5x7 ASCII 与 16x16 中文字符垂直混排 |
+| [`drivers/ILI9341.l`](drivers/ILI9341.l) | 2.4/2.8/3.2寸 SPI 彩色 TFT 屏 | 240x320 分辨率，RGB565 65K 色，支持旋转、几何图形与中英文混排多倍缩放 (演示见 `ili9341_demo.l`) |
 | [`drivers/AHT20.l`](drivers/AHT20.l) | I2C 高精度温湿度传感器 | 20 位原码校验与温度 (℃) / 湿度 (%RH) 浮点物理量转换 |
 | [`drivers/WS2812.l`](drivers/WS2812.l) | 单总线 GPIO RGB 幻彩灯珠 | GRB 色彩缓冲与彩虹渐变色轮算法 (`wheel()`) |
 | [`drivers/demo_all.l`](drivers/demo_all.l) | 多传感器联动工作站 | OLED 屏幕实时绘制温湿度数值并同步幻彩状态指示灯 |

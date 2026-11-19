@@ -1,7 +1,10 @@
 // ============================================================================
 // SSD1306 0.96寸 I2C OLED 显示屏驱动 (纯 L 语言实现)
 // 适配分辨率: 128x64 / 128x32, 默认 I2C 地址 0x3C
+// 支持 5x7 ASCII 英文点阵与 16x16 中文字符混排显示
 // ============================================================================
+
+import "./font_cn.l" as font_cn;
 
 // 5x7 ASCII 紧凑基础字模表 (常用字符: 空格, 符号, 0-9, A-Z, a-z)
 // 每个字符占 5 个字节列扫描数据
@@ -47,7 +50,7 @@ fn create_ssd1306(i2c, addr, width, height) {
     if height == nil { height = 64; }
 
     // PC 模拟模式下自动注册虚拟从机
-    if !ESP32.info().is_hardware {
+    if i2c != nil and !ESP32.info().is_hardware {
         i2c.sim_device(addr);
     }
 
@@ -65,12 +68,16 @@ fn create_ssd1306(i2c, addr, width, height) {
 
         // 发送单字节指令
         "cmd": fn(c) {
-            i2c.write_reg(addr, 0x00, [c]);
+            if i2c != nil {
+                i2c.write_reg(addr, 0x00, [c]);
+            }
         },
 
         // 发送多字节指令序列
         "cmds": fn(list) {
-            i2c.write_reg(addr, 0x00, list);
+            if i2c != nil {
+                i2c.write_reg(addr, 0x00, list);
+            }
         },
 
         // 初始化 OLED 屏幕寄存器
@@ -146,14 +153,38 @@ fn create_ssd1306(i2c, addr, width, height) {
             return self;
         },
 
-        // 绘制英文字符串文本
+        // 绘制单个 16x16 汉字
+        "char_cn": fn(x, y, ch) {
+            let matrix = font_cn.FontCN.get(ch);
+            if matrix == nil { return self; }
+            for (let row = 0; row < 16; row = row + 1) {
+                let line_bits = matrix[row];
+                for (let col = 0; col < 16; col = col + 1) {
+                    if (line_bits & (1 << (15 - col))) != 0 {
+                        self.pixel(x + col, y + row, 1);
+                    }
+                }
+            }
+            return self;
+        },
+
+        // 绘制中英文混排字符串文本 (自动识别汉字并居中对齐)
         "text": fn(x, y, text_str) {
             let cur_x = x;
-            let text_len = len(text_str);
-            for let i = 0; i < text_len; i = i + 1 {
-                let ch = text_str[i];
-                self.char(cur_x, y, ch);
-                cur_x = cur_x + 6; // 5 像素字符 + 1 像素间距
+            let cur_y = y;
+            let total_chars = ulen(text_str);
+            for (let i = 0; i < total_chars; i = i + 1) {
+                let ch = uat(text_str, i);
+                if ch == "\n" {
+                    cur_x = x;
+                    cur_y = cur_y + 18;
+                } else if font_cn.FontCN.has(ch) {
+                    self.char_cn(cur_x, cur_y, ch);
+                    cur_x = cur_x + 16;
+                } else {
+                    self.char(cur_x, cur_y + 4, ch);
+                    cur_x = cur_x + 6;
+                }
             }
             return self;
         },
@@ -180,7 +211,9 @@ fn create_ssd1306(i2c, addr, width, height) {
                     chunk_len = buffer_size - offset;
                 }
                 let slice = buffer.slice(offset, offset + chunk_len);
-                i2c.write_reg(addr, 0x40, slice);
+                if i2c != nil {
+                    i2c.write_reg(addr, 0x40, slice);
+                }
             }
             return self;
         }

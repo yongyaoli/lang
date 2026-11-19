@@ -176,6 +176,15 @@ const BUILTIN_DOCS = {
     signature: 'class TcpServer(port: int, [host: string = "0.0.0.0"], [backlog: int = 5])',
     doc: '轻量级 TCP / Web 服务端对象。用于在 ESP32 或 PC 上搭建局域网 Web 控制后台与配网接口。\n\n方法:\n- `.accept([timeout_ms=1000])`: 等待并接入新客户端, 超时返回 `nil` (轮询友好, 不卡死心跳), 成功返回 `Tcp` 客户端对象\n- `.is_listening()`: 查询是否处于监听中\n- `.close()`: 主动关闭服务端\n- `.info()`: 返回 `{host, port, listening}`'
   },
+  // MQTT 3.1.1 物联网客户端
+  'MqttClient': {
+    signature: 'class MqttClient([client_id: string])',
+    doc: 'MQTT 3.1.1 标准物联网客户端。原生对齐阿里云 IoT、华为云 IoTDA 等云平台规范。\n\n方法:\n- `.set_auth(username, password)`: 设置鉴权用户名与密码/Token\n- `.set_keepalive(seconds)`: 设置心跳保活秒数 (默认 60s)\n- `.set_will(topic, msg, [qos=0], [retain=false])`: 设置遗嘱消息\n- `.connect(host, [port=1883], [timeout_ms=5000])`: 建立连接并完成握手\n- `.publish(topic, payload, [qos=0], [retain=false])`: 发布消息 (支持 QoS 0/1)\n- `.subscribe(topic, [qos=0])`: 订阅主题 (支持 + 与 # 通配符)\n- `.unsubscribe(topic)`: 取消订阅\n- `.on_message(fn(topic, payload))`: 注册接收云端下发数据的回调闭包\n- `.poll([timeout_ms=100])`: 轮询套接字分发下行数据包\n- `.ping()`: 手动发送心跳保活\n- `.is_connected()`: 查询连接状态\n- `.disconnect()`: 安全断开连接'
+  },
+  'mqtt': {
+    signature: 'module mqtt',
+    doc: '内置 MQTT 3.1.1 物联网模块 (亦可通过 `import "mqtt"` 导入)。\n\n导出:\n- `mqtt.Client([client_id])`: 构造 MQTT 客户端对象\n- `mqtt.version`: 协议版本字符串 ("3.1.1")'
+  },
   // 低功耗蓝牙 BLE
   'BLE': {
     signature: 'singleton class BLE',

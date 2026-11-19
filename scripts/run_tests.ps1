@@ -3,6 +3,7 @@
 #        .\scripts\run_tests.ps1 -Update    regenerate .out from current output
 param([switch]$Update)
 
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $root = Split-Path -Parent $PSScriptRoot
 $exe = Join-Path $root "l.exe"
@@ -12,10 +13,10 @@ $pass = 0; $fail = 0
 # TCP loopback echo server on 127.0.0.1:23075 (needed by tests/21_tcp_socket.l)
 $echoProc = $null
 if (Test-Path (Join-Path $root "tests\21_tcp_socket.l")) {
-    $echoCmd = '$l=[System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback,23075);$l.Start();try{while($true){$c=$l.AcceptTcpClient();$s=$c.GetStream();$buf=New-Object byte[] 4096;while(($n=$s.Read($buf,0,$buf.Length))-gt 0){$s.Write($buf,0,$n)};$c.Close()}}finally{$l.Stop()}'
-    $echoProc = Start-Process powershell -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $echoCmd -PassThru
-    # 动态探测直至回显监听器就绪 (最多等待 3 秒)
-    for ($i = 0; $i -lt 30; $i++) {
+    $echoScript = Join-Path $PSScriptRoot "echo_server.l"
+    $echoProc = Start-Process -FilePath $exe -ArgumentList "`"$echoScript`"" -WindowStyle Hidden -PassThru
+    # 动态探测直至回显监听器就绪 (最多等待 2 秒)
+    for ($i = 0; $i -lt 20; $i++) {
         try {
             $probe = [System.Net.Sockets.TcpClient]::new()
             $probe.Connect([System.Net.IPAddress]::Loopback, 23075)

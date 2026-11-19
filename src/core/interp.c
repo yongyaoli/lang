@@ -4,6 +4,7 @@
 #include "vm.h"
 #include "l_heap.h"
 #include "l_json.h"
+#include "l_mqtt.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -996,6 +997,15 @@ static Signal exec_import(Interp *in, const Node *n) {
         env_define(in->env, l_strdup(bname), mod_val);
         return SIG_NORMAL;
     }
+    /* 内置 MQTT 3.1.1 物联网客户端模块: 无需文件系统即可 import "mqtt" */
+#if L_WITH_STDLIB_NET
+    if (strcmp(raw_path, "mqtt") == 0) {
+        Value mod_val = mqtt_build_module(in);
+        const char *bname = n->as.import_stmt.alias ? n->as.import_stmt.alias : raw_path;
+        env_define(in->env, l_strdup(bname), mod_val);
+        return SIG_NORMAL;
+    }
+#endif
     char *full_path = resolve_module_path(in->current_file, raw_path);
 
     /* 1. 检查模块是否已经加载在缓存中 */

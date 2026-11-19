@@ -1,0 +1,18 @@
+--- 测试 1. 模块导入与客户端构造 ---
+mqtt version: 3.1.1
+c1 初始状态: false
+--- 测试 2. 鉴权与心跳保活配置 ---
+参数配置完成
+--- 测试 3. 未连接时的防御拦截 ---
+捕获未连接发布拦截: MqttClient.publish() 失败: 客户端未连接到 Broker
+捕获未连接订阅拦截: MqttClient.subscribe() 失败: 客户端未连接到 Broker
+--- 测试 4. PC 离线模拟连接与状态流转 ---
+模拟连接成功, is_connected: true
+--- 测试 5. 消息订阅与下行回调处理 ---
+回调接收消息: /sys/dev_sensor_01/thing/service/property/set 内容: {"params":{"LightSwitch":1}}
+回调接收消息: /downlink/cmd 内容: REBOOT
+--- 测试 6. 注销回调 ---
+注销回调验证成功
+--- 测试 7. 发布消息与断开连接 ---
+断开连接成功, is_connected: false
+=== MQTT 测试结束 ===

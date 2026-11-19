@@ -1,8 +1,10 @@
 // ============================================================================
 // ILI9341 2.4/2.8/3.2寸 彩色 SPI TFT LCD 屏幕驱动 (纯 L 语言开源驱动)
 // 分辨率: 240x320 像素，65K 色 (RGB565 16位色彩)，SPI 接口
-// 包含功能: 软硬件复位、四向旋转、画点/线/矩形/圆形、文本与 5x7 字体无级放大
+// 包含功能: 软硬件复位、四向旋转、画点/线/矩形/圆形、文本与 16x16 中文字模无级放大
 // ============================================================================
+
+import "./font_cn.l" as font_cn;
 
 // 常用 RGB565 16 位颜色预定义 (高5位红, 中6位绿, 低5位蓝)
 const ILI9341_BLACK       = 0x0000;
@@ -410,23 +412,56 @@ fn create_ili9341(spi, cs_pin, dc_pin, rst_pin, bl_pin) {
         },
 
         // 绘制文本字符串 (支持字符放缩与自定义前/背景色)
+        // 绘制 16x16 汉字 (支持自定义色彩、背景色与等比缩放)
+        "char_cn": fn(ch, x, y, color, bg, scale) {
+            if scale == nil or scale < 1 { scale = 1; }
+            let matrix = font_cn.FontCN.get(ch);
+            if matrix == nil { return self; }
+            for (let row = 0; row < 16; row = row + 1) {
+                let line_bits = matrix[row];
+                for (let col = 0; col < 16; col = col + 1) {
+                    let has_dot = (line_bits & (1 << (15 - col))) != 0;
+                    if has_dot {
+                        if scale == 1 {
+                            self.pixel(x + col, y + row, color);
+                        } else {
+                            self.fill_rect(x + col * scale, y + row * scale, scale, scale, color);
+                        }
+                    } else if bg != nil {
+                        if scale == 1 {
+                            self.pixel(x + col, y + row, bg);
+                        } else {
+                            self.fill_rect(x + col * scale, y + row * scale, scale, scale, bg);
+                        }
+                    }
+                }
+            }
+            return self;
+        },
+
+        // 绘制中英文混排文本字符串 (自动检测汉字与英文字符，支持无级缩放与前/背景色)
         "text": fn(s, x, y, color, bg, scale) {
             if color == nil { color = ILI9341_WHITE; }
             if scale == nil { scale = 1; }
             let cur_x = x;
             let cur_y = y;
-            let slen = len(s);
+            let total_chars = ulen(s);
 
-            for (let i = 0; i < slen; i = i + 1) {
-                let c = s[i];
+            for (let i = 0; i < total_chars; i = i + 1) {
+                let c = uat(s, i);
                 if c == "\n" {
                     cur_x = x;
-                    cur_y = cur_y + 8 * scale + 2;
+                    cur_y = cur_y + 18 * scale;
+                } else if font_cn.FontCN.has(c) {
+                    self.char_cn(c, cur_x, cur_y, color, bg, scale);
+                    cur_x = cur_x + 16 * scale + 1; // 16 点阵汉字 + 1 像素间距
                 } else {
-                    self.char(c, cur_x, cur_y, color, bg, scale);
-                    cur_x = cur_x + 6 * scale; // 5 列点阵 + 1 列字符间距
+                    // 英文字符垂直居中对齐 16 点阵汉字 (垂直微调 4*scale)
+                    self.char(c, cur_x, cur_y + 4 * scale, color, bg, scale);
+                    cur_x = cur_x + 6 * scale; // 5 列英文字模 + 1 像素间距
                 }
             }
+            return self;
         },
 
         // 背光控制 (开/关)

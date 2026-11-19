@@ -8,6 +8,7 @@
 #include "interp.h"
 #include "bytecode.h"
 #include "l_json.h"
+#include "l_mqtt.h"
 
 /* 参数类型检查 */
 void need_arg(Interp *in, const Node *at, const char *fn, Value *argv, int i,
@@ -260,6 +261,10 @@ void builtins_install(Interp *in) {
 #endif
     /* 注册全局 JSON 内置编解码器对象与函数 */
     json_install_globals(in);
+#if L_WITH_STDLIB_NET
+    /* 注册全局 MQTT 3.1.1 物联网客户端类 */
+    mqtt_install_globals(in);
+#endif
     /* 隐藏内置: 字节码 import 语句通过它执行导入, 不出现在 help 列表中 */
     {
         static Native import_native = {
@@ -299,6 +304,19 @@ static const struct { const char *name; const char *title; const char *text; } t
      "  json_stringify(val[, pretty])   全局函数别名\n"
      "  json_parse(str)                 全局函数别名\n"
      "  import \"json\"                   导入包含 parse / stringify 的模块字典\n"},
+    {"mqtt", "MQTT 3.1.1 物联网客户端",
+     "  let c = MqttClient([client_id]) 构造 MQTT 客户端 (亦可用 import \"mqtt\")\n"
+     "  c.set_auth(username, password)  设置云端鉴权认证账号与密码\n"
+     "  c.set_keepalive(sec)            设置心跳保活时长 (默认 60s)\n"
+     "  c.set_will(topic, msg[, qos])   设置遗嘱消息 (Will)\n"
+     "  c.connect(host[, port, to_ms])  连接 MQTT Broker 并握手\n"
+     "  c.publish(topic, payload[, qos])发布消息 (支持 QoS 0 与 QoS 1)\n"
+     "  c.subscribe(topic[, qos])       订阅主题 (支持 + 与 # 通配符)\n"
+     "  c.unsubscribe(topic)            取消订阅主题\n"
+     "  c.on_message(fn(topic, payload))注册接收云端下发消息的处理回调\n"
+     "  c.poll([timeout_ms])            轮询套接字分发下行数据包\n"
+     "  c.ping()                        发送心跳保活报文\n"
+     "  c.disconnect()                  优雅断开连接\n"},
     {"types", "数据类型",
      "  int        32 位整数(支持 0x 0b)  1   0xFF  0b101\n"
      "  float      64 位浮点数           3.14   1.0\n"
