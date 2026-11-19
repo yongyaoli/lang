@@ -36,6 +36,7 @@ add_executable(l
     src/stdlib/net.c
     src/stdlib/json.c
     src/stdlib/mqtt.c
+    src/stdlib/fs.c
     src/stdlib/tcp_posix.c
     src/stdlib/tcp_win.c
     # 入口

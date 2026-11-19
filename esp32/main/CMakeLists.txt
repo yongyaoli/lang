@@ -26,6 +26,7 @@ idf_component_register(
         "${LANG_ROOT}/src/stdlib/net.c"
         "${LANG_ROOT}/src/stdlib/json.c"
         "${LANG_ROOT}/src/stdlib/mqtt.c"
+        "${LANG_ROOT}/src/stdlib/fs.c"
         "${LANG_ROOT}/src/stdlib/tcp_posix.c"
     INCLUDE_DIRS
         "${LANG_ROOT}/src/include"

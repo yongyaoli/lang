@@ -5,6 +5,7 @@
 #include "l_heap.h"
 #include "l_json.h"
 #include "l_mqtt.h"
+#include "l_fs.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -885,7 +886,9 @@ __declspec(dllimport) unsigned long __stdcall GetFullPathNameA(const char *lpFil
 #endif
 
 char *read_file_text(const char *path) {
-    FILE *f = fopen(path, "rb");
+    char real_path[512];
+    l_vfs_resolve_path(path, real_path, sizeof(real_path));
+    FILE *f = fopen(real_path, "rb");
     if (!f) return NULL;
     fseek(f, 0, SEEK_END);
     long size = ftell(f);
@@ -917,8 +920,18 @@ static char *resolve_module_path(const char *base_file, const char *import_path)
         snprintf(with_ext, sizeof with_ext, "%s", import_path);
     }
 
-    /* 如果是相对路径且有基准文件, 则以基准文件所在目录拼接 */
-    int is_rel = 1;
+    /* 检查并处理 VFS 虚拟路径 (如 /flash/...) */
+    int is_vfs = 0;
+    char vfs_path[L_PATH_MAX];
+    if (strncmp(with_ext, "/flash/", 7) == 0 || strcmp(with_ext, "/flash") == 0 ||
+        strncmp(with_ext, "\\flash\\", 7) == 0) {
+        l_vfs_resolve_path(with_ext, vfs_path, sizeof(vfs_path));
+        snprintf(with_ext, sizeof with_ext, "%s", vfs_path);
+        is_vfs = 1;
+    }
+
+    /* 如果是相对路径且有基准文件, 则以基准文件所在目录拼接 (VFS 根挂载路径不拼接 base_file) */
+    int is_rel = is_vfs ? 0 : 1;
 #ifdef _WIN32
     if ((isalpha((unsigned char)with_ext[0]) && with_ext[1] == ':') || with_ext[0] == '\\' || with_ext[0] == '/') {
         is_rel = 0;
@@ -1006,6 +1019,13 @@ static Signal exec_import(Interp *in, const Node *n) {
         return SIG_NORMAL;
     }
 #endif
+    /* 内置虚拟文件系统模块: 无需外部物理文件即可 import "fs" */
+    if (strcmp(raw_path, "fs") == 0) {
+        Value mod_val = fs_build_module(in);
+        const char *bname = n->as.import_stmt.alias ? n->as.import_stmt.alias : raw_path;
+        env_define(in->env, l_strdup(bname), mod_val);
+        return SIG_NORMAL;
+    }
     char *full_path = resolve_module_path(in->current_file, raw_path);
 
     /* 1. 检查模块是否已经加载在缓存中 */

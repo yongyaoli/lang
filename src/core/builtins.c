@@ -9,6 +9,7 @@
 #include "bytecode.h"
 #include "l_json.h"
 #include "l_mqtt.h"
+#include "l_fs.h"
 
 /* 参数类型检查 */
 void need_arg(Interp *in, const Node *at, const char *fn, Value *argv, int i,
@@ -265,6 +266,8 @@ void builtins_install(Interp *in) {
     /* 注册全局 MQTT 3.1.1 物联网客户端类 */
     mqtt_install_globals(in);
 #endif
+    /* 注册全局统一虚拟文件系统 FS 与 File 对象 */
+    fs_install_globals(in);
     /* 隐藏内置: 字节码 import 语句通过它执行导入, 不出现在 help 列表中 */
     {
         static Native import_native = {
@@ -317,6 +320,17 @@ static const struct { const char *name; const char *title; const char *text; } t
      "  c.poll([timeout_ms])            轮询套接字分发下行数据包\n"
      "  c.ping()                        发送心跳保活报文\n"
      "  c.disconnect()                  优雅断开连接\n"},
+    {"fs", "统一虚拟文件系统 (FS / File)",
+     "  FS.exists(path)                 检查文件或目录是否存在 (bool)\n"
+     "  FS.read(path)                   一次性读取整个文件文本内容 (自动抛出明确异常)\n"
+     "  FS.write(path, content)         覆盖写入文本或字节, 自动创建多级父目录\n"
+     "  FS.append(path, content)        追加写入文件内容\n"
+     "  FS.remove(path)                 删除文件或空目录\n"
+     "  FS.list([dir_path=\"/flash\"])    列出目录下文件列表数组 (已排序)\n"
+     "  FS.mkdir(dir_path)              递归创建多级目录\n"
+     "  FS.info()                       返回容量信息 {total_bytes, used_bytes, free_bytes, fs_type}\n"
+     "  let f = File.open(path[, mode]) 打开大文件流式句柄 (支持 read/readline/write/flush/seek/close)\n"
+     "  import \"fs\"                     导入包含 FS 与 File 的模块字典\n"},
     {"types", "数据类型",
      "  int        32 位整数(支持 0x 0b)  1   0xFF  0b101\n"
      "  float      64 位浮点数           3.14   1.0\n"

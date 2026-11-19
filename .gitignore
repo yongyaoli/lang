@@ -7,6 +7,7 @@ dist/
 bin/
 *.bin
 *.vsix
+flash/
 esp32/build/
 esp32/build-*/
 assets/l.res

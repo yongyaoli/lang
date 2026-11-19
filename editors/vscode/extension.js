@@ -185,6 +185,19 @@ const BUILTIN_DOCS = {
     signature: 'module mqtt',
     doc: '内置 MQTT 3.1.1 物联网模块 (亦可通过 `import "mqtt"` 导入)。\n\n导出:\n- `mqtt.Client([client_id])`: 构造 MQTT 客户端对象\n- `mqtt.version`: 协议版本字符串 ("3.1.1")'
   },
+  // 统一虚拟文件系统 (FS / File, M13)
+  'FS': {
+    signature: 'singleton class FS',
+    doc: '嵌入式统一虚拟文件系统全局静态对象。PC 宿主透明映射本地磁盘，ESP32 映射 LittleFS 专用分区 (掉电安全、磨损均衡)。\n\n方法:\n- `FS.exists(path)`: 检查文件或目录是否存在 (bool)\n- `FS.read(path)`: 读取整个文件内容返回字符串, 失败抛出明确异常\n- `FS.write(path, content)`: 覆盖写入文件内容, 自动递归创建多级父目录\n- `FS.append(path, content)`: 追加写入文件内容\n- `FS.remove(path)`: 删除文件或空目录\n- `FS.list([dir_path="/flash"])`: 列出目录下条目文件名数组 (已排序)\n- `FS.mkdir(dir_path)`: 递归创建多级目录\n- `FS.size(path)`: 获取文件字节数\n- `FS.isdir(path)`: 检查是否为目录\n- `FS.rename(old, new)`: 重命名或移动文件\n- `FS.copy(src, dst)`: 复制文件\n- `FS.info()`: 返回容量信息看板 `{total_bytes, used_bytes, free_bytes, fs_type}`'
+  },
+  'fs': {
+    signature: 'module fs / alias for FS',
+    doc: '全局虚拟文件系统模块 (亦可通过 `import "fs"` 导入)。包含 `FS` 单例与 `File` 流式文件句柄类。'
+  },
+  'File': {
+    signature: 'class File',
+    doc: '大文件流式句柄类 (单句柄内存开销 <512B，避免长日志与大文件耗尽 RAM)。\n\n方法:\n- `File.open(path, [mode="r"])`: 打开文件句柄 (支持 "r", "w", "a", "r+", "rb", "wb")\n- `.read([size=-1])`: 读取指定字节或剩余全部内容\n- `.readline()`: 逐行读取文本 (到达 EOF 返回 nil)\n- `.write(data)`: 写入字符串或 bytes, 返回已写入字节数\n- `.flush()`: 刷新写缓冲区落盘\n- `.seek(offset, [whence=0])`: 定位指针 (0=起始, 1=当前, 2=末尾)\n- `.tell()`: 获取当前字节偏移量\n- `.eof()`: 查询是否读到文件末尾 (bool)\n- `.close()`: 关闭文件句柄释放底层资源'
+  },
   // 低功耗蓝牙 BLE
   'BLE': {
     signature: 'singleton class BLE',

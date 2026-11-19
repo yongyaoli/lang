@@ -1,0 +1,20 @@
+--- 测试 1. 全局单例与模块导入 ---
+FS 与 File 对象加载正常
+--- 测试 2. 基础写入与存在性检查 (FS.write / FS.exists) ---
+文件写入成功, 大小: 23 字节
+--- 测试 3. 一次性读取与追加写入 (FS.read / FS.append) ---
+追加写入与全量读取正常
+--- 测试 4. 递归创建目录与目录遍历 (FS.mkdir / FS.list / FS.isdir) ---
+/flash 条目列表扫描正常, 条目数 > 0: true
+--- 测试 5. 文件复制、重命名与删除 (FS.copy / FS.rename / FS.remove) ---
+文件复制/重命名/删除功能验证通过
+--- 测试 6. 存储看板信息 (FS.info) ---
+文件系统类型: Host-VFS 总空间 > 0: true
+--- 测试 7. 大文件流式句柄 (File.open / write / readline / seek / eof) ---
+File 流式句柄逐行读写与定位正常
+--- 测试 8. 异常防护与错误定位 ---
+捕获读取不存在文件异常: FS.read() 无法打开文件 "/flash/non_existing_file_9999.xyz" (物理路径: ./flash/non_existing_file_9999.xyz)
+捕获打开不存在文件只读异常: File.open() 无法以模式 "r" 打开文件 "/flash/non_existing_file_9999.xyz" (物理路径: ./flash/non_existing_file_9999.xyz)
+--- 测试 9. 动态多文件 import 支持 ---
+动态文件 import 验证成功: calc.add(10, 32) = 42
+=== FS 统一虚拟文件系统测试全部通过 ===
