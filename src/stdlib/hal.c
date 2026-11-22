@@ -781,13 +781,18 @@ static HANDLE open_win_serial(const char *port, int baud, char *err_buf, size_t 
     memset(&dcb, 0, sizeof dcb);
     dcb.DCBlength = sizeof dcb;
     GetCommState(h, &dcb);
-    dcb.BaudRate     = (DWORD)(baud > 0 ? baud : 115200);
-    dcb.ByteSize     = 8;
-    dcb.StopBits     = ONESTOPBIT;
-    dcb.Parity       = NOPARITY;
-    dcb.fBinary      = TRUE;
-    dcb.fDtrControl  = DTR_CONTROL_DISABLE;
-    dcb.fRtsControl  = RTS_CONTROL_DISABLE;
+    dcb.BaudRate        = (DWORD)(baud > 0 ? baud : 115200);
+    dcb.ByteSize        = 8;
+    dcb.StopBits        = ONESTOPBIT;
+    dcb.Parity          = NOPARITY;
+    dcb.fBinary         = TRUE;
+    dcb.fOutxCtsFlow    = FALSE;
+    dcb.fOutxDsrFlow    = FALSE;
+    dcb.fDsrSensitivity = FALSE;
+    dcb.fOutX           = FALSE;
+    dcb.fInX            = FALSE;
+    dcb.fDtrControl     = DTR_CONTROL_DISABLE;
+    dcb.fRtsControl     = RTS_CONTROL_DISABLE;
     SetCommState(h, &dcb);
 
     COMMTIMEOUTS to;
@@ -874,7 +879,34 @@ int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
         Sleep(20);
     }
     if (!ready) {
-        Sleep(100);
+        CloseHandle(h);
+        free(clean_src);
+        if (rx_total > 0) {
+            /* 清洗不可打印字符方便查看 */
+            for (size_t i = 0; i < rx_total; i++) {
+                if ((unsigned char)rx_buf[i] < 32 && rx_buf[i] != '\n' && rx_buf[i] != '\r' && rx_buf[i] != '\t') {
+                    rx_buf[i] = ' ';
+                }
+            }
+            if (strstr(rx_buf, "invalid header") || strstr(rx_buf, "ESP-ROM")) {
+                snprintf(err_buf, err_cap,
+                         "ESP32 当前处于 ROM 崩溃/死机状态，未运行 L 语言系统固件。\n"
+                         "   [板端回显]: %s\n"
+                         "   [排查指引]: 首次使用必须先将底包固件 (l-esp32c3-merged.bin) 刷入 0x0 偏移地址，完成后方可使用 l -u 烧录脚本",
+                         rx_buf);
+            } else {
+                snprintf(err_buf, err_cap,
+                         "ESP32 未响应烧录就绪信号 (__L_UPLOAD_READY__)。\n"
+                         "   [板端回显]: %s\n"
+                         "   [排查指引]: 请确认开发板已刷入基础固件，或按一下板上 RST 键后重试",
+                         rx_buf);
+            }
+        } else {
+            snprintf(err_buf, err_cap,
+                     "ESP32 未响应烧录就绪信号 (__L_UPLOAD_READY__) 且串口无回显。\n"
+                     "   [排查指引]: 首次使用请先通过浏览器网页或 esptool 将底包固件 (l-esp32c3-merged.bin) 刷入 0x0 地址");
+        }
+        return -1;
     }
 
     /* 5. 分块发送脚本源码: 每块 64 字节，休眠 6ms，确保 MCU 串口硬件接收绝不丢包 */
@@ -883,9 +915,10 @@ int l_hal_serial_upload(const char *port, int baud, const char *src, size_t len,
         size_t chunk = (clean_len - sent > 64) ? 64 : (clean_len - sent);
         DWORD w = 0;
         if (!WriteFile(h, clean_src + sent, (DWORD)chunk, &w, NULL) || w == 0) {
+            DWORD win_err = GetLastError();
             CloseHandle(h);
             free(clean_src);
-            snprintf(err_buf, err_cap, "串口发送中断 (已发 %zu/%zu 字节)", sent, clean_len);
+            snprintf(err_buf, err_cap, "串口发送中断 (已发 %zu/%zu 字节, 错误码 %lu)", sent, clean_len, (unsigned long)win_err);
             return -1;
         }
         sent += (size_t)w;
