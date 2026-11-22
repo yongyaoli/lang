@@ -791,9 +791,11 @@ static HANDLE open_win_serial(const char *port, int baud, char *err_buf, size_t 
     dcb.fDsrSensitivity = FALSE;
     dcb.fOutX           = FALSE;
     dcb.fInX            = FALSE;
-    dcb.fDtrControl     = DTR_CONTROL_DISABLE;
-    dcb.fRtsControl     = RTS_CONTROL_DISABLE;
+    dcb.fDtrControl     = DTR_CONTROL_ENABLE;
+    dcb.fRtsControl     = RTS_CONTROL_ENABLE;
     SetCommState(h, &dcb);
+    EscapeCommFunction(h, SETDTR);
+    EscapeCommFunction(h, SETRTS);
 
     COMMTIMEOUTS to;
     to.ReadIntervalTimeout         = 10;
