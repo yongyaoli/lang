@@ -1780,7 +1780,8 @@ static Value m_ble_init(Interp *in, const Node *at, Value self, int argc, Value 
     (void)self;
     const char *name = (argc > 0 && argv[0].type == V_STR) ? val_get_cstr(argv[0]) : "L-Lang-BLE";
     if (l_hal_ble_init(name) != 0) {
-        rt_error(in, at, "BLE.init() 启动失败: 当前硬件固件可能未开启蓝牙协议栈支持");
+        rt_error(in, at, "BLE.init() 启动失败: 当前硬件底包固件未开启蓝牙协议栈 (CONFIG_BT_ENABLED)。"
+                         "排查指引: 请重新刷入开启了 BLE 支持的最新底包固件 (l-esp32-merged.bin)");
     }
     return val_bool(1);
 }
