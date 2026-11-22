@@ -1,0 +1,8 @@
+# ==============================================================================
+# ESP32-C6 芯片专属默认配置 (基于 ESP-IDF v5.x)
+# ==============================================================================
+
+# 启用芯片内置 USB-Serial/JTAG 控制台
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESPTOOLPY_FLASHMODE_DIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y

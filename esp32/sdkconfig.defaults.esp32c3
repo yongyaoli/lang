@@ -1,0 +1,14 @@
+# ==============================================================================
+# ESP32-C3 芯片专属默认配置 (基于 ESP-IDF v5.x)
+# 针对合宙 ESP32-C3 / SuperMini / 各类 QFN32 内置 USB 开发板优化
+# ==============================================================================
+
+# 1. 核心控制台通道配置: 重定向至芯片内置 USB-Serial/JTAG 控制器
+# 现代 ESP32-C3 开发板普遍通过内置 USB (GPIO18/19) 直连 Type-C，板载无外置 CH340 芯片。
+# 开启此项后，所有 printf、REPL 交互与 upload() 烧录帧统一走原生 USB 虚拟串口。
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# 2. XMC 内置 Flash 稳定性配置: 采用 40MHz DIO 模式
+# 合宙等厂商合封的 XMC 4MB Flash 在 80MHz 下可能出现 SPI 采样抖动，40MHz 为最稳规格。
+CONFIG_ESPTOOLPY_FLASHMODE_DIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_40M=y

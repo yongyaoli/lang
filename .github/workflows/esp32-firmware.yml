@@ -31,6 +31,7 @@ jobs:
         run: |
           . $IDF_PATH/export.sh
           cd esp32
+          rm -f sdkconfig
           idf.py set-target ${{ matrix.target }}
           idf.py build
           cd build
