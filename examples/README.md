@@ -43,6 +43,12 @@
 | [`drivers/WS2812.l`](drivers/WS2812.l) | 单总线 GPIO RGB 幻彩灯珠 | GRB 色彩缓冲与彩虹渐变色轮算法 (`wheel()`) |
 | [`drivers/demo_all.l`](drivers/demo_all.l) | 多传感器联动工作站 | OLED 屏幕实时绘制温湿度数值并同步幻彩状态指示灯 |
 
+### 5. 无线空中升级与远程运维 (OTA)
+| 示例文件 | 核心 API / 硬件 | 功能说明 | 运行命令 |
+| :--- | :--- | :--- | :--- |
+| [`ota_remote_update.l`](ota_remote_update.l) | `OTA.update_script()` | 远程 HTTP(S) 空中拉取最新应用脚本，IEEE 802.3 CRC32 防篡改校验并热重载 | `l examples/ota_remote_update.l` |
+| [`web_ota_server.l`](web_ota_server.l) | `OTA.update_from_string()` / `TcpServer` | 局域网 Web OTA 控制台后台，手机/电脑浏览器打开即在线热更新代码 | `l examples/web_ota_server.l` |
+
 ---
 
 ## 🚀 运行方式

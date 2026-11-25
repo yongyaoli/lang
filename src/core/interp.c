@@ -6,6 +6,7 @@
 #include "l_json.h"
 #include "l_mqtt.h"
 #include "l_fs.h"
+#include "l_ota.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -1022,6 +1023,13 @@ static Signal exec_import(Interp *in, const Node *n) {
     /* 内置虚拟文件系统模块: 无需外部物理文件即可 import "fs" */
     if (strcmp(raw_path, "fs") == 0) {
         Value mod_val = fs_build_module(in);
+        const char *bname = n->as.import_stmt.alias ? n->as.import_stmt.alias : raw_path;
+        env_define(in->env, l_strdup(bname), mod_val);
+        return SIG_NORMAL;
+    }
+    /* 内置无线 OTA 空中升级模块: 无需外部物理文件即可 import "ota" */
+    if (strcmp(raw_path, "ota") == 0) {
+        Value mod_val = ota_build_module(in);
         const char *bname = n->as.import_stmt.alias ? n->as.import_stmt.alias : raw_path;
         env_define(in->env, l_strdup(bname), mod_val);
         return SIG_NORMAL;

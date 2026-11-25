@@ -10,6 +10,7 @@
 #include "l_json.h"
 #include "l_mqtt.h"
 #include "l_fs.h"
+#include "l_ota.h"
 
 /* 参数类型检查 */
 void need_arg(Interp *in, const Node *at, const char *fn, Value *argv, int i,
@@ -268,6 +269,8 @@ void builtins_install(Interp *in) {
 #endif
     /* 注册全局统一虚拟文件系统 FS 与 File 对象 */
     fs_install_globals(in);
+    /* 注册全局无线网络 OTA 空中升级对象 */
+    ota_install_globals(in);
     /* 隐藏内置: 字节码 import 语句通过它执行导入, 不出现在 help 列表中 */
     {
         static Native import_native = {
