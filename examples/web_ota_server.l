@@ -141,6 +141,6 @@ while true {
     if client != nil {
         handle_http_request(client);
     }
-    // 喂看门狗并出让 CPU 时间片给 WiFi 底层任务
-    Time.sleep(50);
+    // 暂停 0.05 秒(50毫秒)，出让时间片给底层 WiFi 驱动并喂狗
+    sleep(0.05);
 }
