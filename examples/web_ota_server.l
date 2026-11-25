@@ -77,11 +77,24 @@ let HTML_PAGE = "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
 "<script>" +
 "function doOta() {" +
 "  const code = document.getElementById('code').value;" +
-"  document.getElementById('result').innerText = '正在向 ESP32 发送无线烧录流...';" +
+"  const resDiv = document.getElementById('result');" +
+"  resDiv.style.color = '#38bdf8';" +
+"  resDiv.innerText = '正在向 ESP32 发送无线烧录流...';" +
 "  fetch('/ota', { method: 'POST', body: code })" +
 "    .then(r => r.json())" +
-"    .then(data => { document.getElementById('result').innerText = '√ 烧录成功! 写入 ' + data.bytes + ' 字节, CRC32=' + data.crc32 + ' (板端已热重载)'; })" +
-"    .catch(e => { document.getElementById('result').innerText = '× 烧录失败: ' + e; });" +
+"    .then(data => {" +
+"      if (data.ok) {" +
+"        resDiv.style.color = '#4ade80';" +
+"        resDiv.innerText = '√ 烧录成功! 写入 ' + data.bytes + ' 字节, CRC32=' + data.crc32 + ' (板端已热重载)'; " +
+"      } else {" +
+"        resDiv.style.color = '#f87171';" +
+"        resDiv.innerText = '× 脚本执行出错 (Web OTA 服务保持在线): ' + data.error;" +
+"      }" +
+"    })" +
+"    .catch(e => {" +
+"      resDiv.style.color = '#f87171';" +
+"      resDiv.innerText = '× 网络请求中断: ' + e;" +
+"    });" +
 "}" +
 "</script></body></html>";
 
@@ -116,15 +129,36 @@ fn handle_http_request(client) {
 
         print("   [Web-OTA] 收到浏览器推送的新脚本源码 (长度: " + str(len(body)) + " 字节)");
 
-        // 核心步骤: 调用 OTA.update_from_string 写入 Flash 分区并热执行
-        let res = OTA.update_from_string(body, 0, true);
+        // 核心步骤: 使用 try-catch 安全沙箱保护！即使新脚本语法报错，网页服务绝不崩溃！
+        let success = true;
+        let err_msg = "";
+        let bytes_written = 0;
+        let crc_str = "0x00000000";
 
-        // 回送 JSON 响应
-        let json_resp = "{\"ok\":true,\"bytes\":" + str(res.bytes) + ",\"crc32\":\"" + res.crc32 + "\"}";
-        let http_resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: " +
+        try {
+            // 参数: (code_str, expected_crc, auto_exec)
+            let res = OTA.update_from_string(body, 0, true);
+            bytes_written = res.bytes;
+            crc_str = res.crc32;
+            print("   [Web-OTA] √ 业务脚本更新并热执行成功 (写入 " + str(bytes_written) + " 字节, CRC=" + crc_str + ")");
+        } catch (e) {
+            success = false;
+            err_msg = str(e);
+            print("   [Web-OTA] × 业务脚本运行异常 (已安全隔离，Web 服务不受影响):", err_msg);
+        }
+
+        // 回送结构化 JSON 响应给浏览器控制台
+        let json_resp = "";
+        if success {
+            json_resp = "{\"ok\":true,\"bytes\":" + str(bytes_written) + ",\"crc32\":\"" + crc_str + "\"}";
+        } else {
+            // 转义引号防止破坏 JSON
+            json_resp = "{\"ok\":false,\"error\":\"" + replace(replace(err_msg, "\\", "\\\\"), "\"", "'") + "\"}";
+        }
+
+        let http_resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nConnection: close\r\nContent-Length: " +
                         str(len(json_resp)) + "\r\n\r\n" + json_resp;
         client.send(http_resp);
-        print("   [Web-OTA] 响应完成: 已更新 Flash 分区并热重载");
     } else {
         let not_found = "HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\nConnection: close\r\n\r\nNot Found";
         client.send(not_found);
