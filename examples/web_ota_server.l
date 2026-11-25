@@ -141,12 +141,18 @@ print("   - 打开电脑或手机浏览器访问: http://" + str(current_ip) + "
 print("   - 随时可在网页上编写代码并点击「一键无线 OTA 烧录」");
 print("   - (按 Ctrl+C 可停止当前服务)\n");
 
+let count = 0;
 while true {
-    // 等待并接收来自浏览器的 HTTP 请求 (单次超时 500ms)
-    let client = srv.accept(500);
+    // 监听等待客户端连接，单次超时 200ms
+    let client = srv.accept(200);
     if client != nil {
         handle_http_request(client);
     }
-    // 暂停 0.05 秒(50毫秒)，出让时间片给底层 WiFi 驱动并喂狗
-    sleep(0.05);
+    count = count + 1;
+    if count % 25 == 0 {
+        // 每约 5 秒输出一次心跳日志
+        print("... [Web OTA 心跳] 正在监听 8080 端口, 客户端待命中 (已轮询 " + str(count) + " 次)");
+    }
+    // 每次轮询暂停 10 毫秒，保证 CPU 调度与 WiFi 协议栈响应
+    sleep(0.01);
 }
