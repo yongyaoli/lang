@@ -18,8 +18,8 @@ print("==================================================");
 // ------------------------------------------------------------------------------
 // WiFi 配置: 如果在真实 ESP32 硬件上运行，请在此配置您的路由器账号与密码
 // ------------------------------------------------------------------------------
-let wifi_ssid = "YOUR_WIFI_SSID";         // 请替换为您的 2.4GHz WiFi 名称
-let wifi_pass = "YOUR_WIFI_PASSWORD";     // 请替换为您的 WiFi 密码 (至少 8 位)
+let wifi_ssid = "CMCC-307";         // 请替换为您的 2.4GHz WiFi 名称
+let wifi_pass = "Ni_laomu88";     // 请替换为您的 WiFi 密码 (至少 8 位)
 
 if (!wifi_is_connected()) {
     if (wifi_ssid != "YOUR_WIFI_SSID") {
@@ -70,7 +70,7 @@ let HTML_PAGE = "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
 "</div>" +
 "<div class='card'>" +
 "<h3>编写或粘贴最新 L 脚本:</h3>" +
-"<textarea id='code'>// 在此输入需要无线推送到 ESP32 的 L 脚本\nprint('★ [Web-OTA] 收到无线推流更新, 正在执行业务任务!');\nlet count = 100;\nprint('当前任务计数:', count);\n</textarea>" +
+"<textarea id='code'>// 在此输入需要无线推送到 ESP32 的 L 脚本\nprint(\"★ [Web-OTA] 收到无线推流更新, 正在执行业务任务!\");\nlet count = 100;\nprint(\"当前任务计数:\", count);\n</textarea>" +
 "<br><br><button onclick='doOta()'>🚀 一键无线 OTA 烧录到 ESP32</button>" +
 "<p id='result' class='status'></p>" +
 "</div>" +
@@ -151,7 +151,7 @@ while true {
     count = count + 1;
     if count % 25 == 0 {
         // 每约 5 秒输出一次心跳日志
-        print("... [Web OTA 心跳] 正在监听 8080 端口, 客户端待命中 (已轮询 " + str(count) + " 次)");
+        print("... [Web OTA 心跳] 正在监听 8080 端口, 客户端待命中 (已轮询 " + str(count) + " 次)"+wifi_ip());
     }
     // 每次轮询暂停 10 毫秒，保证 CPU 调度与 WiFi 协议栈响应
     sleep(0.01);
