@@ -87,18 +87,23 @@ let HTML_PAGE = "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
 
 // 处理单次 HTTP 请求
 fn handle_http_request(client) {
-    let req_text = client.recv(4096, 500);
+    print("-> 收到客户端连接，正在读取 HTTP 请求数据...");
+    // 浏览器 HTTP GET 请求头通常在 500~1000 字节，此处读取 1460 字节 (单个 MTU)，超时 1000ms
+    let req_text = client.recv(1460, 1000);
     if req_text == nil or len(req_text) == 0 {
+        print("   [提示] 未收到有效数据或读取超时，关闭连接");
         client.close();
         return nil;
     }
 
+    print("   [HTTP] 收到请求: " + substr(req_text, 0, min(50, len(req_text))) + "...");
+
     // 区分 GET 与 POST
-    if contains(req_text, "GET / ") or contains(req_text, "GET /index.html") {
+    if contains(req_text, "GET /") {
         let resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\nContent-Length: " +
                    str(len(HTML_PAGE)) + "\r\n\r\n" + HTML_PAGE;
         client.send(resp);
-        print("   [HTTP] 已向客户端返回 Web OTA 网页控制台 (HTML)");
+        print("   [HTTP] 已成功向浏览器返回 Web OTA 控制台页面 (HTML " + str(len(HTML_PAGE)) + " 字节)");
     } else if contains(req_text, "POST /ota") {
         // 提取 HTTP POST 正文 (以 \r\n\r\n 为界)
         let body_start = find(req_text, "\r\n\r\n");
@@ -125,6 +130,7 @@ fn handle_http_request(client) {
         client.send(not_found);
     }
     client.close();
+    print("<- 客户端请求处理完毕，连接已关闭\n");
 }
 
 // ==============================================================================
