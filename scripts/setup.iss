@@ -3,7 +3,7 @@
 
 #define MyAppName "L 语言"
 #define MyAppEnglishName "L-Language"
-#define MyAppVersion "0.1.13.202611230933"
+#define MyAppVersion "0.1.14.202611251708"
 #define MyAppPublisher "L Language Project"
 #define MyAppExeName "l.exe"
 

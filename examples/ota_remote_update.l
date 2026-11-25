@@ -10,6 +10,29 @@ print("==================================================");
 print("     L 语言 远程 HTTP OTA 脚本空中升级系统");
 print("==================================================");
 
+// ------------------------------------------------------------------------------
+// WiFi 配置: 如果在真实 ESP32 硬件上运行，请在此配置您的路由器账号与密码
+// ------------------------------------------------------------------------------
+let wifi_ssid = "YOUR_WIFI_SSID";         // 请替换为您的 2.4GHz WiFi 名称
+let wifi_pass = "YOUR_WIFI_PASSWORD";     // 请替换为您的 WiFi 密码 (至少 8 位)
+
+if (!wifi_is_connected()) {
+    if (wifi_ssid != "YOUR_WIFI_SSID") {
+        print("正在连接 WiFi:", wifi_ssid, "...");
+        try {
+            wifi_connect(wifi_ssid, wifi_pass, 15000);
+            print("WiFi 连接成功! 本机 IP 地址:", wifi_ip());
+        } catch (e) {
+            print("WiFi 连接失败:", e);
+            print("提示: 请检查 SSID 和密码，或靠近路由器重试。");
+        }
+    } else {
+        print("提示: 当前 wifi_ssid 为默认占位符，若需真机联网请修改脚本开头的 wifi_ssid/wifi_pass。");
+    }
+} else {
+    print("WiFi 已就绪, 本机 IP 地址:", wifi_ip());
+}
+
 // 1. 查询当前设备 Flash 分区状态
 let initial_status = OTA.status();
 print("1. 当前设备 Flash 状态看板:");

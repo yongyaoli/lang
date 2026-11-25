@@ -3,9 +3,10 @@
 // 适用硬件: ESP32 全系列 (真实 WiFi) / PC 宿主环境 (自动演练仿真)
 // 规范标准: TcpServer + HTTP REST 接口 + OTA.update_from_string 字符串热写入
 // 使用方式:
-//   1. ESP32 联网后自动启动 8080 端口 Web OTA 服务
-//   2. 手机或电脑浏览器打开 http://<板端IP>:8080/ 查看控制台
-//   3. 在网页文本框中编写/粘贴 L 代码，点击「无线 OTA 烧录」，板端实时热重载生效！
+//   1. 修改下方的 wifi_ssid 和 wifi_pass，烧录到 ESP32
+//   2. ESP32 联网后自动启动 8080 端口 Web OTA 服务并输出 IP 地址
+//   3. 手机或电脑浏览器打开 http://<板端IP>:8080/ 查看控制台
+//   4. 在网页文本框中编写/粘贴 L 代码，点击「无线 OTA 烧录」，板端实时热重载生效！
 // ==============================================================================
 
 import "ota";
@@ -14,10 +15,41 @@ print("==================================================");
 print("     L 语言 局域网 Web OTA 无线热重载服务器");
 print("==================================================");
 
+// ------------------------------------------------------------------------------
+// WiFi 配置: 如果在真实 ESP32 硬件上运行，请在此配置您的路由器账号与密码
+// ------------------------------------------------------------------------------
+let wifi_ssid = "YOUR_WIFI_SSID";         // 请替换为您的 2.4GHz WiFi 名称
+let wifi_pass = "YOUR_WIFI_PASSWORD";     // 请替换为您的 WiFi 密码 (至少 8 位)
+
+if (!wifi_is_connected()) {
+    if (wifi_ssid != "YOUR_WIFI_SSID") {
+        print("正在连接 WiFi:", wifi_ssid, "...");
+        try {
+            wifi_connect(wifi_ssid, wifi_pass, 15000);
+            print("WiFi 连接成功! 本机 IP 地址:", wifi_ip());
+        } catch (e) {
+            print("WiFi 连接失败:", e);
+            print("提示: 请检查 SSID 和密码，或靠近路由器重试。");
+        }
+    } else {
+        print("提示: 当前 wifi_ssid 为默认占位符，若需真机联网请修改脚本开头的 wifi_ssid/wifi_pass。");
+        if (wifi_ip() != nil) {
+            print("检测到当前网络已就绪，本机 IP:", wifi_ip());
+        }
+    }
+} else {
+    print("WiFi 已就绪, 本机 IP 地址:", wifi_ip());
+}
+
 let port = 8080;
 let srv = TcpServer(port);
 print("1. Web OTA 服务器已启动, 正在监听端口:", port);
-print("   - 打开浏览器访问: http://127.0.0.1:8080/ (PC模拟) 或 http://<ESP32-IP>:8080/");
+let current_ip = wifi_ip();
+if (current_ip != nil) {
+    print("   - 打开浏览器访问: http://" + current_ip + ":" + str(port) + "/");
+} else {
+    print("   - 打开浏览器访问: http://127.0.0.1:" + str(port) + "/ (PC模拟) 或 http://<ESP32-IP>:" + str(port) + "/");
+}
 
 // HTML 网页控制台界面模板
 let HTML_PAGE = "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
