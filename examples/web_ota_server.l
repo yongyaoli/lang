@@ -127,32 +127,20 @@ fn handle_http_request(client) {
     client.close();
 }
 
-// 演练模式: 模拟一次 Web OTA 烧录流程
-print("\n2. 演练 Web OTA 客户端请求...");
-let mock_upload_code = "print(\"★ [Client-Mock] Web OTA 烧录测试成功！\");";
+// ==============================================================================
+// 启动常驻 Web OTA HTTP 服务
+// ==============================================================================
+print("\n2. Web OTA 服务器已启动并处于监听状态，请保持连接。");
+print("   - 打开电脑或手机浏览器访问: http://" + str(current_ip) + ":" + str(port) + "/");
+print("   - 随时可在网页上编写代码并点击「一键无线 OTA 烧录」");
+print("   - (按 Ctrl+C 可停止当前服务)\n");
 
-// 构造模拟 HTTP POST 报文
-let mock_http_post = "POST /ota HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nContent-Length: " +
-                     str(len(mock_upload_code)) + "\r\n\r\n" + mock_upload_code;
-
-// 使用 Tcp 客户端连接自身端口进行高保真闭环演练
-let cli = Tcp("127.0.0.1", port, 2000);
-cli.send(mock_http_post);
-
-// 服务端接受并处理
-let conn = srv.accept(1000);
-if conn != nil {
-    handle_http_request(conn);
+while true {
+    // 等待并接收来自浏览器的 HTTP 请求 (单次超时 500ms)
+    let client = srv.accept(500);
+    if client != nil {
+        handle_http_request(client);
+    }
+    // 喂看门狗并出让 CPU 时间片给 WiFi 底层任务
+    Time.sleep(50);
 }
-
-// 客户端读取响应
-let reply = cli.recv(1024, 1000);
-print("   [客户端接收响应]:", reply);
-cli.close();
-
-// 关闭服务端
-srv.close();
-print("\n3. Web OTA 控制台演练结束，服务器安全关闭。");
-print("\n==================================================");
-print("     局域网 Web OTA 服务器示例程序顺利完成！");
-print("==================================================");
