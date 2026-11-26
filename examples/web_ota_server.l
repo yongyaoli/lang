@@ -55,26 +55,49 @@ if (current_ip != nil) {
 let HTML_PAGE = "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
 "<title>L 语言 ESP32 Web OTA 控制台</title>" +
 "<style>" +
-"body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 30px auto; padding: 0 20px; background: #0f172a; color: #f8fafc; }" +
+"body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 820px; margin: 30px auto; padding: 0 20px; background: #0f172a; color: #f8fafc; }" +
 "h1 { color: #38bdf8; font-size: 24px; border-bottom: 1px solid #334155; padding-bottom: 12px; }" +
-".card { background: #1e293b; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }" +
+".card { background: #1e293b; border-radius: 8px; padding: 18px; margin-bottom: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }" +
+".grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 10px; }" +
+".stat-item { background: #090d16; padding: 10px 14px; border-radius: 6px; border-left: 3px solid #38bdf8; }" +
+".stat-label { font-size: 12px; color: #94a3b8; }" +
+".stat-val { font-size: 16px; font-weight: bold; color: #f8fafc; margin-top: 4px; font-family: monospace; }" +
 "textarea { width: 100%; height: 220px; background: #090d16; color: #38bdf8; font-family: 'Consolas', monospace; font-size: 14px; border: 1px solid #475569; border-radius: 6px; padding: 12px; box-sizing: border-box; }" +
-"button { background: #0284c7; color: white; border: none; padding: 10px 24px; font-size: 15px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: background 0.2s; }" +
+"button { background: #0284c7; color: white; border: none; padding: 10px 22px; font-size: 14px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: background 0.2s; }" +
 "button:hover { background: #0369a1; }" +
+"button.danger { background: #dc2626; margin-left: 10px; }" +
+"button.danger:hover { background: #b91c1c; }" +
 ".status { color: #94a3b8; font-size: 13px; margin-top: 10px; }" +
 "</style></head><body>" +
 "<h1>⚡ L 语言 ESP32 局域网 Web OTA 控制台</h1>" +
 "<div class='card'>" +
-"<h3>当前硬件 Flash 状态</h3>" +
-"<p class='status'>存储分区: l_script (裸 Flash 零 SRAM 映射) | 端口: 8080</p>" +
+"<h3>硬件状态与运行看板</h3>" +
+"<div class='grid'>" +
+"<div class='stat-item'><div class='stat-label'>芯片型号 / 架构</div><div class='stat-val' id='chipVal'>ESP32</div></div>" +
+"<div class='stat-item'><div class='stat-label'>可用堆内存 (SRAM)</div><div class='stat-val' id='heapVal'>-</div></div>" +
+"<div class='stat-item'><div class='stat-label'>设备 IP / MAC</div><div class='stat-val' id='ipVal'>-</div></div>" +
+"<div class='stat-item'><div class='stat-label'>Flash 脚本与 CRC</div><div class='stat-val' id='flashVal'>-</div></div>" +
+"</div>" +
 "</div>" +
 "<div class='card'>" +
 "<h3>编写或粘贴最新 L 脚本:</h3>" +
 "<textarea id='code'>// 在此输入需要无线推送到 ESP32 的 L 脚本\nprint(\"★ [Web-OTA] 收到无线推流更新, 正在执行业务任务!\");\nlet count = 100;\nprint(\"当前任务计数:\", count);\n</textarea>" +
-"<br><br><button onclick='doOta()'>🚀 一键无线 OTA 烧录到 ESP32</button>" +
+"<div style='margin-top: 12px;'>" +
+"<button onclick='doOta()'>🚀 一键无线 OTA 烧录到 ESP32</button>" +
+"<button class='danger' onclick='doRestart()'>🔄 重启开发板</button>" +
+"</div>" +
 "<p id='result' class='status'></p>" +
 "</div>" +
 "<script>" +
+"function loadStatus() {" +
+"  fetch('/status').then(r => r.json()).then(data => {" +
+"    document.getElementById('chipVal').innerText = data.chip + ' (' + data.arch + ')';" +
+"    document.getElementById('heapVal').innerText = (data.free_heap / 1024).toFixed(1) + ' KB';" +
+"    document.getElementById('ipVal').innerText = data.ip;" +
+"    document.getElementById('flashVal').innerText = data.script_size + 'B / ' + data.script_crc;" +
+"  }).catch(() => {});" +
+"}" +
+"loadStatus(); setInterval(loadStatus, 4000);" +
 "function doOta() {" +
 "  const code = document.getElementById('code').value;" +
 "  const resDiv = document.getElementById('result');" +
@@ -85,7 +108,8 @@ let HTML_PAGE = "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
 "    .then(data => {" +
 "      if (data.ok) {" +
 "        resDiv.style.color = '#4ade80';" +
-"        resDiv.innerText = '√ 烧录成功! 写入 ' + data.bytes + ' 字节, CRC32=' + data.crc32 + ' (板端已热重载)'; " +
+"        resDiv.innerText = '√ 烧录成功! 写入 ' + data.bytes + ' 字节, CRC32=' + data.crc32 + ' (板端已热重载)';" +
+"        loadStatus();" +
 "      } else {" +
 "        resDiv.style.color = '#f87171';" +
 "        resDiv.innerText = '× 脚本执行出错 (Web OTA 服务保持在线): ' + data.error;" +
@@ -95,6 +119,11 @@ let HTML_PAGE = "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
 "      resDiv.style.color = '#f87171';" +
 "      resDiv.innerText = '× 网络请求中断: ' + e;" +
 "    });" +
+"}" +
+"function doRestart() {" +
+"  if (!confirm('确定要软重启 ESP32 开发板吗?')) return;" +
+"  fetch('/restart', { method: 'POST' });" +
+"  alert('已向开发板发送重启指令，约 3 秒后重新刷新页面。');" +
 "}" +
 "</script></body></html>";
 
@@ -111,8 +140,31 @@ fn handle_http_request(client) {
 
     print("   [HTTP] 收到请求: " + substr(req_text, 0, min(50, len(req_text))) + "...");
 
-    // 区分 GET 与 POST
-    if contains(req_text, "GET /") {
+    // 区分路由
+    if contains(req_text, "GET /status") {
+        let inf = ESP32.info();
+        let ost = OTA.status();
+        let heap = ESP32.free_heap();
+        let status_json = "{" +
+            "\"chip\":\"" + str(inf.chip) + "\"," +
+            "\"arch\":\"" + str(inf.arch) + "\"," +
+            "\"ip\":\"" + str(wifi_ip()) + "\"," +
+            "\"free_heap\":" + str(heap) + "," +
+            "\"script_size\":" + str(ost.script_length) + "," +
+            "\"script_crc\":\"" + str(ost.script_crc32) + "\"" +
+        "}";
+        let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nConnection: close\r\nContent-Length: " +
+                   str(len(status_json)) + "\r\n\r\n" + status_json;
+        client.send(resp);
+    } else if contains(req_text, "POST /restart") {
+        let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: 11\r\n\r\n{\"ok\":true}";
+        client.send(resp);
+        client.close();
+        print("   [Web-OTA] 收到浏览器发出的重启指令，即将重启 ESP32...");
+        sleep(0.5);
+        ESP32.restart();
+        return nil;
+    } else if contains(req_text, "GET /") {
         let resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\nContent-Length: " +
                    str(len(HTML_PAGE)) + "\r\n\r\n" + HTML_PAGE;
         client.send(resp);
