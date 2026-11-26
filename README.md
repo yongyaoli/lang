@@ -10,8 +10,10 @@
 [![Standard](https://img.shields.io/badge/C-C99%20Zero%20Deps-2563eb.svg)](main.c)
 [![Platform](https://img.shields.io/badge/platform-ESP32%20%7C%20Windows%20%7C%20Linux%20%7C%20macOS-22c55e.svg)](l_hal.h)
 [![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.x%20Ready-f97316.svg)](esp32/)
+[![Wiki](https://img.shields.io/badge/docs-Official%20Wiki-blueviolet.svg)](wiki/Home.md)
 [![Tests](https://img.shields.io/badge/tests-21%2F21%20passing-brightgreen.svg)](tests/)
 
+[官方 Wiki 文档库](wiki/Home.md) ·
 [设计理念与命名](#命名由来为什么叫-l-lang) ·
 [核心能力](#这是什么能做什么) ·
 [快速开始](#快速开始) ·
