@@ -7,7 +7,9 @@
    ============================================================ */
 window.L_RELEASES = {
   version: "v0.2.1",
-  released: "2026-11-17",
+  full_version: "v0.1.14.20261127",
+  build_date: "2026-11-27",
+  released: "2026-11-27",
   repo: "https://github.com/yongyaoli/lang",
   assets: {
     winSetup: { file: "lang-setup-windows-x86_64.exe", published: true, note: "Windows 10/11 · x64 · 自动写入 PATH · 内置 VS Code/CodeBuddy 扩展与 .l 文件关联" },

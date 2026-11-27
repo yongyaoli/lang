@@ -115,27 +115,41 @@
 
   /* ---------- 4. 下载清单 ---------- */
   var R = window.L_RELEASES;
-  if (R && R.assets) {
-    var versions = document.querySelectorAll('[data-version]');
-    for (var v = 0; v < versions.length; v++) versions[v].textContent = R.version;
+  if (R) {
+    if (R.version) {
+      var versions = document.querySelectorAll('[data-version]');
+      for (var v = 0; v < versions.length; v++) versions[v].textContent = R.version;
+    }
+
+    if (R.full_version) {
+      var fullVers = document.querySelectorAll('[data-full-version]');
+      for (var fv = 0; fv < fullVers.length; fv++) fullVers[fv].textContent = R.full_version;
+    }
+
+    if (R.build_date || R.released) {
+      var updateDates = document.querySelectorAll('[data-update-date]');
+      for (var ud = 0; ud < updateDates.length; ud++) updateDates[ud].textContent = R.build_date || R.released;
+    }
 
     var dates = document.querySelectorAll('[data-released]');
     for (var d = 0; d < dates.length; d++) dates[d].textContent = R.released;
 
-    var dls = document.querySelectorAll('[data-asset]');
-    for (var a = 0; a < dls.length; a++) {
-      (function (el) {
-        var item = R.assets[el.getAttribute('data-asset')];
-        if (!item) return;
-        el.href = item.published
-          ? R.repo + '/releases/latest/download/' + item.file
-          : R.repo + '/releases/latest';
-        var f = el.querySelector('[data-file]');
-        if (f && item.file) f.textContent = item.file;
-        var n = el.querySelector('[data-note]');
-        if (n && item.note) n.textContent = item.note;
-        if (!item.published) el.classList.add('pending');
-      })(dls[a]);
+    if (R.assets) {
+      var dls = document.querySelectorAll('[data-asset]');
+      for (var a = 0; a < dls.length; a++) {
+        (function (el) {
+          var item = R.assets[el.getAttribute('data-asset')];
+          if (!item) return;
+          el.href = item.published
+            ? R.repo + '/releases/latest/download/' + item.file
+            : R.repo + '/releases/latest';
+          var f = el.querySelector('[data-file]');
+          if (f && item.file) f.textContent = item.file;
+          var n = el.querySelector('[data-note]');
+          if (n && item.note) n.textContent = item.note;
+          if (!item.published) el.classList.add('pending');
+        })(dls[a]);
+      }
     }
   }
 
