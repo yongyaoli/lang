@@ -274,6 +274,11 @@ static Value m_esp_ticks_ms(Interp *in, const Node *at, Value self, int argc, Va
     return val_int((int32_t)l_hal_ticks_ms());
 }
 
+static Value m_esp_ticks_us(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    (void)at; (void)self; (void)argc; (void)argv;
+    return val_int((int64_t)l_hal_ticks_us());
+}
+
 static Value m_esp_delay_ms(Interp *in, const Node *at, Value self, int argc, Value *argv) {
     (void)argc;
     int ms = int_arg(in, at, "ESP32.delay_ms", argv, 0);
@@ -732,6 +737,7 @@ static const ObjMethod esp32_methods[] = {
     {"freq",        0, 1, m_esp_freq,        "ESP32.freq([MHz])",              "读取或设置 CPU 主频(40/80/160/240 MHz)"},
     {"mac",         0, 0, m_esp_mac,         "ESP32.mac()",                    "返回设备 MAC 地址字符串"},
     {"ticks_ms",    0, 0, m_esp_ticks_ms,    "ESP32.ticks_ms()",               "返回启动以来的毫秒计数"},
+    {"ticks_us",    0, 0, m_esp_ticks_us,    "ESP32.ticks_us()",               "返回启动以来的微秒计数 (微秒级高精度计时)"},
     {"delay_ms",    1, 1, m_esp_delay_ms,    "ESP32.delay_ms(毫秒)",           "毫秒级阻塞延时"},
     {"crc32",       1, 1, m_esp_crc32,       "ESP32.crc32(数据)",              "计算字符串或 bytes 的 CRC32 校验值(返回 0xXXXXXXXX)"},
     {"flash_write", 1, 2, m_esp_flash_write, "ESP32.flash_write(源码,[标志])", "将脚本带 16B 头与 CRC32 写入裸 Flash 分区 l_script"},
@@ -839,6 +845,43 @@ static Value m_pin_info(Interp *in, const Node *at, Value self, int argc, Value 
     return mv;
 }
 
+/* pulse_in(期望电平=1, [超时微秒=1000000]): 测量引脚高/低电平脉冲持续时间(微秒), 超时返回 -1 */
+static Value m_pin_pulse_in(Interp *in, const Node *at, Value self, int argc, Value *argv) {
+    int pin = self.as.obj->fields[0];
+    int target_val = (argc > 0) ? int_arg(in, at, "pin.pulse_in", argv, 0) : 1;
+    target_val = target_val ? 1 : 0;
+    int timeout_us = (argc > 1) ? int_arg(in, at, "pin.pulse_in", argv, 1) : 1000000;
+    if (timeout_us < 1) timeout_us = 1;
+
+    // PC 模拟模式仿真支持
+    if (!l_hal_is_hardware()) {
+        // PC 模拟默认返回 1160 微秒 (约合 20cm 距离)
+        return val_int(1160);
+    }
+
+    int64_t start_wait = l_hal_ticks_us();
+    // 1. 等待前置异态结束 (若引脚已处于目标电平，等待其变反，确保测到完整脉冲)
+    while (l_hal_gpio_read(pin) == target_val) {
+        if (l_hal_ticks_us() - start_wait > timeout_us) return val_int(-1);
+    }
+
+    // 2. 等待脉冲开始 (变为 target_val)
+    while (l_hal_gpio_read(pin) != target_val) {
+        if (l_hal_ticks_us() - start_wait > timeout_us) return val_int(-1);
+    }
+
+    // 3. 记录脉冲起始时间
+    int64_t pulse_start = l_hal_ticks_us();
+
+    // 4. 等待脉冲结束 (离开 target_val)
+    while (l_hal_gpio_read(pin) == target_val) {
+        if (l_hal_ticks_us() - pulse_start > timeout_us) return val_int(-1);
+    }
+
+    int64_t duration_us = l_hal_ticks_us() - pulse_start;
+    return val_int((int64_t)duration_us);
+}
+
 static const ObjMethod pin_methods[] = {
     {"on",     0, 0, m_pin_on,     "pin.on()",          "输出高电平(1), 返回自身以支持链式调用"},
     {"off",    0, 0, m_pin_off,    "pin.off()",         "输出低电平(0), 返回自身"},
@@ -849,6 +892,7 @@ static const ObjMethod pin_methods[] = {
     {"mode",   0, 1, m_pin_mode,   "pin.mode([模式])",  "无参读取模式; 有参设置模式(\"out\"/\"in\"/\"in_pullup\"/\"in_pulldown\"/\"open_drain\")"},
     {"pin",    0, 0, m_pin_num,    "pin.pin()",         "返回引脚编号"},
     {"info",   0, 0, m_pin_info,   "pin.info()",        "返回 {pin, mode, value} 字典"},
+    {"pulse_in", 0, 2, m_pin_pulse_in, "pin.pulse_in([电平=1], [超时微秒=1000000])", "高精度微秒级测量高/低脉冲宽度, 超时返回 -1 (超声波等传感器专用)"},
     {"irq",    0, 2, m_pin_irq,    "pin.irq(回调, [触发=\"change\"])", "注册电平中断回调(可传 nil 注销), 触发可选 \"rise\"/\"fall\"/\"change\""},
     {"write_sim", 1, 1, m_pin_write_sim, "pin.write_sim(电平)", "PC 模拟: 注入外部电平跳变并触发已注册中断(离线调试用)"},
 };

@@ -12,6 +12,8 @@ L 语言提供了一套统一、高性能的硬件抽象层（HAL），在真机
 | `ESP32.info()` | `map` | 芯片全景字典（架构、核心数、主频、Flash大小、MAC等） |
 | `ESP32.free_heap()`| `int` | 当前芯片可用内部 SRAM 堆内存（字节） |
 | `ESP32.mac()` | `string` | 芯片物理网卡 MAC 地址（如 `"20:E7:C8:9F:2C:DC"`） |
+| `ESP32.ticks_ms()`| `int` | 返回开机以来的毫秒时间戳 |
+| `ESP32.ticks_us()`| `int` | 返回开机以来的微秒时间戳 (超高精度微秒计时) |
 | `ESP32.restart()` | `void` | 软件重启开发板 |
 | `ESP32.delay_ms(n)`| `void` | 毫秒级阻塞延时（自动让出调度并喂狗） |
 | `ESP32.deepsleep(ms)`| `void`| 进入低功耗深度睡眠，时间到期后硬件复位唤醒 |
@@ -38,6 +40,10 @@ p.mode(GPIO.INPUT);
 p.irq(fn(pin_no, level) {
     print("触发中断! 引脚:", pin_no, "电平:", level);
 }, "rise"); // "rise"(上升沿), "fall"(下降沿), "change"(跳变)
+
+// 高精度脉宽时间测量 (超声波等传感器测距专用)
+// 参数: (期望电平=1, [超时微秒=1000000])，返回微秒数，超时返回 -1
+let duration_us = p.pulse_in(1, 30000);
 ```
 
 ---

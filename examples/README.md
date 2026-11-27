@@ -31,6 +31,7 @@
 | [`http_server.l`](http_server.l) | `TcpServer` 类 / 80 端口 Web 服务 | 完整的嵌入式 Web 服务器，提供局域网网页控制台与 REST 接口 | `l examples/http_server.l` |
 | [`ili9341_demo.l`](ili9341_demo.l) | `ILI9341` 驱动 / 彩色 TFT UI | 彩色液晶屏综合展示：顶栏看板、指标卡、同心圆状态灯与彩虹色块 | `l examples/ili9341_demo.l` |
 | [`display_chinese_demo.l`](display_chinese_demo.l) | SSD1306 / ILI9341 / 中文字库 | 双屏幕 16x16 汉字与 ASCII 中英文无缝混排及动态字模扩展实测 | `l examples/display_chinese_demo.l` |
+| [`servo_radar_demo.l`](servo_radar_demo.l) | `HC_SR04` / `Servo` | 超声波倒车雷达与舵机全景雷达扫描仪 (障碍物扫描与 ASCII 可视化) | `l examples/servo_radar_demo.l` |
 | [`vfs_file_demo.l`](vfs_file_demo.l) | `FS` / `File` 统一虚拟文件系统 | 配置文件读写、大文件流式时序日志存储与动态多模块 import | `l examples/vfs_file_demo.l` |
 
 ### 4. 传感器开源驱动与中文字库 ([drivers/](drivers/))
@@ -40,6 +41,8 @@
 | [`drivers/SSD1306.l`](drivers/SSD1306.l) | 0.96 寸 I2C OLED 屏幕 | 内置 1KB 显存缓冲，支持 5x7 ASCII 与 16x16 中文字符垂直混排 |
 | [`drivers/ILI9341.l`](drivers/ILI9341.l) | 2.4/2.8/3.2寸 SPI 彩色 TFT 屏 | 240x320 分辨率，RGB565 65K 色，支持旋转、几何图形与中英文混排多倍缩放 (演示见 `ili9341_demo.l`) |
 | [`drivers/AHT20.l`](drivers/AHT20.l) | I2C 高精度温湿度传感器 | 20 位原码校验与温度 (℃) / 湿度 (%RH) 浮点物理量转换 |
+| [`drivers/HC_SR04.l`](drivers/HC_SR04.l) | GPIO 超声波测距传感器 | 微秒级脉宽测距、环境温度声速动态补偿与平滑中位数滤波 |
+| [`drivers/Servo.l`](drivers/Servo.l) | PWM 180°/360° 舵机角度控制器 | 20ms 标准周期控制、微秒脉冲写入、平滑步进旋转与 360° 连续调速 |
 | [`drivers/WS2812.l`](drivers/WS2812.l) | 单总线 GPIO RGB 幻彩灯珠 | GRB 色彩缓冲与彩虹渐变色轮算法 (`wheel()`) |
 | [`drivers/demo_all.l`](drivers/demo_all.l) | 多传感器联动工作站 | OLED 屏幕实时绘制温湿度数值并同步幻彩状态指示灯 |
 
