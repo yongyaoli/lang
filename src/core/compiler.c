@@ -16,6 +16,7 @@ typedef struct {
 typedef struct Loop {
     int start_offset;
     int scope_depth;
+    int try_depth;
     int *break_jumps;
     int break_count;
     int break_cap;
@@ -33,6 +34,7 @@ typedef struct Compiler {
     Local locals[MAX_LOCALS];
     int local_count;
     int scope_depth;
+    int try_depth;
     Loop *current_loop;
     int echo; /* REPL 回显模式 */
     const char *cur_line_start; /* 当前编译节点的源码行首(随指令写入行表, 供报错打印 source) */
@@ -44,6 +46,7 @@ static void compiler_init(Compiler *c, Interp *in, Compiler *enclosing, Proto *p
     c->proto = proto;
     c->local_count = 0;
     c->scope_depth = 0;
+    c->try_depth = 0;
     c->current_loop = NULL;
     c->echo = echo;
     c->cur_line_start = NULL;
@@ -525,6 +528,7 @@ static void compile_node(Compiler *c, const Node *n) {
         Loop loop;
         loop.start_offset = c->proto->chunk.count;
         loop.scope_depth = c->scope_depth;
+        loop.try_depth = c->try_depth;
         loop.break_jumps = NULL;
         loop.break_count = 0;
         loop.break_cap = 0;
@@ -560,6 +564,7 @@ static void compile_node(Compiler *c, const Node *n) {
         Loop loop;
         loop.start_offset = c->proto->chunk.count;
         loop.scope_depth = c->scope_depth;
+        loop.try_depth = c->try_depth;
         loop.break_jumps = NULL;
         loop.break_count = 0;
         loop.break_cap = 0;
@@ -608,6 +613,10 @@ static void compile_node(Compiler *c, const Node *n) {
         } else {
             emit_op(c, OP_NIL, line, col);
         }
+        /* 提前退出函数时清理该函数内所有未退出的 try 保护块 */
+        for (int i = 0; i < c->try_depth; i++) {
+            emit_op(c, OP_END_TRY, line, col);
+        }
         emit_op(c, OP_RETURN, line, col);
         break;
 
@@ -615,6 +624,10 @@ static void compile_node(Compiler *c, const Node *n) {
         if (!c->current_loop) {
             fprintf(stderr, "[%d:%d] 语法错误: break 只能在循环体内部使用\n", line, col);
             break;
+        }
+        /* 离开循环前先清理当前内层未退出的 try 保护块 */
+        for (int i = 0; i < c->try_depth - c->current_loop->try_depth; i++) {
+            emit_op(c, OP_END_TRY, line, col);
         }
         /* 离开循环前先清理当前内层作用域局部变量 */
         for (int i = c->local_count - 1; i >= 0 && c->locals[i].depth > c->current_loop->scope_depth; i--) {
@@ -633,6 +646,10 @@ static void compile_node(Compiler *c, const Node *n) {
         if (!c->current_loop) {
             fprintf(stderr, "[%d:%d] 语法错误: continue 只能在循环体内部使用\n", line, col);
             break;
+        }
+        /* 进入下一轮循环前清理当前内层未退出的 try 保护块 */
+        for (int i = 0; i < c->try_depth - c->current_loop->try_depth; i++) {
+            emit_op(c, OP_END_TRY, line, col);
         }
         for (int i = c->local_count - 1; i >= 0 && c->locals[i].depth > c->current_loop->scope_depth; i--) {
             if (c->locals[i].is_captured) emit_op(c, OP_CLOSE_UPVALUE, line, col);
@@ -661,7 +678,9 @@ static void compile_node(Compiler *c, const Node *n) {
 
     case N_TRY: {
         int try_jump = emit_jump(c, OP_TRY, line, col);
+        c->try_depth++;
         compile_node(c, n->as.try_stmt.try_b);
+        c->try_depth--;
         emit_op(c, OP_END_TRY, line, col);
         int after_catch = emit_jump(c, OP_JUMP, line, col);
 

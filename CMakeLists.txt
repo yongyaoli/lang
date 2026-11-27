@@ -37,6 +37,7 @@ add_executable(l
     src/stdlib/json.c
     src/stdlib/mqtt.c
     src/stdlib/fs.c
+    src/stdlib/ota.c
     src/stdlib/tcp_posix.c
     src/stdlib/tcp_win.c
     # 入口

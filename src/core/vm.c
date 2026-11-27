@@ -723,6 +723,10 @@ static int run_loop_core(VM *vm) {
         case OP_RETURN: {
             Value result = pop(vm);
             close_upvalues(vm, frame->slots);
+            /* 清理当前栈帧遗留的所有未闭合 try 保护块 */
+            while (vm->try_count > 0 && vm->try_stack[vm->try_count - 1].frame_count >= vm->frame_count) {
+                vm->try_count--;
+            }
             vm->frame_count--;
             vm->stack_top = frame->slots;
             push(vm, result);

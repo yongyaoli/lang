@@ -41,7 +41,8 @@ let tests = [
     {"name": "23_json.l",              "desc": "流式高性能 JSON 编解码器"},
     {"name": "24_mqtt.l",              "desc": "MQTT 3.1.1 协议栈与物联网通信"},
     {"name": "25_fs.l",                "desc": "统一虚拟文件系统与流式大文件句柄"},
-    {"name": "26_ota.l",               "desc": "OTA 空中升级与 Web OTA 内存热重载"}
+    {"name": "26_ota.l",               "desc": "OTA 空中升级与 Web OTA 内存热重载"},
+    {"name": "27_vm_stress.l",         "desc": "栈式VM与预编译字节码深度压测"}
 ];
 
 let total = len(tests);
@@ -115,7 +116,7 @@ let rate = passed * 100 / total;
 print("通过率   :", str(rate) + "%");
 
 if (failed == 0) {
-    print("结论     : ★★★ 全部测试 26/26 100% PASS！质量基线极其稳健！★★★");
+    print("结论     : ★★★ 全部测试 " + str(total) + "/" + str(total) + " 100% PASS！质量基线极其稳健！★★★");
 } else {
     print("结论     : 存在未通过用例，请检查上述失败项！");
 }
